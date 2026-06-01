@@ -314,12 +314,16 @@ Eine Runde ist vollständig, wenn alle regulären Spiele (= Anzahl Spieler:innen
 | Laufende Nummer       | ✓  | Nummer innerhalb der Runde (1, 2, 3, ...)                                     |
 | Spieltyp              | ✓  | Normal / Hochzeit / Armut / Fleischlos / Buben-Solo / Damen-Solo / Farb-Solo / Stilles Solo |
 | Farbe (bei Farb-Solo) | ✓  | Karo / Herz / Pik / Kreuz (nur bei Farb-Solo, sonst leer)                    |
-| Augen Re-Partei       | ✓  | Augen der Re-Partei (Kontra = 240 minus Re). Re-Partei ist: bei Normalspiel das Team mit den Kreuz-Damen, bei Solo der/die Solist:in, bei Armut die Partei mit Armut + Retter:in, bei Hochzeit die Partei mit Hochzeiter:in + Eingeheiratet. In der UI kann man die Augen beliebiger Partei eingeben, gespeichert wird immer Re. |
+| Augen Re-Partei       | ✓  | Augen der Re-Partei (Kontra = 240 minus Re). Re-Partei ist: bei Normalspiel das Team mit den Kreuz-Damen, bei Solo der/die Solist:in, bei Armut die Partei mit Armut + Retter:in, bei Hochzeit die Partei mit Hochzeiter:in + Eingeheiratet. In der UI kann man die Augen beliebiger Partei eingeben, gespeichert wird immer Re. Nur bei echter App-Erfassung gesetzt, nie zusammen mit augen_re_min/max. |
+| Augen Re-Min          | ✓  | Untere Grenze der Re-Augen (Integer, nullable). Nur beim historischen Import gesetzt, nie zusammen mit augen_re. |
+| Augen Re-Max          | ✓  | Obere Grenze der Re-Augen (Integer, nullable). Nur beim historischen Import gesetzt, nie zusammen mit augen_re. |
 | Timestamp             | ✓  | Zeitstempel (für Spieldauer-Berechnung etc.)                                  |
 
 Hinweis: Der Spielwert (Punkte) wird NICHT am Spiel gespeichert – er ergibt sich aus den Spielergebnissen (Maximum der positiven Zählpunkte).
 
 Hinweis: Der Spieltyp ergibt sich in der Erfassungs-UI aus den Zuordnungen (Hochzeit/Armut/Solo an Spieler:innen pinnen). Kein separater Auswahl-Schritt. Normalspiel = nichts gepinnt.
+
+Hinweis: `augen_re` und `augen_re_min`/`augen_re_max` schließen sich gegenseitig aus. Bei echter App-Erfassung wird nur `augen_re` gesetzt. Beim historischen Import (Roberts Büchlein, keine exakten Augenzahlen) wird stattdessen eine aus Spielwert + Ansagen/Absagen abgeleitete 29-Punkte-Range in `augen_re_min`/`augen_re_max` gespeichert (z.B. Keine 90 geschafft aber nicht Keine 60 → 151–180).
 
 ### Verknüpfungstabellen
 
