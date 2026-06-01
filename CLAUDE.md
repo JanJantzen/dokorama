@@ -2,7 +2,7 @@
 
 > Diese Datei ist das zentrale Briefing für jeden Claude-Assistenten, der an diesem Projekt arbeitet.
 > Sie wird bei jeder neuen Sitzung gelesen. Halte sie aktuell.
-> Letzte Aktualisierung: 31. Mai 2026 – App-Name „Dokorama" festgelegt (Arbeitstitel).
+> Letzte Aktualisierung: 1. Juni 2026 – Phase 1 abgeschlossen.
 
 ---
 
@@ -677,21 +677,16 @@ Die App soll als PWA funktionieren, damit sie auf dem Homescreen installiert wer
 
 ## 13. Roadmap
 
-### Phase 1: Fundament (Setup + Datenbank + Grundgerüst)
+### ✅ Phase 1: Fundament – abgeschlossen 1. Juni 2026
 
-1. **Entwicklungsumgebung einrichten:**
-   - Node.js und npm installieren
-   - React-Projekt erstellen
-   - Tailwind CSS + shadcn/ui einrichten
-   - Git-Repository auf GitHub erstellen, CLAUDE.md reinlegen
-2. **Cloud-Dienste einrichten:**
-   - Supabase Account + Projekt erstellen (Region: EU/Frankfurt)
-   - Vercel Account erstellen + mit GitHub verbinden
-   - Erstes Deployment: leere App live auf Vercel (damit die Pipeline steht)
-3. **Datenbank-Schema** gemeinsam entwerfen und in Supabase anlegen
-4. **Design-Grundlagen:** Farben, Schriften, generelles Look & Feel definieren
-5. **Basis-Frontend:** Navigation, Seitenstruktur
-6. Spieler:innen und Gruppe anlegen (Seed-Daten für Jans Runde)
+1. ✅ **Entwicklungsumgebung:** Node.js, React/Vite, Tailwind CSS + shadcn/ui, GitHub-Repo
+2. ✅ **Cloud-Dienste:** Supabase (EU/Frankfurt), Vercel, automatisches Deployment via GitHub
+3. ✅ **Datenbank-Schema** in Supabase angelegt (11 Tabellen, RLS aktiviert) → `database/schema.sql`
+4. ✅ **Design-Grundlagen:** Waldgrün als Primärfarbe, heller Hintergrund, schlicht und clean
+5. ✅ **Basis-Frontend:** Routing, Tab-Bar (Übersicht / Statistiken / Spieler), Vollbild-Erfassungsscreen
+6. ✅ **Seed-Daten:** Gruppe „Dokorama" (gegr. 16.05.2018) + 11 Spieler:innen → `database/seed.sql`
+
+**Technischer Stand:** Supabase-Client verbunden (`src/lib/supabase.js`), App live unter `dokorama.vercel.app`, Struktur: `Dokorama/app/` (React-Code), `Dokorama/database/` (SQL-Dateien)
 
 ### Phase 2: Erfassung
 
