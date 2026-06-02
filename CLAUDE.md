@@ -2,7 +2,7 @@
 
 > Diese Datei ist das zentrale Briefing für jeden Claude-Assistenten, der an diesem Projekt arbeitet.
 > Sie wird bei jeder neuen Sitzung gelesen. Halte sie aktuell.
-> Letzte Aktualisierung: 2. Juni 2026 – „Abend" überall zu „Partie" umbenannt; Parallele Partien, Turniere und Monetarisierung in Perspektive aufgenommen.
+> Letzte Aktualisierung: 2. Juni 2026 – „Abend" überall zu „Partie" umbenannt; Parallele Partien, Turniere und Monetarisierung in Perspektive aufgenommen. UI-Design-Entscheidungen für Erfassungsscreen in Abschnitt 6 ergänzt.
 
 ---
 
@@ -430,7 +430,48 @@ Alles andere (Ansagen, Sonderpunkte, Spieltyp) ist optional – ein Normalspiel 
 - Wenn alles ok → Bestätigen → nächstes Spiel
 - Wenn etwas falsch → zurück und korrigieren
 
-**Konkrete UI-Gestaltung** (Buttons vs. Popups, Layout, Tischplatten-Ansicht, Dealer-Button etc.) wird beim Prototyping in Phase 2 entschieden. Die Direktive ist: So wenig Klicks und so übersichtlich wie möglich.
+**Konkrete UI-Gestaltung (festgelegte Design-Entscheidungen, Stand 2. Juni 2026)**
+
+Diese Entscheidungen wurden im Dialog ausführlich besprochen und sind die Grundlage für Phase 2. Viele Details (genaue Positionierung, Icons vs. Text, Chip-Größen) werden beim Iterieren weiter verfeinert.
+
+**Tischansicht:**
+- Tischaufsicht: 4 aktive Spieler:innen in den Ecken, Uhrzeigersinn, Position 1 unten links
+- Aussetzer werden klein und ausgegraut in den Zwischenpositionen dargestellt (bei 5–7 Spieler:innen)
+- Geber-Marker (Chip-Symbol analog Poker-Dealer-Button) liegt auf dem Avatar des/der Geber:in
+- Individuelle Drehung (jede:r sieht sich unten links) ist geplant, aber Perspektive – für V1 ist Position 1 immer unten links
+
+**Partei-Zuweisung (Re/Kontra):**
+- Drei-Zustands-Toggle direkt auf dem Tisch, sichtbar ohne Sheet zu öffnen
+- Zustände: Re (grün) · Neutral (grau) · Ko (rot)
+- Toggle sitzt nahe am Avatar – ob oberhalb/unterhalb/innen/außen wird beim ersten echten Look entschieden
+- Widersprüche (z.B. Re-Ansage bei Kontra-Partei) werden automatisch aufgelöst mit erklärendem Hinweis (nicht ignorierbar, nicht still übergangen)
+
+**Spieler:in antippen → Bottom Sheet:**
+- Einfacher Tap öffnet ein Bottom Sheet für diesen Spieler (runterziehen zum Schließen)
+- Sheet zeigt immer den aktuellen Zustand – öffnen = sehen + ändern
+- Sheet-Struktur:
+  - **AN- UND ABSAGEN:** Re / Kontra / Keine 90 / Keine 60 / Keine 30 / Schwarz (Toggle-Buttons, aktiv = gesetzt)
+  - **SONDERSPIEL:** Solo (mit Typ-Auswahl) / Hochzeit (mit Frage wer eingeheiratet hat) / Armut (mit Frage wer Retter:in ist)
+  - **SONDERPUNKTE:** Fuchs gefangen (→ sofort „Von wem?") / Karlchen gemacht (Checkbox) / Karlchen gefangen (Checkbox + „Von wem?") / Doppelkopf (Zähler, mehrfach möglich)
+- Abgeleitete „verloren"-Events (z.B. Fuchs verloren, Karlchen verloren) werden auf dem Tisch angezeigt, aber nicht im Sheet erfasst – sie ergeben sich automatisch aus dem Eintrag beim Fänger
+
+**Angepinnte Infos am Avatar:**
+- Alle gesetzten Infos erscheinen als kleine Chips/Badges direkt am Avatar auf dem Tischscreen
+- Exakte Positionierung und ob Icons, Text oder Icons+Text besser funktionieren: wird beim Iterieren entschieden
+
+**Augeneingabe und Bestätigung:**
+- Fixe Leiste ganz unten am Tisch-Screen, immer sichtbar:
+  `[ 145 ]  Augen für  [ Re · Ko ]   [ Auswerten → ]`
+- Zahlenfeld + Toggle für welche Partei die Augen sind
+- „Auswerten"-Button wird erst aktiv wenn Teams vollständig zugeordnet UND Augenzahl eingegeben
+
+**Spiel auswerten – Screen:**
+- Eigener Screen (kein Overlay) mit vollständiger Aufschlüsselung:
+  Grundpunkte → Verdopplung durch Ansagen → Sonderpunkte → Spielwert pro Spieler:in
+- Bestätigen → Spiel gespeichert → zurück zum Tischscreen, nächstes Spiel beginnt
+- Zurück-Option für Korrekturen ohne Verlust der Eingaben
+
+**⚠ Reminder:** Diese Design-Sektion nach Abschluss der Phase-2-Iterationen mit dem finalen Stand aktualisieren.
 
 ### Runden-Logik:
 
@@ -746,6 +787,7 @@ Die App soll als PWA funktionieren, damit sie auf dem Homescreen installiert wer
 - Ortsstatistik
 - Fun Stats / Rekorde
 - Ortsspezifische Hintergrundbilder für den Erfassungsscreen
+- Individuelle Drehung der Tischansicht (jede:r sieht sich selbst unten links)
 - Doko-Dating, gruppenübergreifende Statistiken
 - Turniere (siehe Perspektive in Abschnitt 3)
 - Monetarisierung (siehe Perspektive in Abschnitt 3)
