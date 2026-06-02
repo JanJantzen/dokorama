@@ -2,7 +2,7 @@
 
 > Diese Datei ist das zentrale Briefing für jeden Claude-Assistenten, der an diesem Projekt arbeitet.
 > Sie wird bei jeder neuen Sitzung gelesen. Halte sie aktuell.
-> Letzte Aktualisierung: 1. Juni 2026 – Phase 1 abgeschlossen.
+> Letzte Aktualisierung: 2. Juni 2026 – „Abend" überall zu „Partie" umbenannt; Parallele Partien, Turniere und Monetarisierung in Perspektive aufgenommen.
 
 ---
 
@@ -28,7 +28,7 @@ Dieses Projekt ist sein **zweites Coding-Lernprojekt** – diesmal mit Fokus auf
 
 ### Die Grundidee
 
-**Dokorama** (Arbeitstitel) – eine Web-App zur Erfassung und Auswertung von Doppelkopf-Spielabenden für Jans private Spielrunde. Ziel: Das handgeschriebene Büchlein und die mühsame Excel-Pflege ablösen – mit einer schnellen Eingabe und automatischen, umfangreichen Statistiken.
+**Dokorama** (Arbeitstitel) – eine Web-App zur Erfassung und Auswertung von Doppelkopf-Partien für Jans private Spielrunde. Ziel: Das handgeschriebene Büchlein und die mühsame Excel-Pflege ablösen – mit einer schnellen Eingabe und automatischen, umfangreichen Statistiken.
 
 ### Warum das Projekt existiert
 
@@ -45,17 +45,17 @@ Die Runde spielt regelmäßig Doppelkopf und schreibt jedes Spiel detailliert in
 ### V1: Jans private Doko-Runde
 
 - **Spielerkreis:** Ein Pool von ca. 10–15 Personen (4–5 Kernspieler:innen + 3–4 Ersatzspieler:innen), die innerhalb eines Jahres mal dabei sind
-- **Pro Abend:** Typischerweise 4–5 Spieler:innen anwesend, selten 6. Technisch müssen bis zu 7 unterstützt werden (bisher nie vorgekommen, bei 8 würde man zwei Partien aufmachen)
+- **Pro Partie:** Typischerweise 4–5 Spieler:innen, selten 6. Technisch müssen bis zu 7 unterstützt werden (bisher nie vorgekommen, bei 8 würde man zwei Partien aufmachen)
 - **Bei mehr als 4 Spieler:innen** setzen immer die über 4 hinausgehenden Personen aus (bei 5: 1 setzt aus, bei 6: 2, bei 7: 3)
-- **Edge Case:** Spieler:innen können auch mitten am Abend dazukommen oder früher gehen (wird auf Runden-Ebene getrackt)
+- **Edge Case:** Spieler:innen können auch mitten in einer Partie dazukommen oder früher gehen (wird auf Runden-Ebene getrackt)
 - **Erfassung:** Jede:r eingeloggte Spieler:in kann Spiele erfassen – typischerweise macht es eine:r (meist Robert), aber das ist nicht technisch eingeschränkt
 - **Mixed Devices:** Apple und Android → darum Web-App
 - **Kein Budget** in der Runde für Hosting o.ä. Jan hat eine kleine Zahlungsbereitschaft als Lehrgeld, aber je günstiger desto besser
 
 ### Zugangsmodell (V1):
 
-- **Gruppen-Link (ohne Login):** Jeder mit dem Link kann alles sehen – laufenden Abend, Statistiken, Historie. Niedrige Hürde für Mitspieler:innen, die nur konsumieren wollen.
-- **Individueller Login:** Nur eingeloggte Spieler:innen können Abende starten, Spiele erfassen und korrigieren. Nachvollziehbar wer was eingetragen oder geändert hat. Nicht jede:r Spieler:in muss einen Login haben.
+- **Gruppen-Link (ohne Login):** Jeder mit dem Link kann alles sehen – laufende Partien, Statistiken, Historie. Niedrige Hürde für Mitspieler:innen, die nur konsumieren wollen.
+- **Individueller Login:** Nur eingeloggte Spieler:innen können Partien starten, Spiele erfassen und korrigieren. Nachvollziehbar wer was eingetragen oder geändert hat. Nicht jede:r Spieler:in muss einen Login haben.
 
 ### Duplikat-Schutz (V1):
 
@@ -65,8 +65,10 @@ Wenn ein:e Spieler:in ein Spiel speichert, das bereits von jemand anderem gespei
 
 - Öffnung für andere Doppelkopf-Gruppen mit eigenen Zählweisen
 - Eigenes User-Management (Registrierung, Login)
-- Mögliches Free/Pay-Modell
-- Doko-Dating: Neue Runden kennenlernen, gruppenübergreifende Statistiken, Turniere
+- **Parallele Partien:** Mehrere gleichzeitig laufende Partien innerhalb einer Gruppe (z.B. bei 8 Spieler:innen zwei Tische). In V1 nicht gebaut, aber Datenmodell unterstützt es bereits (mehrere Sessions pro Datum möglich).
+- **Turniere:** Eigene Entität mit Turniermodus, vorgegebenen Tisch-Konstellationen, Teilnehmer:innen aus ggf. verschiedenen Gruppen und Turnierauswertung. Tische innerhalb eines Turniers funktionieren ähnlich wie Partien, gehören aber zum Turnier und werden vom Turniermodus vorgegeben.
+- **Monetarisierung (tbd):** Angedachtes Modell: Standard (kostenlos, lesender Zugriff via Gruppenlink) / Pro (Login, Partien erfassen als Schreiber:in) / Group Master (Gruppen anlegen, administrieren, Zählregeln konfigurieren) / Tournament Master (Turniere anlegen, Teilnehmer:innen einladen). Pricing-Modell offen – Einmalzahlung sympathisch, aber recurring revenue nötig da laufende Kosten und endliche Zielgruppe. Details tbd.
+- Doko-Dating: Neue Runden kennenlernen, gruppenübergreifende Statistiken
 - Kollaboratives Schreiben (mehrere erfassen gemeinsam ein Spiel in Echtzeit)
 
 ### Konsequenz fürs Datenmodell:
@@ -282,28 +284,30 @@ Das Datenmodell besteht aus 11 Entitäten. Jede Entität bekommt eine eigene ID.
 | Koordinaten     | –  | Perspektive (für Karte)                                                  |
 | Hintergrundbild | –  | Perspektive (ortsspezifisches Bild für den Erfassungsscreen)             |
 
-**Abend (Session)**
+**Partie (Session)**
 
-| Attribut          | V1 | Beschreibung                          |
-| ----------------- | -- | ------------------------------------- |
-| ID                | ✓  | Eindeutige Kennung                    |
-| Gruppen-ID        | ✓  | Zu welcher Gruppe gehört dieser Abend |
-| Datum             | ✓  | Wann fand der Abend statt             |
-| Austragungsort-ID | ✓  | Wo fand der Abend statt               |
-| Status            | ✓  | Laufend / Abgeschlossen               |
+| Attribut          | V1 | Beschreibung                            |
+| ----------------- | -- | --------------------------------------- |
+| ID                | ✓  | Eindeutige Kennung                      |
+| Gruppen-ID        | ✓  | Zu welcher Gruppe gehört diese Partie   |
+| Datum             | ✓  | Wann fand die Partie statt              |
+| Austragungsort-ID | ✓  | Wo fand die Partie statt                |
+| Status            | ✓  | Laufend / Abgeschlossen                 |
 
-Hinweis: Die teilnehmenden Spieler:innen eines Abends werden NICHT am Abend gespeichert, sondern ergeben sich aus den Runden-Teilnahmen. Beim Aufsetzen eines Abends werden die Spieler:innen einmal ausgewählt und dann automatisch für jede neue Runde übernommen. Änderungen (jemand kommt dazu oder geht) sind nur zwischen Runden über ein separates Menü möglich – nicht im normalen Erfassungsflow. Zu- und Abgänge sowie die neue Sitzreihenfolge müssen bestätigt werden.
+Hinweis: Die teilnehmenden Spieler:innen einer Partie werden NICHT an der Partie gespeichert, sondern ergeben sich aus den Runden-Teilnahmen. Beim Aufsetzen einer Partie werden die Spieler:innen einmal ausgewählt und dann automatisch für jede neue Runde übernommen. Änderungen (jemand kommt dazu oder geht) sind nur zwischen Runden über ein separates Menü möglich – nicht im normalen Erfassungsflow. Zu- und Abgänge sowie die neue Sitzreihenfolge müssen bestätigt werden.
+
+Hinweis: Mehrere Partien pro Datum sind möglich (nacheinander oder gleichzeitig). Jede Partie hat eine eigene ID. In V1 wird die Startseite nur eine laufende Partie anzeigen – parallele Partien sind Perspektive.
 
 **Runde (Round)**
 
 | Attribut        | V1 | Beschreibung                                       |
 | --------------- | -- | -------------------------------------------------- |
 | ID              | ✓  | Eindeutige Kennung                                 |
-| Abend-ID        | ✓  | Zu welchem Abend gehört diese Runde                |
-| Laufende Nummer | ✓  | Nummer innerhalb des Abends (1, 2, 3, ...)         |
+| Partie-ID       | ✓  | Zu welcher Partie gehört diese Runde               |
+| Laufende Nummer | ✓  | Nummer innerhalb der Partie (1, 2, 3, ...)         |
 | Status          | ✓  | Laufend / Abgeschlossen                             |
 
-Eine Runde ist vollständig, wenn alle regulären Spiele (= Anzahl Spieler:innen) plus alle angesagten Solos gespielt wurden. Es darf keine unfertigen Runden geben (außer die aktuell laufende). Wird ein Abend abgeschlossen obwohl die letzte Runde unfertig ist, wird die unfertige Runde verworfen. Die App zeigt vorher einen Hinweis: „Die aktuelle Runde ist noch nicht abgeschlossen. Wenn Du den Abend jetzt beendest, wird die unfertige Runde nicht gespeichert."
+Eine Runde ist vollständig, wenn alle regulären Spiele (= Anzahl Spieler:innen) plus alle angesagten Solos gespielt wurden. Es darf keine unfertigen Runden geben (außer die aktuell laufende). Wird eine Partie abgeschlossen obwohl die letzte Runde unfertig ist, wird die unfertige Runde verworfen. Die App zeigt vorher einen Hinweis: „Die aktuelle Runde ist noch nicht abgeschlossen. Wenn Du die Partie jetzt beendest, wird die unfertige Runde nicht gespeichert."
 
 **Spiel (Game)**
 
@@ -394,9 +398,9 @@ Ob die Ansage/Absage erreicht wurde, berechnet die App aus den Augen – wird ni
 
 ### Design-Prinzip: So wenig Klicks und so übersichtlich wie möglich
 
-Die Erfassung erfolgt auf dem Smartphone, typischerweise durch eine:n eingeloggte:n Spieler:in (meist Robert, aber nicht eingeschränkt). An einem typischen Abend werden 16–30 Spiele erfasst. Die Erfassung muss so schnell sein, dass sie den Spielfluss nicht stört – bei einem einfachen Spiel wenige Sekunden, bei einem komplexen Spiel mit vielen Ansagen und Sonderpunkten immer noch unter einer halben Minute.
+Die Erfassung erfolgt auf dem Smartphone, typischerweise durch eine:n eingeloggte:n Spieler:in (meist Robert, aber nicht eingeschränkt). In einer typischen Partie werden 16–30 Spiele erfasst. Die Erfassung muss so schnell sein, dass sie den Spielfluss nicht stört – bei einem einfachen Spiel wenige Sekunden, bei einem komplexen Spiel mit vielen Ansagen und Sonderpunkten immer noch unter einer halben Minute.
 
-### Session-Start (einmal pro Abend):
+### Partie-Start:
 
 1. **Anwesende Spieler:innen auswählen** aus dem Gruppen-Pool
 2. **Sitzreihenfolge festlegen** und erste:n Geber:in bestimmen
@@ -432,7 +436,7 @@ Alles andere (Ansagen, Sonderpunkte, Spieltyp) ist optional – ein Normalspiel 
 
 - Die App weiß, wie viele Spiele eine Runde hat (Anzahl Spieler:innen + angesagte Solos)
 - Nach dem letzten Spiel einer Runde wird diese automatisch abgeschlossen
-- **Runden-Übergang:** Hinweis „Runde X beendet!", aktuelle Punktetabelle (Rangliste des Abends) anzeigen, Optionen „Nächste Runde starten" oder „Abend beenden"
+- **Runden-Übergang:** Hinweis „Runde X beendet!", aktuelle Punktetabelle (Rangliste der Partie) anzeigen, Optionen „Nächste Runde starten" oder „Partie beenden"
 - Bei einem angesagten Solo (außer Still): Runde verlängert sich um 1 Spiel
 
 ### Optimierungen für Geschwindigkeit:
@@ -445,10 +449,10 @@ Alles andere (Ansagen, Sonderpunkte, Spieltyp) ist optional – ein Normalspiel 
 ### Korrektur:
 
 - Letztes Spiel muss einfach **editierbar** und **löschbar** sein
-- Auch ältere Spiele eines Abends müssen korrigierbar sein
+- Auch ältere Spiele einer Partie müssen korrigierbar sein
 - Nur eingeloggte Spieler:innen können korrigieren
 
-### Spieler:innen-Wechsel am Abend (Edge Case):
+### Spieler:innen-Wechsel in einer Partie (Edge Case):
 
 Über ein separates Menü (nicht im normalen Erfassungsflow) kann ein:e eingeloggte:r Spieler:in die Spieler:innen-Konstellation **ab der nächsten Runde** ändern:
 - Spieler:in kommt dazu → zur Teilnehmerliste hinzufügen
@@ -487,7 +491,7 @@ Die prominenteste Zahl – belohnt die Kombination aus Leistung und Ausdauer. Wi
 
 #### 2. Leistung – Wie gut spiele ich?
 
-Auf jeder Ebene (Spiel / Runde / Abend):
+Auf jeder Ebene (Spiel / Runde / Partie):
 - Siegquote
 - Bester Score
 - Schlechtester Score (Negativrekorde sind auch interessant!)
@@ -495,13 +499,13 @@ Auf jeder Ebene (Spiel / Runde / Abend):
 - Längste Siegserie
 - Längste Niederlagenserie
 
-Hinweis zu Streaks: Werden pro Spieler:in über Abende hinweg berechnet. Abwesenheit unterbricht einen Streak nicht – nur eine Niederlage (bzw. das Gegenteil des Streak-Kriteriums) bricht ihn.
+Hinweis zu Streaks: Werden pro Spieler:in über Partien hinweg berechnet. Abwesenheit unterbricht einen Streak nicht – nur eine Niederlage (bzw. das Gegenteil des Streak-Kriteriums) bricht ihn.
 
 #### 3. Ausdauer / Engagement – Wie viel spiele ich?
 
-- Anzahl Spiele / Runden / Abende
+- Anzahl Spiele / Runden / Partien
 - Gewonnen / Verloren (absolute Zahlen)
-- Anteil an Gesamtabenden (Teilnahmequote)
+- Anteil an Gesamtpartien (Teilnahmequote)
 - Perspektive: Spielstunden (aus Timestamps ableitbar)
 
 #### 4. Risikofreude – Ansagen
@@ -625,8 +629,8 @@ Alle jeweils absolut und pro 4 Runden.
 
 ### V1: Hybrid-Modell
 
-- **Gruppen-Link (ohne Login):** Jeder mit dem Link kann alles sehen – laufenden Abend, Statistiken, Historie. Niedrige Hürde für Mitspieler:innen.
-- **Individueller Login (via Supabase Auth):** Nur eingeloggte Spieler:innen können Abende starten, Spiele erfassen und korrigieren. Nachvollziehbar wer was gemacht hat.
+- **Gruppen-Link (ohne Login):** Jeder mit dem Link kann alles sehen – laufende Partien, Statistiken, Historie. Niedrige Hürde für Mitspieler:innen.
+- **Individueller Login (via Supabase Auth):** Nur eingeloggte Spieler:innen können Partien starten, Spiele erfassen und korrigieren. Nachvollziehbar wer was gemacht hat.
 - Nicht jede:r Spieler:in muss einen Login haben – man existiert als Spieler:in in der Datenbank (für Statistiken) auch ohne Login.
 
 ### Rollen:
@@ -636,7 +640,7 @@ Alle jeweils absolut und pro 4 Runden.
 
 **Gruppenspezifische Rollen (an der Gruppenmitgliedschaft):**
 - Admin: Kann Gruppe konfigurieren, Spieler:innen einladen/entfernen
-- Schreiber:in: Kann Abende starten, Spiele erfassen und korrigieren
+- Schreiber:in: Kann Partien starten, Spiele erfassen und korrigieren
 - Leser:in: Kann nur Statistiken sehen
 
 Ein:e Spieler:in kann in verschiedenen Gruppen verschiedene Rollen haben.
@@ -658,7 +662,7 @@ Die App soll als PWA funktionieren, damit sie auf dem Homescreen installiert wer
 ### Offline-Verhalten (V1):
 
 - **Kein Internet → Warnung anzeigen**, keine neuen Eingaben möglich
-- Was schon geladen ist (Statistiken, laufender Abend) **bleibt sichtbar**
+- Was schon geladen ist (Statistiken, laufende Partie) **bleibt sichtbar**
 - **Noch nicht gespeichertes Spiel** (halb erfasst) wird lokal gehalten und gespeichert sobald die Verbindung wieder da ist – **kein Datenverlust**
 - Bereits gespeicherte Spiele sind sicher in Supabase
 - **Keine volle Offline-Erfassung** in V1 (also nicht mehrere Spiele ohne Verbindung erfassen und später synchronisieren – das wäre ein eigenes Teilprojekt)
@@ -690,14 +694,14 @@ Die App soll als PWA funktionieren, damit sie auf dem Homescreen installiert wer
 
 ### Phase 2: Erfassung
 
-7. Abend starten (Datum, Austragungsort, anwesende Spieler:innen aus Pool wählen, Sitzreihenfolge)
+7. Partie starten (Datum, Austragungsort, anwesende Spieler:innen aus Pool wählen, Sitzreihenfolge)
 8. Runden-Logik (automatische Verwaltung, Rotation, Aussetzer-Berechnung, Verlängerung bei Solo)
 9. Einzelspiel erfassen (mitlaufendes Protokoll: Ansagen, Sonderpunkte, Spieltyp-Besonderheiten, Parteien, Augen). UI-Gestaltung (Tischplatten-Ansicht? Buttons vs. Popups? Dealer-Button?) wird beim Prototyping hier entschieden.
 10. Spielwert automatisch berechnen (Jans Regeln hardcoded, validiert gegen 15 Testfälle)
 11. Bestätigung mit Übersicht und Duplikat-Schutz
 12. Korrektur/Löschen von Spielen
-13. Laufende Punktetabelle pro Abend und pro Runde
-14. Runden-Übergang (Hinweis, Punktetabelle, Optionen)
+13. Laufende Punktetabelle pro Partie und pro Runde
+14. Runden-Übergang (Hinweis, Punktetabelle, Optionen „Nächste Runde" / „Partie beenden")
 
 ### Phase 3: App einsatzbereit machen
 
@@ -742,7 +746,10 @@ Die App soll als PWA funktionieren, damit sie auf dem Homescreen installiert wer
 - Ortsstatistik
 - Fun Stats / Rekorde
 - Ortsspezifische Hintergrundbilder für den Erfassungsscreen
-- Doko-Dating, gruppenübergreifende Statistiken, Turniere
+- Doko-Dating, gruppenübergreifende Statistiken
+- Turniere (siehe Perspektive in Abschnitt 3)
+- Monetarisierung (siehe Perspektive in Abschnitt 3)
+- Parallele Partien pro Gruppe (siehe Perspektive in Abschnitt 3)
 - Volle Offline-Erfassung mit Sync
 - Kollaboratives Schreiben (mehrere erfassen gemeinsam ein Spiel in Echtzeit)
 
@@ -766,7 +773,7 @@ Die App soll als PWA funktionieren, damit sie auf dem Homescreen installiert wer
 
 | Begriff                     | Bedeutung                                                                 |
 | --------------------------- | ------------------------------------------------------------------------- |
-| **Abend (Session)**         | Ein Treffen der Gruppe, typischerweise 3–6 Runden (16–30 Spiele).        |
+| **Partie (Session)**        | Eine Spielkonstellation – eine Gruppe von Spieler:innen die zusammen Runden spielen. Typischerweise 3–6 Runden (16–30 Spiele). Mehrere Partien pro Datum möglich. Englisch im Code: `session`. |
 | **Absage**                  | Verschärfung: Keine 90, Keine 60, Keine 30, Schwarz. Kann ohne Ansage gemacht werden und kann übersprungen werden. Führt NICHT zur Verdopplung. Gescheiterte Absage = Niederlage für die ansagende Partei, egal wie viele Augen. |
 | **Anpinnen**                | Erfassungsmethode: Ansagen, Sonderpunkte und Spieltyp-Besonderheiten werden an Spieler:innen „angepinnt" – in beliebiger Reihenfolge, jederzeit während oder nach dem Spiel. |
 | **Ansage**                  | Re oder Kontra ansagen – verdoppelt den Spielwert. Unabhängig von Absagen. |
@@ -775,7 +782,7 @@ Die App soll als PWA funktionieren, damit sie auf dem Homescreen installiert wer
 | **BaaS**                    | Backend as a Service – fertiges Backend aus der Cloud (hier: Supabase). Liefert Datenbank, API, Auth und Realtime, ohne dass man einen eigenen Server betreiben muss. |
 | **Beziehung**               | Wie Tabellen zusammenhängen (z.B. „ein Spiel gehört zu einer Runde"). |
 | **Doppelkopf**              | Ein Stich mit 40 oder mehr Augen. Mehrere pro Spiel möglich.             |
-| **Entität**                 | Ein „Ding" das in der Datenbank als eigene Tabelle gespeichert wird (z.B. Spieler:in, Spiel, Abend). |
+| **Entität**                 | Ein „Ding" das in der Datenbank als eigene Tabelle gespeichert wird (z.B. Spieler:in, Spiel, Partie). |
 | **Fremdschlüssel**          | Ein Feld das auf die ID einer anderen Tabelle zeigt und so die Beziehung herstellt. |
 | **Fuchs gefangen**          | Karo-Ass des Gegners in einem beliebigen Stich gewonnen. Erfasst: wer hat gefangen, wer hat verloren. Bis zu 2 pro Spiel möglich. |
 | **Geber:in**                | Wer die Karten gibt. Rotiert nach Sitzposition. Bei 5+ Spieler:innen sitzt der/die Geber:in aus. |
@@ -804,7 +811,7 @@ Die App soll als PWA funktionieren, damit sie auf dem Homescreen installiert wer
 | **Spieler:in (Player)**     | Eine Person in der App. Kann in mehreren Gruppen sein.                    |
 | **Spielwert**               | Die Punkte, die für ein einzelnes Spiel vergeben werden. Wird nicht manuell erfasst, sondern automatisch berechnet aus: Grundpunkte → Verdopplung durch Ansagen → Sonderpunkte. Pro Spieler:in als Zählpunkte im Spielergebnis gespeichert. |
 | **SQL**                     | Structured Query Language – die Sprache, mit der man Datenbanken abfragt. Jans Lernziel. |
-| **Streak**                  | Serie aufeinanderfolgender Siege (oder anderer Kriterien). Wird über Abende hinweg gezählt, Abwesenheit unterbricht nicht. Nur eine Niederlage bricht den Streak. Gibt es auf allen drei Ebenen (Spiel, Runde, Abend). |
+| **Streak**                  | Serie aufeinanderfolgender Siege (oder anderer Kriterien). Wird über Partien hinweg gezählt, Abwesenheit unterbricht nicht. Nur eine Niederlage bricht den Streak. Gibt es auf allen drei Ebenen (Spiel, Runde, Partie). |
 | **Supabase**                | Open-Source BaaS mit PostgreSQL-Datenbank, Auth, Realtime und API. Die Backend-Lösung für die Doko-App. |
 | **Tailwind CSS**            | Styling-Framework – man schreibt vordefinierte Klassen direkt an die HTML-Elemente statt eigene CSS-Dateien. Gibt ein konsistentes Design-System vor. |
 | **Vercel**                  | Hosting-Dienst für Frontend-Apps. Automatisches Deployment bei Git-Push. Kostenlos für kleine Projekte. |
