@@ -114,18 +114,20 @@ export default function SeatingConfirm({
       <div className="flex-1 px-4 flex flex-col gap-6 pb-4">
 
         {/* 1. WANN – Datum */}
-        <div>
+        <div className="w-full">
           <label className="text-sm font-medium text-muted-foreground mb-2 block">Datum</label>
-          <input
-            type="date"
-            value={date}
-            onChange={e => onDateChange(e.target.value)}
-            className="w-full box-border rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground"
-          />
+          <div className="w-full overflow-hidden">
+            <input
+              type="date"
+              value={date}
+              onChange={e => onDateChange(e.target.value)}
+              className="w-full box-border rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground"
+            />
+          </div>
         </div>
 
         {/* 2. WO – Ort (Combobox mit Suche) */}
-        <div>
+        <div className="w-full">
           <label className="text-sm font-medium text-muted-foreground mb-2 block">Ort</label>
           <Popover open={venueOpen} onOpenChange={setVenueOpen}>
             <PopoverTrigger asChild>

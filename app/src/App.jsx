@@ -14,8 +14,8 @@ import StartSessionPage from '@/pages/StartSessionPage'
 function AppLayout() {
   const location = useLocation()
 
-  // Auf allen /abend-Seiten (Setup + Erfassung) wird die Tab-Bar ausgeblendet
-  const isSessionActive = location.pathname.startsWith('/abend')
+  // Tab-Bar nur auf den drei Haupt-Tabs anzeigen, auf allen anderen Seiten ausblenden
+  const showTabBar = ['/', '/statistiken', '/spieler'].includes(location.pathname)
 
   return (
     <div className="min-h-screen bg-background">
@@ -27,8 +27,7 @@ function AppLayout() {
         <Route path="/abend/:id"     element={<SessionPage />}     />
       </Routes>
 
-      {/* Tab-Bar nur außerhalb der Spielerfassung anzeigen */}
-      {!isSessionActive && <TabBar />}
+      {showTabBar && <TabBar />}
     </div>
   )
 }
