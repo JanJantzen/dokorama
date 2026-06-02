@@ -77,7 +77,7 @@ export default function PlayerSelector({ players, selected, onToggle, onNext }) 
               placeholder="Spieler:in suchen..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full rounded-xl border border-border bg-card pl-9 pr-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground"
+              className="w-full rounded-xl border border-border bg-card pl-9 pr-4 py-2.5 text-base text-foreground placeholder:text-muted-foreground"
             />
           </div>
         </div>
@@ -88,8 +88,9 @@ export default function PlayerSelector({ players, selected, onToggle, onNext }) 
         In Sitzreihenfolge antippen
       </p>
 
-      {/* Spieler:innen-Grid – keine Kacheln, nur Avatar + Name */}
-      <div className="px-4 grid grid-cols-3 gap-x-3 gap-y-5 flex-1 content-start">
+      {/* Spieler:innen-Grid + "Alle anzeigen" in einem Block */}
+      <div className="px-4 flex-1">
+        <div className="grid grid-cols-3 gap-x-3 gap-y-5 content-start">
         {visible.map(player => {
           const sel = isSelected(player)
           const pos = positionOf(player)
@@ -134,19 +135,18 @@ export default function PlayerSelector({ players, selected, onToggle, onNext }) 
             <span className="text-xs text-muted-foreground">Neu anlegen</span>
           </button>
         )}
-      </div>
+        </div>
 
-      {/* "Alle anzeigen" – nur wenn mehr als 6 und noch nicht aufgeklappt */}
-      {hasMany && !showAll && (
-        <div className="px-4 pt-5">
+        {/* "Alle anzeigen" – direkt unter den Kacheln, nur wenn >6 und noch eingeklappt */}
+        {hasMany && !showAll && (
           <button
             onClick={() => setShowAll(true)}
-            className="w-full py-2.5 text-sm text-muted-foreground border border-border rounded-xl bg-card"
+            className="w-full mt-5 py-2.5 text-sm text-muted-foreground border border-border rounded-xl bg-card"
           >
             Alle {players.length} Spieler:innen anzeigen
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Weiter-Button */}
       <div className="px-4 py-6">

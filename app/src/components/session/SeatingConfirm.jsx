@@ -120,7 +120,7 @@ export default function SeatingConfirm({
             type="date"
             value={date}
             onChange={e => onDateChange(e.target.value)}
-            className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground"
+            className="w-full box-border rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground"
           />
         </div>
 
@@ -129,7 +129,7 @@ export default function SeatingConfirm({
           <label className="text-sm font-medium text-muted-foreground mb-2 block">Ort</label>
           <Popover open={venueOpen} onOpenChange={setVenueOpen}>
             <PopoverTrigger asChild>
-              <button className="w-full flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-sm text-left">
+              <button className="w-full box-border flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-base text-left">
                 <span className={venue ? 'text-foreground' : 'text-muted-foreground'}>
                   {venue ? venue.name : 'Ort auswählen...'}
                 </span>
@@ -188,7 +188,7 @@ export default function SeatingConfirm({
         <Button
           className="w-full h-14 text-base"
           onClick={onConfirm}
-          disabled={saving}
+          disabled={saving || !venue}
         >
           {saving ? 'Wird gestartet...' : 'Lasst die Spiele beginnen!'}
         </Button>

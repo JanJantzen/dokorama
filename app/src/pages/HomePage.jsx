@@ -33,7 +33,7 @@ export default function HomePage() {
         {/* Neue Partie starten */}
         <Button
           className="w-full h-16 text-lg gap-3"
-          onClick={() => navigate('/abend/starten')}
+          onClick={() => navigate('/partie/starten')}
         >
           <PlayCircle size={24} />
           Neue Partie starten

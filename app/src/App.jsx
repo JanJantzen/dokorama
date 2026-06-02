@@ -23,7 +23,7 @@ function AppLayout() {
         <Route path="/"              element={<HomePage />}        />
         <Route path="/statistiken"   element={<StatsPage />}       />
         <Route path="/spieler"       element={<PlayersPage />}     />
-        <Route path="/abend/starten" element={<StartSessionPage />} />
+        <Route path="/partie/starten" element={<StartSessionPage />} />
         <Route path="/abend/:id"     element={<SessionPage />}     />
       </Routes>
 
