@@ -3,7 +3,7 @@
 // Sortierung: meiste Partien zuerst. Standard: Top 6, Rest eingeklappt.
 
 import { useState } from 'react'
-import { ArrowLeft, ArrowRight, Search, Plus } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Search, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import PlayerAvatar from '@/components/ui/PlayerAvatar'
 import { useNavigate } from 'react-router-dom'
@@ -77,8 +77,17 @@ export default function PlayerSelector({ players, selected, onToggle, onNext }) 
               placeholder="Spieler:in suchen..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full rounded-xl border border-border bg-card pl-9 pr-4 py-2.5 text-base text-foreground placeholder:text-muted-foreground"
+              className="w-full rounded-xl border border-border bg-card pl-9 pr-9 py-2.5 text-base text-foreground placeholder:text-muted-foreground"
             />
+            {/* X-Button erscheint nur wenn Text eingegeben wurde */}
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+              >
+                <X size={16} />
+              </button>
+            )}
           </div>
         </div>
       )}

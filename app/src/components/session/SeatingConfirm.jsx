@@ -128,13 +128,15 @@ export default function SeatingConfirm({
         {/* 2. WO – Ort (Combobox mit Suche) */}
         <div className="w-full">
           <label className="text-sm font-medium text-muted-foreground mb-2 block">Ort</label>
-          {/* PopoverTrigger ohne asChild – Klassen direkt am Trigger-Element, kein Wrapper-Problem */}
           <Popover open={venueOpen} onOpenChange={setVenueOpen}>
-            <PopoverTrigger className="w-full box-border flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-base text-left">
-              <span className={venue ? 'text-foreground' : 'text-muted-foreground'}>
-                {venue ? venue.name : 'Ort auswählen...'}
-              </span>
-              <ChevronDown size={16} className="text-muted-foreground shrink-0" />
+            <PopoverTrigger asChild>
+              {/* block stellt sicher dass der Button die volle Breite füllt (Buttons sind standardmäßig inline-block) */}
+              <button className="w-full block box-border flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-base text-left">
+                <span className={venue ? 'text-foreground' : 'text-muted-foreground'}>
+                  {venue ? venue.name : 'Ort auswählen...'}
+                </span>
+                <ChevronDown size={16} className="text-muted-foreground shrink-0" />
+              </button>
             </PopoverTrigger>
             <PopoverContent className="p-0" style={{ width: 'var(--radix-popover-trigger-width)' }}>
               <Command>
