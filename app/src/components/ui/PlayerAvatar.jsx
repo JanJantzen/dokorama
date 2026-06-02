@@ -22,12 +22,13 @@ export function getAvatarColor(name) {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
 }
 
-// size: 'sm' | 'md' | 'lg'
+// size: 'sm' | 'md' | 'lg' | 'xl'
 export default function PlayerAvatar({ player, size = 'md' }) {
   const sizeClass = {
     sm: 'w-10 h-10 text-base',
     md: 'w-14 h-14 text-xl',
-    lg: 'w-20 h-20 text-3xl',
+    lg: 'w-16 h-16 text-2xl',
+    xl: 'w-20 h-20 text-3xl',
   }[size]
 
   if (player.avatar_url) {
