@@ -1,10 +1,5 @@
-# Datendateien und Arbeitsdateien – gehören nicht ins Repository
-*.xlsx
-*.docx
-*.json
-*.png
-*.jpg
-*.jpeg
+# Jans persönlicher Arbeitsordner – nicht ins Repository
+_workspace/
 
 # Claude Code Einstellungen
 .claude/
