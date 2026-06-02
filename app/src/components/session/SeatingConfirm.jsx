@@ -102,8 +102,8 @@ export default function SeatingConfirm({
           <ArrowLeft size={20} />
         </button>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Sitzreihenfolge</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Reihenfolge anpassen · Ort wählen</p>
+          <h1 className="text-2xl font-bold tracking-tight">Partie bestätigen</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">Reihenfolge anpassen · Ort und Datum prüfen</p>
         </div>
       </header>
 

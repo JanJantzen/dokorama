@@ -1,6 +1,6 @@
-// StartSessionPage – Abend starten
-// Zweistufiger Flow: 1) Spieler:innen auswählen → 2) Sitzreihenfolge + Ort + Datum bestätigen
-// Nach Bestätigung wird der Abend in Supabase angelegt und zur Erfassung weitergeleitet.
+// StartSessionPage – Partie starten
+// Zweistufiger Flow: 1) Spieler:innen auswählen → 2) Übersicht bestätigen (Reihenfolge, Ort, Datum)
+// Nach Bestätigung wird die Partie in Supabase angelegt und zur Erfassung weitergeleitet.
 
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -21,13 +21,20 @@ export default function StartSessionPage() {
   const [saving, setSaving] = useState(false)
 
   // Spieler:innen und Orte beim Laden der Seite aus Supabase holen
+  // Spieler:innen werden nach Anzahl gespielter Partien sortiert (Stammspieler:innen zuerst)
   useEffect(() => {
     async function loadData() {
-      const [{ data: players }, { data: venues }] = await Promise.all([
-        supabase.from('players').select('*').order('name'),
+      const [{ data: playersRaw }, { data: venues }] = await Promise.all([
+        supabase.from('players').select('id, name, avatar_url, game_results(count)'),
         supabase.from('venues').select('*').order('name'),
       ])
-      setAllPlayers(players || [])
+
+      // Spielanzahl aus dem verschachtelten Supabase-Result lesen und sortieren
+      const players = (playersRaw || [])
+        .map(p => ({ ...p, gameCount: p.game_results?.[0]?.count ?? 0 }))
+        .sort((a, b) => b.gameCount - a.gameCount || a.name.localeCompare(b.name, 'de'))
+
+      setAllPlayers(players)
       setAllVenues(venues || [])
       setLoading(false)
     }
