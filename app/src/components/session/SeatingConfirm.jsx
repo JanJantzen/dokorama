@@ -2,7 +2,6 @@
 // Zeigt Datum, Ort und Sitzreihenfolge zur Bestätigung (Reihenfolge: Wann → Wo → Wer).
 // Die Sitzreihenfolge kann per Drag & Drop noch angepasst werden.
 
-import { useState } from 'react'
 import {
   DndContext, closestCenter,
   MouseSensor, TouchSensor, useSensor, useSensors,
@@ -12,12 +11,9 @@ import {
   useSortable, arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { ArrowLeft, GripVertical, ChevronDown, Check } from 'lucide-react'
+import { ArrowLeft, GripVertical, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import PlayerAvatar from '@/components/ui/PlayerAvatar'
-import { cn } from '@/lib/utils'
 
 // Berechnet die Rolle in Spiel 1 basierend auf Sitzposition und Spielerzahl
 function getRoleLabel(position, totalPlayers) {
@@ -79,8 +75,6 @@ export default function SeatingConfirm({
   onReorder, onVenueChange, onDateChange,
   onBack, onConfirm, saving,
 }) {
-  const [venueOpen, setVenueOpen] = useState(false)
-
   const sensors = useSensors(
     useSensor(MouseSensor),
     useSensor(TouchSensor, {
@@ -125,41 +119,23 @@ export default function SeatingConfirm({
           />
         </div>
 
-        {/* 2. WO – Ort (Combobox mit Suche) */}
+        {/* 2. WO – Ort (natives Select – volle Breite, nativer iOS-Picker) */}
         <div className="w-full">
           <label className="text-sm font-medium text-muted-foreground mb-2 block">Ort</label>
-          <Popover open={venueOpen} onOpenChange={setVenueOpen}>
-            <PopoverTrigger asChild>
-              {/* block stellt sicher dass der Button die volle Breite füllt (Buttons sind standardmäßig inline-block) */}
-              <button className="w-full block box-border flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-base text-left">
-                <span className={venue ? 'text-foreground' : 'text-muted-foreground'}>
-                  {venue ? venue.name : 'Ort auswählen...'}
-                </span>
-                <ChevronDown size={16} className="text-muted-foreground shrink-0" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="p-0" style={{ width: 'var(--radix-popover-trigger-width)' }}>
-              <Command>
-                <CommandInput placeholder="Suchen..." />
-                <CommandEmpty>Kein Ort gefunden</CommandEmpty>
-                <CommandGroup>
-                  {venues.map(v => (
-                    <CommandItem
-                      key={v.id}
-                      value={v.name}
-                      onSelect={() => { onVenueChange(v); setVenueOpen(false) }}
-                    >
-                      <Check
-                        size={16}
-                        className={cn('mr-2 shrink-0', venue?.id === v.id ? 'opacity-100' : 'opacity-0')}
-                      />
-                      {v.name}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </Command>
-            </PopoverContent>
-          </Popover>
+          <div className="relative w-full">
+            <select
+              value={venue?.id || ''}
+              onChange={e => onVenueChange(venues.find(v => v.id === e.target.value) || null)}
+              className="w-full box-border appearance-none rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground"
+            >
+              <option value="" disabled className="text-muted-foreground">Ort auswählen...</option>
+              {venues.map(v => (
+                <option key={v.id} value={v.id}>{v.name}</option>
+              ))}
+            </select>
+            {/* Pfeil-Icon – pointer-events-none damit Klicks durchgehen zum Select */}
+            <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          </div>
         </div>
 
         {/* 3. WER – Sitzreihenfolge */}
