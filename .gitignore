@@ -1,0 +1,13 @@
+# Datendateien und Arbeitsdateien – gehören nicht ins Repository
+*.xlsx
+*.docx
+*.json
+*.png
+*.jpg
+*.jpeg
+
+# Claude Code Einstellungen
+.claude/
+
+# macOS
+.DS_Store
