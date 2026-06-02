@@ -116,27 +116,25 @@ export default function SeatingConfirm({
         {/* 1. WANN – Datum */}
         <div className="w-full">
           <label className="text-sm font-medium text-muted-foreground mb-2 block">Datum</label>
-          <div className="w-full overflow-hidden">
-            <input
-              type="date"
-              value={date}
-              onChange={e => onDateChange(e.target.value)}
-              className="w-full box-border rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground"
-            />
-          </div>
+          {/* appearance-none entfernt native iOS-Breite, box-border verhindert Overflow */}
+          <input
+            type="date"
+            value={date}
+            onChange={e => onDateChange(e.target.value)}
+            className="w-full box-border appearance-none rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground"
+          />
         </div>
 
         {/* 2. WO – Ort (Combobox mit Suche) */}
         <div className="w-full">
           <label className="text-sm font-medium text-muted-foreground mb-2 block">Ort</label>
+          {/* PopoverTrigger ohne asChild – Klassen direkt am Trigger-Element, kein Wrapper-Problem */}
           <Popover open={venueOpen} onOpenChange={setVenueOpen}>
-            <PopoverTrigger asChild>
-              <button className="w-full box-border flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-base text-left">
-                <span className={venue ? 'text-foreground' : 'text-muted-foreground'}>
-                  {venue ? venue.name : 'Ort auswählen...'}
-                </span>
-                <ChevronDown size={16} className="text-muted-foreground shrink-0" />
-              </button>
+            <PopoverTrigger className="w-full box-border flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-base text-left">
+              <span className={venue ? 'text-foreground' : 'text-muted-foreground'}>
+                {venue ? venue.name : 'Ort auswählen...'}
+              </span>
+              <ChevronDown size={16} className="text-muted-foreground shrink-0" />
             </PopoverTrigger>
             <PopoverContent className="p-0" style={{ width: 'var(--radix-popover-trigger-width)' }}>
               <Command>
