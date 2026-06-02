@@ -20,7 +20,7 @@ export default function HomePage() {
       <div className="px-4">
         <Button
           className="w-full h-16 text-lg gap-3"
-          onClick={() => navigate('/abend/neu')}
+          onClick={() => navigate('/abend/starten')}
         >
           <PlayCircle size={24} />
           Abend starten
