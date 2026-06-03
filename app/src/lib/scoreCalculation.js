@@ -180,8 +180,8 @@ export function calculateGameResult({ reEyes, gameType, announcements, specialPo
 // (kein separater Spieltyp-Input – ergibt sich aus dem was angepinnt wurde)
 export function deriveGameType(specialRoles, soloType) {
   const roles = Object.values(specialRoles)
-  if (roles.includes('solist'))    return soloType ?? 'buben_solo'
-  if (roles.includes('hochzeiter')) return 'hochzeit'
-  if (roles.includes('armut'))      return 'armut'
+  if (roles.includes('solist'))   return soloType ?? 'buben_solo'
+  if (roles.includes('hochzeit')) return 'hochzeit'
+  if (roles.includes('arm'))      return 'armut'
   return 'normal'
 }

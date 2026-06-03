@@ -2,7 +2,7 @@
 
 > Diese Datei ist das zentrale Briefing für jeden Claude-Assistenten, der an diesem Projekt arbeitet.
 > Sie wird bei jeder neuen Sitzung gelesen. Halte sie aktuell.
-> Letzte Aktualisierung: 2. Juni 2026 – „Abend" überall zu „Partie" umbenannt; Parallele Partien, Turniere und Monetarisierung in Perspektive aufgenommen. UI-Design-Entscheidungen für Erfassungsscreen in Abschnitt 6 ergänzt.
+> Letzte Aktualisierung: 3. Juni 2026 – Icon-Spezifikationen in Abschnitt 16 ergänzt; „Retter:in" zu „Armut (reich)" umbenannt (Code-Identifier: `reich`); Namenskonventionen für Sonderrollen finalisiert (hochzeit/eingeheiratet/arm/reich).
 
 ---
 
@@ -104,7 +104,7 @@ Kein Konfigurations-UI in V1 – nur das flexible Datenmodell.
 | --------- | -------------------------------------------------------------------------- | -------------------------------------------- |
 | Normal    | Standard-Doppelkopf, Teams ergeben sich aus den Kreuz-Damen                | Wer ist Re, wer ist Kontra                   |
 | Hochzeit  | Ein:e Spieler:in hat beide Kreuz-Damen und sucht eine:n Partner:in         | Wer hatte die Hochzeit, wer hat eingeheiratet |
-| Armut     | Jemand hat ≤3 Trumpf, ein:e andere:r nimmt diese und gibt 3 Karten zurück | Wer ist Armut, wer ist Retter:in             |
+| Armut     | Jemand hat ≤3 Trumpf, ein:e andere:r nimmt diese und gibt 3 Karten zurück | Wer ist Armut (arm), wer ist Armut (reich)   |
 
 **Solo-Varianten (1 vs. 3):**
 
@@ -318,7 +318,7 @@ Eine Runde ist vollständig, wenn alle regulären Spiele (= Anzahl Spieler:innen
 | Laufende Nummer       | ✓  | Nummer innerhalb der Runde (1, 2, 3, ...)                                     |
 | Spieltyp              | ✓  | Normal / Hochzeit / Armut / Fleischlos / Buben-Solo / Damen-Solo / Farb-Solo / Stilles Solo |
 | Farbe (bei Farb-Solo) | ✓  | Karo / Herz / Pik / Kreuz (nur bei Farb-Solo, sonst leer)                    |
-| Augen Re-Partei       | ✓  | Augen der Re-Partei (Kontra = 240 minus Re). Re-Partei ist: bei Normalspiel das Team mit den Kreuz-Damen, bei Solo der/die Solist:in, bei Armut die Partei mit Armut + Retter:in, bei Hochzeit die Partei mit Hochzeiter:in + Eingeheiratet. In der UI kann man die Augen beliebiger Partei eingeben, gespeichert wird immer Re. Nur bei echter App-Erfassung gesetzt, nie zusammen mit augen_re_min/max. |
+| Augen Re-Partei       | ✓  | Augen der Re-Partei (Kontra = 240 minus Re). Re-Partei ist: bei Normalspiel das Team mit den Kreuz-Damen, bei Solo der/die Solist:in, bei Armut die Partei mit Armut (arm) + Armut (reich), bei Hochzeit die Partei mit Hochzeit + Eingeheiratet. In der UI kann man die Augen beliebiger Partei eingeben, gespeichert wird immer Re. Nur bei echter App-Erfassung gesetzt, nie zusammen mit augen_re_min/max. |
 | Augen Re-Min          | ✓  | Untere Grenze der Re-Augen (Integer, nullable). Nur beim historischen Import gesetzt, nie zusammen mit augen_re. |
 | Augen Re-Max          | ✓  | Obere Grenze der Re-Augen (Integer, nullable). Nur beim historischen Import gesetzt, nie zusammen mit augen_re. |
 | Timestamp             | ✓  | Zeitstempel (für Spieldauer-Berechnung etc.)                                  |
@@ -368,7 +368,7 @@ Aus der Sitzposition ergibt sich automatisch:
 | Spiel-ID      | ✓  | Welches Spiel                                                                   |
 | Spieler:in-ID | ✓  | Welche:r Spieler:in                                                             |
 | Partei        | ✓  | Re / Kontra / Ausgesetzt                                                        |
-| Sonderrolle   | ✓  | Optional: Solist:in / Hochzeiter:in / Eingeheiratet / Armut / Retter:in         |
+| Sonderrolle   | ✓  | Optional (Code-Identifier): `solist` / `hochzeit` / `eingeheiratet` / `arm` / `reich` |
 | Zählpunkte    | ✓  | +/− Punkte für diese:n Spieler:in (berechnet, aber gespeichert)                 |
 
 **Ansage (Announcement)**
@@ -830,7 +830,7 @@ Die App soll als PWA funktionieren, damit sie auf dem Homescreen installiert wer
 | **Geber:in**                | Wer die Karten gibt. Rotiert nach Sitzposition. Bei 5+ Spieler:innen sitzt der/die Geber:in aus. |
 | **Gespaltener Arsch**       | Genau 120:120 Augen. Kontra gewinnt, bekommt aber nur „Gegen die Alten" (+1), NICHT „Gewonnen". |
 | **Gruppe (Group)**          | Der Spieler:innen-Pool der zusammen gehört. In V1 nur Jans Runde, perspektivisch mehrere. |
-| **Hochzeit**                | Ein:e Spieler:in hat beide Kreuz-Damen und sucht eine:n Partner:in. Erfasst: wer hatte die Hochzeit (Hochzeiter:in), wer hat eingeheiratet. |
+| **Hochzeit**                | Ein:e Spieler:in hat beide Kreuz-Damen und sucht eine:n Partner:in. Erfasst: wer hatte die Hochzeit (Code: `hochzeit`), wer hat eingeheiratet (Code: `eingeheiratet`). |
 | **Karlchen**                | Kreuz-Bube – „gemacht" wenn er den letzten Stich macht, „gefangen" wenn er dabei überstochen wird. Beides kann gleichzeitig auftreten. Die Skill-Kennzahl unter den Sonderpunkten. |
 | **Kontra**                  | Das gegnerische Team. Gewinnt bei 120:120 („Gespaltener Arsch"), bekommt dann aber nur „Gegen die Alten", nicht „Gewonnen". |
 | **n:m-Beziehung**           | Viele-zu-viele: Ein:e Spieler:in kann in mehreren Gruppen sein, eine Gruppe kann viele Spieler:innen haben. Wird über eine Verknüpfungstabelle aufgelöst. |
@@ -842,7 +842,7 @@ Die App soll als PWA funktionieren, damit sie auf dem Homescreen installiert wer
 | **React**                   | JavaScript-Framework für Benutzeroberflächen. Das meistgenutzte Frontend-Framework. |
 | **React Context**           | Mechanismus in React um Daten zwischen Komponenten zu teilen, ohne sie durch jede Ebene durchreichen zu müssen. Wird für den lokalen UI-Zustand verwendet (z.B. laufende Erfassung). |
 | **Recharts**                | React-native Chart-Bibliothek für Diagramme und Graphen. Wird für die Statistik-Visualisierungen verwendet. |
-| **Retter:in**               | Die Person, die bei einer Armut die Trümpfe nimmt und Karten zurückgibt. |
+| **Armut (reich)**           | Die Person, die bei einer Armut die Trümpfe nimmt und Karten zurückgibt. Früher „Retter:in" – umbenannt 3. Juni 2026. Code-Identifier: `reich`. |
 | **Row Level Security**      | Zugriffsregeln direkt in der Datenbank (wer darf welche Zeilen sehen). Supabase-Feature. |
 | **Runde (Round)**           | Jede:r hat einmal gegeben. Bei 4 Spieler:innen = 4 Spiele + angesagte Solos, bei 5 = 5 + Solos. Muss immer vollständig abgeschlossen werden. |
 | **Seed-Daten**              | Vorbefüllte Daten in der Datenbank (z.B. Jans Spieler:innen, Sonderpunkt-Typen, die eine V1-Gruppe). |
@@ -858,3 +858,53 @@ Die App soll als PWA funktionieren, damit sie auf dem Homescreen installiert wer
 | **Tailwind CSS**            | Styling-Framework – man schreibt vordefinierte Klassen direkt an die HTML-Elemente statt eigene CSS-Dateien. Gibt ein konsistentes Design-System vor. |
 | **Vercel**                  | Hosting-Dienst für Frontend-Apps. Automatisches Deployment bei Git-Push. Kostenlos für kleine Projekte. |
 | **Verknüpfungstabelle**     | Eine Tabelle die zwei andere Tabellen verbindet (z.B. Gruppenmitgliedschaft verbindet Spieler:in und Gruppe). Löst n:m-Beziehungen auf. |
+
+---
+
+## 16. Icon-Spezifikationen
+
+> Letzte Aktualisierung: 3. Juni 2026. Icons werden von Jan als SVG nachgeliefert. Bis dahin: Platzhalter im Code.
+
+### Allgemeine technische Anforderungen (alle Icons)
+
+- **Format:** SVG
+- **Viewport:** 24×24px
+- **Stil:** Monochrome Line Art – kein Hardcoding von Farben, stattdessen `fill="currentColor"` bzw. `stroke="currentColor"`, damit die App per CSS einfärben kann
+- **Hintergrund:** Transparent – kein Hintergrund-Shape in der SVG selbst
+- **Badge-Hülle:** Abgerundetes Quadrat (~4–5px border-radius), wird von der App per CSS gesetzt
+- **Erkennbar bei:** 20px (kleines Tisch-Badge), 24px (normales Tisch-Badge), 32px (Sheet-Button)
+- **Ablageort:** `app/src/assets/icons/`
+
+### Ansagen-Badges (Tisch-Ansicht)
+
+Werden **rein per CSS/Text** gebaut – kein Custom-SVG nötig. Die App rendert den Badge-Text in einem abgerundeten Quadrat.
+
+| Ansage   | Badge-Text | Farbe (via CSS)         |
+|----------|------------|-------------------------|
+| Re       | Re         | Grün (wenn aktiv)       |
+| Kontra   | Ko         | Amber (wenn aktiv)      |
+| Keine 90 | K9         | Muted (wenn aktiv)      |
+| Keine 60 | K6         | Muted (wenn aktiv)      |
+| Keine 30 | K3         | Muted (wenn aktiv)      |
+| Schwarz  | Sz         | Muted (wenn aktiv)      |
+
+### Sonderpunkte-Icons (Tisch-Ansicht als Badge, Sheet als Button)
+
+Diese 4 Icons werden als SVG von Jan geliefert:
+
+| Icon               | Dateiname                    | Was es zeigen soll                        | Platzhalter-Text |
+|--------------------|------------------------------|-------------------------------------------|-----------------|
+| Fuchs              | `icon-fuchs.svg`             | Stilisierter Fuchs (Emoji 🦊 ggf. ok)    | F               |
+| Karlchen gemacht   | `icon-karlchen-gemacht.svg`  | Kreuz-Bube / ♣ mit Häkchen               | Km              |
+| Karlchen gefangen  | `icon-karlchen-gefangen.svg` | Kreuz-Bube / ♣ mit X                     | Kg              |
+| Doppelkopf         | `icon-doppelkopf.svg`        | Münzen-Stack oder Punkte-Symbol           | D               |
+
+**Wichtig:** SVGs müssen `currentColor` nutzen (kein hardcodiertes Schwarz o.ä.), damit die App die Farbe je nach Kontext (aktiv/inaktiv, Re/Kontra) setzen kann.
+
+### Sonderspiel-Labels (Tisch-Ansicht)
+
+Sonderspiele (Solo, Hochzeit, Armut) werden auf dem Tisch als **Textlabel** angezeigt – kein Icon nötig.
+
+### Platzhalter bis zur Icon-Lieferung
+
+Abgerundetes Quadrat (`bg-muted`, border-radius 4px) mit 1–2 Buchstaben in Schriftgröße 10px. Gleiche Größe und Position wie die echten Icons – drop-in-ready sobald die SVGs ankommen.

@@ -14,7 +14,7 @@ CREATE TYPE round_status    AS ENUM ('laufend', 'abgeschlossen');
 CREATE TYPE game_type       AS ENUM ('normal', 'hochzeit', 'armut', 'fleischlos', 'buben_solo', 'damen_solo', 'farb_solo', 'stilles_solo');
 CREATE TYPE farbe           AS ENUM ('karo', 'herz', 'pik', 'kreuz');
 CREATE TYPE partei          AS ENUM ('re', 'kontra', 'ausgesetzt');
-CREATE TYPE sonderrolle     AS ENUM ('solist', 'hochzeiter', 'eingeheiratet', 'armut', 'retter');
+CREATE TYPE sonderrolle     AS ENUM ('solist', 'hochzeit', 'eingeheiratet', 'arm', 'reich');
 CREATE TYPE ansage_typ      AS ENUM ('re', 'kontra', 'keine_90', 'keine_60', 'keine_30', 'schwarz');
 CREATE TYPE sonderpunkt_typ AS ENUM ('fuchs_gefangen', 'karlchen_gemacht', 'karlchen_gefangen', 'doppelkopf');
 

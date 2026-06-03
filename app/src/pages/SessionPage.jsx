@@ -188,25 +188,26 @@ export default function SessionPage() {
   }, [])
 
   // Ansage ein/ausschalten
+  // Re und Kontra schließen sich gegenseitig aus – wer Re ansagt kann nicht gleichzeitig Kontra haben
   const handleAnnouncementToggle = useCallback((playerId, type) => {
     setGameState(prev => {
       const current = prev.announcements[playerId] ?? []
-      const updated = current.includes(type)
-        ? current.filter(t => t !== type)
-        : [...current, type]
+      let updated
 
-      // Re-Ansage setzt automatisch Re-Partei (falls noch nicht gesetzt)
-      const newParties = { ...prev.parties }
-      if (type === 're' && !current.includes('re') && newParties[playerId] !== 're') {
-        newParties[playerId] = 're'
-      }
-      if (type === 'kontra' && !current.includes('kontra') && newParties[playerId] !== 'kontra') {
-        newParties[playerId] = 'kontra'
+      if (current.includes(type)) {
+        // Ansage abwählen
+        updated = current.filter(t => t !== type)
+      } else {
+        // Ansage hinzufügen – Re/Kontra schließen sich gegenseitig aus
+        updated = type === 're'
+          ? [...current.filter(t => t !== 'kontra'), 're']
+          : type === 'kontra'
+          ? [...current.filter(t => t !== 're'), 'kontra']
+          : [...current, type]
       }
 
       return {
         ...prev,
-        parties: newParties,
         announcements: { ...prev.announcements, [playerId]: updated },
       }
     })
@@ -246,14 +247,14 @@ export default function SessionPage() {
       delete newRoles[playerId]
 
       // Bei Hochzeit/Armut auch den Partner entfernen
-      if (clearedRole === 'hochzeiter') {
+      if (clearedRole === 'hochzeit') {
         for (const [pid, role] of Object.entries(newRoles)) {
           if (role === 'eingeheiratet') delete newRoles[pid]
         }
       }
-      if (clearedRole === 'armut') {
+      if (clearedRole === 'arm') {
         for (const [pid, role] of Object.entries(newRoles)) {
-          if (role === 'retter') delete newRoles[pid]
+          if (role === 'reich') delete newRoles[pid]
         }
       }
 
