@@ -85,7 +85,7 @@ export default function StartSessionPage() {
       )
 
       // Zur Erfassung weiterleiten
-      navigate(`/abend/${session.id}`)
+      navigate(`/partie/${session.id}`)
     } catch (error) {
       console.error('Fehler beim Starten des Abends:', error)
       setSaving(false)

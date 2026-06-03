@@ -21,7 +21,7 @@ export default function EyesBar({
     <div className="fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border px-4 pt-3 pb-5">
       <div className="flex items-center gap-2">
         {/* Augeneingabe */}
-        <div className="flex-1 flex items-center gap-1">
+        <div className="flex-1 flex items-center gap-2">
           <input
             type="number"
             inputMode="numeric"
@@ -30,7 +30,7 @@ export default function EyesBar({
             value={eyesInput}
             onChange={e => onEyesChange(e.target.value)}
             placeholder="Augen"
-            className="w-24 h-10 px-3 rounded-xl border border-border bg-background text-base font-medium text-center focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            className="flex-1 h-10 px-3 rounded-xl border border-border bg-background text-base font-medium text-center focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
           />
 
           {/* Re/Kontra-Toggle für die Augenzahl */}
@@ -51,13 +51,6 @@ export default function EyesBar({
               </button>
             ))}
           </div>
-
-          {/* Abgeleiteter Gegenwert als Hinweis */}
-          {isNumeric && eyesFor && (
-            <span className="text-sm text-muted-foreground whitespace-nowrap">
-              = {otherEyes} {eyesFor === 're' ? 'Ko' : 'Re'}
-            </span>
-          )}
         </div>
 
         {/* Auswerten-Button */}

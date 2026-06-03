@@ -24,7 +24,7 @@ function AppLayout() {
         <Route path="/statistiken"   element={<StatsPage />}       />
         <Route path="/spieler"       element={<PlayersPage />}     />
         <Route path="/partie/starten" element={<StartSessionPage />} />
-        <Route path="/abend/:id"     element={<SessionPage />}     />
+        <Route path="/partie/:id"    element={<SessionPage />}     />
       </Routes>
 
       {showTabBar && <TabBar />}

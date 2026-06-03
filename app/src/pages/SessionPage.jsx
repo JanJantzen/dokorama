@@ -17,7 +17,7 @@ import PlayerAvatar from '@/components/ui/PlayerAvatar'
 import PlayerSheet from '@/components/session/PlayerSheet'
 import EyesBar from '@/components/session/EyesBar'
 import EvaluationView from '@/components/session/EvaluationView'
-import { Trophy, Menu, X } from 'lucide-react'
+import { Trophy, Menu, ArrowLeft } from 'lucide-react'
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 
@@ -38,10 +38,26 @@ function formatDate(dateStr) {
   return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`
 }
 
-function getRoleLabel(specialRole, soloType) {
+const FARB_EMOJI = { karo: '♦', herz: '♥', pik: '♠', kreuz: '♣' }
+
+function getRoleLabel(specialRole, soloType, soloColor) {
   if (!specialRole) return ''
-  if (specialRole === 'solist') return SOLO_SHORT[soloType] ?? 'Solo'
-  return { hochzeit: 'HZ', eingeheiratet: 'EH', arm: 'arm', reich: 'reich' }[specialRole] ?? ''
+  if (specialRole === 'solist') {
+    const labels = {
+      fleischlos:   'Fleischlos',
+      buben_solo:   'Buben-Solo',
+      damen_solo:   'Damen-Solo',
+      farb_solo:    soloColor ? `Farb-Solo ${FARB_EMOJI[soloColor] ?? ''}` : 'Farb-Solo',
+      stilles_solo: 'Stilles Solo',
+    }
+    return labels[soloType] ?? 'Solo'
+  }
+  return {
+    hochzeit:      'Hochzeit',
+    eingeheiratet: 'Eingeheiratet',
+    arm:           'Armut (arm)',
+    reich:         'Armut (reich)',
+  }[specialRole] ?? ''
 }
 
 function initGameState(participants) {
@@ -100,12 +116,13 @@ function AnnBadge({ type }) {
 }
 
 // Kleines Sonderpunkt-Badge für den Tisch (Platzhalter – wird durch SVG-Icons ersetzt)
+// Feste Größe 14×14px damit 2 Stück exakt 30px Spaltenbreite ergeben (2×14 + 2px Gap)
 function SpBadge({ label, color }) {
-  const colorCls = color === 'green' ? 'bg-green-500/80 text-white'
-    : color === 'red'   ? 'bg-red-500/80 text-white'
-    : 'bg-white/70 text-gray-800'
+  const colorCls = color === 'green' ? 'bg-green-500/90 text-white'
+    : color === 'red'   ? 'bg-red-500/90 text-white'
+    : 'bg-white/80 text-gray-800'
   return (
-    <span className={`inline-flex items-center justify-center w-4 h-4 rounded-sm text-[9px] font-bold leading-none ${colorCls}`}>
+    <span className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded-sm text-[8px] font-bold leading-none shrink-0 ${colorCls}`}>
       {label}
     </span>
   )
@@ -123,11 +140,11 @@ function SonderpunkteCol({ gameState, playerId, isLeft }) {
   const lostFuchs    = sp.filter(s => s.type === 'fuchs_gefangen'    && s.loserId  === playerId)
   const dokoPoints   = sp.filter(s => s.type === 'doppelkopf'        && s.earnerId === playerId)
   const rowDir = isLeft ? 'flex-row' : 'flex-row-reverse'
-  // Jede Zeile: exakt 14px hoch, 2 Slots à 14px + 2px Gap = 30px breit (immer fix)
+  // Jede Zeile: 14px hoch, max. 2 Icons à 14px + 2px Gap = 30px Spaltenbreite (fix)
   const ROW = `flex ${rowDir} gap-0.5 h-[14px] items-center`
 
   return (
-    <div className="flex flex-col gap-0.5 shrink-0" style={{ width: 30 }}>
+    <div className="flex flex-col gap-1 shrink-0" style={{ width: 30 }}>
       {/* Zeile 1: Karlchen (füllt sich erst im letzten Stich) */}
       <div className={ROW}>
         {karlVerloren.length > 0
@@ -182,13 +199,15 @@ function VerticalToggle({ playerId, party, onPartyChange }) {
   )
 }
 
-// Geber-Chip: kleiner gelber Kreis an der inneren Avatar-Ecke
+// Geber-Chip: gelber Kreis auf der inneren Ecke des Backdrops (zur Tischmitte)
+// Größer als andere Badges und liegt auf dem Backdrop-Rand
 function GebChip({ side, vertical }) {
+  // Welche Ecke des Backdrops zeigt zur Tischmitte?
   const pos = {
-    'left-bottom':  'top-0 right-0 -translate-y-1/3 translate-x-1/3',
-    'left-top':     'bottom-0 right-0 translate-y-1/3 translate-x-1/3',
-    'right-bottom': 'top-0 left-0 -translate-y-1/3 -translate-x-1/3',
-    'right-top':    'bottom-0 left-0 translate-y-1/3 -translate-x-1/3',
+    'left-bottom':  'top-0 right-0 -translate-y-1/2 translate-x-1/2',
+    'left-top':     'bottom-0 right-0 translate-y-1/2 translate-x-1/2',
+    'right-bottom': 'top-0 left-0 -translate-y-1/2 -translate-x-1/2',
+    'right-top':    'bottom-0 left-0 translate-y-1/2 -translate-x-1/2',
     // Aussetzer-Kanten
     'left-middle':  'top-1/2 right-0 -translate-y-1/2 translate-x-1/2',
     'top-top':      'bottom-0 left-1/2 translate-y-1/2 -translate-x-1/2',
@@ -196,7 +215,7 @@ function GebChip({ side, vertical }) {
   }[`${side}-${vertical}`] ?? 'top-0 right-0'
 
   return (
-    <span className={`absolute ${pos} w-[14px] h-[14px] rounded-full bg-yellow-400 text-yellow-900 text-[8px] font-black flex items-center justify-center z-10`}>
+    <span className={`absolute ${pos} w-6 h-6 rounded-full bg-yellow-400 text-yellow-900 text-[11px] font-black flex items-center justify-center z-10 shadow-sm`}>
       G
     </span>
   )
@@ -211,10 +230,12 @@ function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) 
   const playerId = participant.player_id
   const party    = gameState.parties[playerId] ?? null
   const anns     = gameState.announcements[playerId] ?? []
-  const role     = gameState.specialRoles[playerId]
-  const roleLabel = getRoleLabel(role, gameState.soloType)
+  const role      = gameState.specialRoles[playerId]
+  const roleLabel = getRoleLabel(role, gameState.soloType, gameState.soloColor)
   const activeAnns = ANNOUNCEMENT_ORDER.filter(t => anns.includes(t))
   const rowDir = isLeft ? 'flex-row' : 'flex-row-reverse'
+  // Toggle: bei Unten-Spielern nach unten ausrichten, bei Oben-Spielern nach oben
+  const toggleAlign = isBottom ? 'items-end' : 'items-start'
 
   // Ansagen-Zeile mit fester Mindesthöhe (immer Platz reserviert, auch wenn leer)
   const AnnouncementRow = () => (
@@ -223,15 +244,24 @@ function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) 
     </div>
   )
 
-  // Name + Rolle mit fester Mindesthöhe (Rolle reserviert Platz auch wenn leer)
+  // Name + Rolle: Reihenfolge nach Richtung
+  // Oben-Spieler (name+rolle außen oben): Rolle über Name
+  // Unten-Spieler (name+rolle außen unten): Name über Rolle
   const NameBlock = () => (
     <div className="flex flex-col items-center">
+      {!isBottom && (
+        <span className="text-white/70 text-[9px] leading-tight min-h-[11px] text-center">
+          {roleLabel}
+        </span>
+      )}
       <span className="text-white text-[11px] font-semibold leading-tight text-center max-w-[72px] truncate">
         {participant.players.name}
       </span>
-      <span className="text-white/70 text-[9px] leading-tight min-h-[11px]">
-        {roleLabel}
-      </span>
+      {isBottom && (
+        <span className="text-white/70 text-[9px] leading-tight min-h-[11px] text-center">
+          {roleLabel}
+        </span>
+      )}
     </div>
   )
 
@@ -240,14 +270,18 @@ function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) 
       className="absolute"
       style={{ left: `${layout.x}%`, top: `${layout.y}%`, transform: 'translate(-50%, -50%)' }}
     >
-      {/* Cluster mit hellem Backdrop – feste Breite durch fixen Toggle + Avatar + Sonderpunkte */}
-      <div className="bg-white/15 rounded-2xl p-1.5 flex flex-col gap-0.5">
+      {/* Cluster mit hellem Backdrop – feste Breite, Geber-Chip auf innerer Ecke */}
+      <div className="relative bg-white/15 rounded-2xl p-1.5 flex flex-col gap-0.5">
+
+        {/* Geber-Chip auf der inneren Backdrop-Ecke (zur Tischmitte) */}
+        {participant.isDealer && <GebChip side={side} vertical={vertical} />}
 
         {/* Oben: Ansagen (Unten-Spieler, innen) ODER Name+Rolle (Oben-Spieler, außen) */}
         {isBottom ? <AnnouncementRow /> : <NameBlock />}
 
-        {/* Mitte: Toggle + Avatar + Sonderpunkte (alle mit fixer Breite) */}
-        <div className={`flex items-center gap-1.5 ${rowDir}`}>
+        {/* Mitte: Toggle + Avatar + Sonderpunkte */}
+        {/* Toggle ausgerichtet nach Spielerposition: unten → items-end, oben → items-start */}
+        <div className={`flex ${toggleAlign} gap-1.5 ${rowDir}`}>
 
           <VerticalToggle playerId={playerId} party={party} onPartyChange={onPartyChange} />
 
@@ -263,7 +297,6 @@ function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) 
                 }`} />
               )}
             </button>
-            {participant.isDealer && <GebChip side={side} vertical={vertical} />}
           </div>
 
           <SonderpunkteCol gameState={gameState} playerId={playerId} isLeft={isLeft} />
@@ -318,22 +351,26 @@ function CompactPlayer({ participant, layout, onTap }) {
 
 // ─── Hamburger-Menü ────────────────────────────────────────────────────────────
 
-function SessionMenu({ onClose, onGoHome, onEndSession }) {
+function SessionMenu({ onClose, onEndSession }) {
+  const greyItems = ['Hauptmenü', 'Tischordnung', 'Statistiken']
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
       <div className="fixed top-16 right-4 z-50 bg-card rounded-2xl shadow-xl overflow-hidden min-w-[200px]">
-        <button
-          onClick={onGoHome}
-          className="w-full px-4 py-3 text-sm text-left text-foreground hover:bg-muted border-b border-border"
-        >
-          Ins Hauptmenü
-        </button>
+        {greyItems.map((label, i) => (
+          <div
+            key={label}
+            className={`px-4 py-3 text-sm text-muted-foreground/40 ${i < greyItems.length - 1 ? 'border-b border-border' : ''}`}
+          >
+            {label}
+          </div>
+        ))}
+        <div className="border-t border-border" />
         <button
           onClick={onEndSession}
-          className="w-full px-4 py-3 text-sm text-left text-destructive hover:bg-muted"
+          className="w-full px-4 py-3 text-sm text-left text-destructive active:bg-muted"
         >
-          Abend beenden
+          Partie beenden
         </button>
       </div>
     </>
@@ -540,13 +577,15 @@ export default function SessionPage() {
   const isCornerSeat = (seatPos) => seatPos <= 4
 
   return (
-    <div className="overflow-hidden flex flex-col select-none" style={{ height: '100dvh' }}>
+    <div className="flex flex-col select-none" style={{ position: 'fixed', inset: 0 }}>
 
       {/* ─── Header ─────────────────────────────────────────────────────── */}
       <header className="shrink-0 flex items-center justify-between px-4 pt-12 pb-3 bg-background border-b border-border z-10">
 
-        {/* Links: leer (kein Zurück-Button mehr) */}
-        <div className="w-16" />
+        {/* Links: Zurück-Pfeil */}
+        <button onClick={() => navigate(-1)} className="p-1.5 text-muted-foreground w-16">
+          <ArrowLeft size={20} />
+        </button>
 
         {/* Mitte: Partie-Info */}
         <div className="text-center flex-1">
@@ -619,7 +658,6 @@ export default function SessionPage() {
       {showMenu && (
         <SessionMenu
           onClose={() => setShowMenu(false)}
-          onGoHome={() => navigate('/')}
           onEndSession={() => {
             // TODO: Bestätigungs-Dialog + Session abschließen
             navigate('/')

@@ -10,7 +10,7 @@
 // Rollen werden erst committet wenn Auswahl vollständig ist.
 // Partner-Rollen (eingeheiratet / reich) sind read-only.
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import PlayerAvatar from '@/components/ui/PlayerAvatar'
 import { X } from 'lucide-react'
 
@@ -68,6 +68,44 @@ export default function PlayerSheet({
   const playerData = player.players
 
   const [subFlow, setSubFlow] = useState(null)
+
+  // Drag-to-close für das Player Sheet
+  const [dragY,      setDragY]      = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const startYRef = useRef(0)
+
+  function onDragStart(e) {
+    startYRef.current = e.touches[0].clientY
+    setIsDragging(true)
+  }
+  function onDragMove(e) {
+    const delta = e.touches[0].clientY - startYRef.current
+    if (delta > 0) setDragY(delta)
+  }
+  function onDragEnd() {
+    setIsDragging(false)
+    if (dragY > 80) onClose()
+    else setDragY(0)
+  }
+
+  // Drag-to-close für das Sub-Flow Sheet
+  const [subDragY,      setSubDragY]      = useState(0)
+  const [isSubDragging, setIsSubDragging] = useState(false)
+  const subStartYRef = useRef(0)
+
+  function onSubDragStart(e) {
+    subStartYRef.current = e.touches[0].clientY
+    setIsSubDragging(true)
+  }
+  function onSubDragMove(e) {
+    const delta = e.touches[0].clientY - subStartYRef.current
+    if (delta > 0) setSubDragY(delta)
+  }
+  function onSubDragEnd() {
+    setIsSubDragging(false)
+    if (subDragY > 80) closeSubFlow()
+    else setSubDragY(0)
+  }
 
   const currentParty         = gameState.parties[playerId] ?? null
   const currentAnnouncements = gameState.announcements[playerId] ?? []
@@ -263,7 +301,16 @@ export default function PlayerSheet({
       <div className="fixed inset-0 z-40 bg-black/30" onClick={onClose} />
 
       {/* Player Sheet */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl shadow-xl max-h-[85vh] flex flex-col">
+      <div
+        className="fixed bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl shadow-xl max-h-[85vh] flex flex-col"
+        style={{
+          transform: `translateY(${dragY}px)`,
+          transition: isDragging ? 'none' : 'transform 0.25s ease',
+        }}
+        onTouchStart={onDragStart}
+        onTouchMove={onDragMove}
+        onTouchEnd={onDragEnd}
+      >
 
         <div className="flex justify-center pt-3 pb-1 shrink-0">
           <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
@@ -478,7 +525,14 @@ export default function PlayerSheet({
 
           <div
             className="fixed bottom-0 left-0 right-0 bg-card rounded-t-2xl shadow-2xl max-h-[55vh] flex flex-col"
-            style={{ zIndex: 60 }}
+            style={{
+              zIndex: 60,
+              transform: `translateY(${subDragY}px)`,
+              transition: isSubDragging ? 'none' : 'transform 0.25s ease',
+            }}
+            onTouchStart={onSubDragStart}
+            onTouchMove={onSubDragMove}
+            onTouchEnd={onSubDragEnd}
           >
             <div className="flex justify-center pt-3 pb-1 shrink-0">
               <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
