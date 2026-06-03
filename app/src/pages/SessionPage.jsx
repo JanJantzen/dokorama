@@ -100,7 +100,7 @@ function buildCalculationInput(gameState, participants) {
 
 // ─── Tisch-Unterkomponenten ────────────────────────────────────────────────────
 
-// Kleines Ansage-Badge (quadratisch) für den Tisch
+// Kleines Ansage-Badge (quadratisch) für den Tisch – Größe über CSS-Variablen fluid
 function AnnBadge({ type }) {
   const label = ANNOUNCEMENT_LABELS[type]
   const colorCls = type === 're'
@@ -109,20 +109,26 @@ function AnnBadge({ type }) {
     ? 'bg-amber-500 text-white'
     : 'bg-white/70 text-gray-800'
   return (
-    <span className={`inline-flex items-center justify-center w-4 h-4 rounded-sm text-[9px] font-bold leading-none ${colorCls}`}>
+    <span
+      className={`inline-flex items-center justify-center rounded-sm font-bold leading-none ${colorCls}`}
+      style={{ width: 'var(--tisch-ann)', height: 'var(--tisch-ann)', fontSize: 'var(--tisch-text-xs)' }}
+    >
       {label}
     </span>
   )
 }
 
 // Kleines Sonderpunkt-Badge für den Tisch (Platzhalter – wird durch SVG-Icons ersetzt)
-// Feste Größe 14×14px damit 2 Stück exakt 30px Spaltenbreite ergeben (2×14 + 2px Gap)
+// Größe über CSS-Variablen fluid: 2 Stück + Gap ergeben die Spaltenbreite (--tisch-sp-col)
 function SpBadge({ label, color }) {
   const colorCls = color === 'green' ? 'bg-green-500/90 text-white'
     : color === 'red'   ? 'bg-red-500/90 text-white'
     : 'bg-white/80 text-gray-800'
   return (
-    <span className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded-sm text-[8px] font-bold leading-none shrink-0 ${colorCls}`}>
+    <span
+      className={`inline-flex items-center justify-center rounded-sm font-bold leading-none shrink-0 ${colorCls}`}
+      style={{ width: 'var(--tisch-sp-bdg)', height: 'var(--tisch-sp-bdg)', fontSize: 'var(--tisch-text-xs)' }}
+    >
       {label}
     </span>
   )
@@ -130,7 +136,7 @@ function SpBadge({ label, color }) {
 
 // Sonderpunkte-Spalte neben dem Avatar (4 feste Zeilen, max. 2 Icons pro Zeile)
 // Reihenfolge: Karlchen / Fuchs / Doko 1+2 / Doko 3+4
-// Feste Breite (30px) und feste Zeilenhöhe → Cluster wächst nie mit dem Inhalt
+// Breite und Zeilenhöhe über CSS-Variablen fluid → Cluster wächst nie mit dem Inhalt
 function SonderpunkteCol({ gameState, playerId, isLeft }) {
   const sp = gameState.specialPoints
   const karlGemacht  = sp.filter(s => s.type === 'karlchen_gemacht'  && s.earnerId === playerId)
@@ -140,13 +146,13 @@ function SonderpunkteCol({ gameState, playerId, isLeft }) {
   const lostFuchs    = sp.filter(s => s.type === 'fuchs_gefangen'    && s.loserId  === playerId)
   const dokoPoints   = sp.filter(s => s.type === 'doppelkopf'        && s.earnerId === playerId)
   const rowDir = isLeft ? 'flex-row' : 'flex-row-reverse'
-  // Jede Zeile: 14px hoch, max. 2 Icons à 14px + 2px Gap = 30px Spaltenbreite (fix)
-  const ROW = `flex ${rowDir} gap-0.5 h-[14px] items-center`
+  const ROW = `flex ${rowDir} gap-0.5 items-center`
+  const rowStyle = { height: 'var(--tisch-sp-bdg)' }
 
   return (
-    <div className="flex flex-col gap-1 shrink-0" style={{ width: 30 }}>
+    <div className="flex flex-col gap-1 shrink-0" style={{ width: 'var(--tisch-sp-col)' }}>
       {/* Zeile 1: Karlchen (füllt sich erst im letzten Stich) */}
-      <div className={ROW}>
+      <div className={ROW} style={rowStyle}>
         {karlVerloren.length > 0
           ? karlVerloren.map(s => <SpBadge key={s.id} label="Kv" color="red" />)
           : <>
@@ -156,23 +162,23 @@ function SonderpunkteCol({ gameState, playerId, isLeft }) {
         }
       </div>
       {/* Zeile 2: Fuchs */}
-      <div className={ROW}>
+      <div className={ROW} style={rowStyle}>
         {earnedFuchs.map(s => <SpBadge key={s.id} label="F"  color="green" />)}
         {lostFuchs.map(s   => <SpBadge key={s.id} label="Fv" color="red"   />)}
       </div>
       {/* Zeile 3: Doko 1+2 */}
-      <div className={ROW}>
+      <div className={ROW} style={rowStyle}>
         {dokoPoints.slice(0, 2).map(s => <SpBadge key={s.id} label="D" color="neutral" />)}
       </div>
       {/* Zeile 4: Doko 3+4 */}
-      <div className={ROW}>
+      <div className={ROW} style={rowStyle}>
         {dokoPoints.slice(2, 4).map(s => <SpBadge key={s.id} label="D" color="neutral" />)}
       </div>
     </div>
   )
 }
 
-// Vertikaler Re/N/Ko-Toggle für den Tisch
+// Vertikaler Re/N/Ko-Toggle für den Tisch – Größe über CSS-Variablen fluid
 function VerticalToggle({ playerId, party, onPartyChange }) {
   return (
     <div className="flex flex-col rounded-lg border border-white/30 overflow-hidden shrink-0">
@@ -184,7 +190,8 @@ function VerticalToggle({ playerId, party, onPartyChange }) {
         <button
           key={String(opt.value)}
           onClick={() => onPartyChange(playerId, opt.value)}
-          className={`w-7 h-7 text-[10px] font-bold transition-colors ${
+          style={{ width: 'var(--tisch-tog)', height: 'var(--tisch-tog)', fontSize: 'var(--tisch-text-tog)' }}
+          className={`font-bold transition-colors ${
             party === opt.value
               ? opt.value === 're'     ? 'bg-green-600 text-white'
               : opt.value === 'kontra' ? 'bg-amber-500 text-white'
@@ -200,7 +207,7 @@ function VerticalToggle({ playerId, party, onPartyChange }) {
 }
 
 // Geber-Chip: gelber Kreis auf der inneren Ecke des Backdrops (zur Tischmitte)
-// Größer als andere Badges und liegt auf dem Backdrop-Rand
+// Größe über CSS-Variablen fluid
 function GebChip({ side, vertical }) {
   // Welche Ecke des Backdrops zeigt zur Tischmitte?
   const pos = {
@@ -215,14 +222,19 @@ function GebChip({ side, vertical }) {
   }[`${side}-${vertical}`] ?? 'top-0 right-0'
 
   return (
-    <span className={`absolute ${pos} w-6 h-6 rounded-full bg-yellow-400 text-yellow-900 text-[11px] font-black flex items-center justify-center z-10 shadow-sm`}>
+    <span
+      className={`absolute ${pos} rounded-full bg-yellow-400 text-yellow-900 font-black flex items-center justify-center z-10 shadow-sm`}
+      style={{ width: 'var(--tisch-geb)', height: 'var(--tisch-geb)', fontSize: 'var(--tisch-text-sm)' }}
+    >
       G
     </span>
   )
 }
 
 // Vollständiger aktiver Spieler-Cluster (Ecke)
-// Sonderpunkte werden ABSOLUT neben dem Cluster positioniert – wachsen nie in den Bildrand
+// Toggle liegt absolut in der äußeren Ecke des Backdrops (unten-außen / oben-außen).
+// Der Backdrop hat auf der Außenseite extra Padding = toggle-Breite + 10px, damit
+// Avatar und Badges nicht mit dem Toggle überlappen.
 function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) {
   const { side, vertical } = layout
   const isLeft   = side === 'left'
@@ -234,31 +246,30 @@ function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) 
   const roleLabel = getRoleLabel(role, gameState.soloType, gameState.soloColor)
   const activeAnns = ANNOUNCEMENT_ORDER.filter(t => anns.includes(t))
   const rowDir = isLeft ? 'flex-row' : 'flex-row-reverse'
-  // Toggle: bei Unten-Spielern nach unten ausrichten, bei Oben-Spielern nach oben
-  const toggleAlign = isBottom ? 'items-end' : 'items-start'
 
-  // Ansagen-Zeile mit fester Mindesthöhe (immer Platz reserviert, auch wenn leer)
+  // Ansagen-Zeile mit Mindesthöhe (Platz bleibt reserviert wenn leer)
   const AnnouncementRow = () => (
     <div className={`flex ${rowDir} gap-0.5 min-h-[16px] items-center`}>
       {activeAnns.map(t => <AnnBadge key={t} type={t} />)}
     </div>
   )
 
-  // Name + Rolle: Reihenfolge nach Richtung
-  // Oben-Spieler (name+rolle außen oben): Rolle über Name
-  // Unten-Spieler (name+rolle außen unten): Name über Rolle
+  // Name + optionale Rolle, Reihenfolge je nach Position
   const NameBlock = () => (
     <div className="flex flex-col items-center">
       {!isBottom && (
-        <span className="text-white/70 text-[9px] leading-tight min-h-[11px] text-center">
+        <span className="text-white/70 leading-tight min-h-[11px] text-center"
+              style={{ fontSize: 'var(--tisch-text-sm)' }}>
           {roleLabel}
         </span>
       )}
-      <span className="text-white text-[11px] font-semibold leading-tight text-center max-w-[72px] truncate">
+      <span className="text-white font-semibold leading-tight text-center max-w-[72px] truncate"
+            style={{ fontSize: 'var(--tisch-text-md)' }}>
         {participant.players.name}
       </span>
       {isBottom && (
-        <span className="text-white/70 text-[9px] leading-tight min-h-[11px] text-center">
+        <span className="text-white/70 leading-tight min-h-[11px] text-center"
+              style={{ fontSize: 'var(--tisch-text-sm)' }}>
           {roleLabel}
         </span>
       )}
@@ -270,39 +281,44 @@ function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) 
       className="absolute"
       style={{ left: `${layout.x}%`, top: `${layout.y}%`, transform: 'translate(-50%, -50%)' }}
     >
-      {/* Cluster mit hellem Backdrop – feste Breite, Geber-Chip auf innerer Ecke */}
-      <div className="relative bg-white/15 rounded-2xl p-1.5 flex flex-col gap-0.5">
-
+      {/* Backdrop – extra Padding auf der Außenseite schafft Platz für den absoluten Toggle */}
+      <div
+        className="relative bg-white/15 rounded-2xl p-1.5 flex flex-col gap-0.5"
+        style={{
+          paddingLeft:  isLeft ? 'calc(var(--tisch-tog) + 10px)' : undefined,
+          paddingRight: isLeft ? undefined : 'calc(var(--tisch-tog) + 10px)',
+        }}
+      >
         {/* Geber-Chip auf der inneren Backdrop-Ecke (zur Tischmitte) */}
         {participant.isDealer && <GebChip side={side} vertical={vertical} />}
 
-        {/* Oben: Ansagen (Unten-Spieler, innen) ODER Name+Rolle (Oben-Spieler, außen) */}
+        {/* Toggle absolut in der äußeren Ecke: unten-außen (Unten-Spieler) / oben-außen (Oben-Spieler) */}
+        <div
+          className={`absolute ${isBottom ? 'bottom-1.5' : 'top-1.5'} ${isLeft ? 'left-1.5' : 'right-1.5'}`}
+          style={{ zIndex: 2 }}
+        >
+          <VerticalToggle playerId={playerId} party={party} onPartyChange={onPartyChange} />
+        </div>
+
+        {/* Oben: Ansagen (Unten-Spieler) ODER Name+Rolle (Oben-Spieler) */}
         {isBottom ? <AnnouncementRow /> : <NameBlock />}
 
-        {/* Mitte: Toggle + Avatar + Sonderpunkte */}
-        {/* Toggle ausgerichtet nach Spielerposition: unten → items-end, oben → items-start */}
-        <div className={`flex ${toggleAlign} gap-1.5 ${rowDir}`}>
-
-          <VerticalToggle playerId={playerId} party={party} onPartyChange={onPartyChange} />
-
-          <div className="relative shrink-0">
-            <button
-              onClick={() => onTap(playerId)}
-              className="rounded-full active:opacity-70 block"
-            >
-              <PlayerAvatar player={participant.players} size="md" />
-              {party && (
-                <span className={`absolute inset-0 rounded-full ring-2 pointer-events-none ${
-                  party === 're' ? 'ring-green-400' : 'ring-amber-400'
-                }`} />
-              )}
-            </button>
-          </div>
-
+        {/* Mitte: Avatar + Sonderpunkte (Toggle jetzt in äußerer Ecke, nicht mehr hier) */}
+        <div className={`flex items-center gap-1.5 ${rowDir}`}>
+          <button
+            onClick={() => onTap(playerId)}
+            className="rounded-full active:opacity-70 shrink-0 block"
+          >
+            <PlayerAvatar
+              player={participant.players}
+              size="md"
+              style={{ width: 'var(--tisch-av)', height: 'var(--tisch-av)' }}
+            />
+          </button>
           <SonderpunkteCol gameState={gameState} playerId={playerId} isLeft={isLeft} />
         </div>
 
-        {/* Unten: Name+Rolle (Unten-Spieler, außen) ODER Ansagen (Oben-Spieler, innen) */}
+        {/* Unten: Name+Rolle (Unten-Spieler) ODER Ansagen (Oben-Spieler) */}
         {isBottom ? <NameBlock /> : <AnnouncementRow />}
       </div>
     </div>
@@ -336,7 +352,11 @@ function CompactPlayer({ participant, layout, onTap }) {
           onClick={() => !isSitting && onTap(participant.player_id)}
           className={isSitting ? 'cursor-default' : 'active:opacity-70'}
         >
-          <PlayerAvatar player={participant.players} size="sm" />
+          <PlayerAvatar
+            player={participant.players}
+            size="sm"
+            style={{ width: 'var(--tisch-av-sm)', height: 'var(--tisch-av-sm)' }}
+          />
         </button>
         {participant.isDealer && <GebChip side={side} vertical={vertical} />}
       </div>
@@ -609,9 +629,25 @@ export default function SessionPage() {
       </header>
 
       {/* ─── Filztisch ───────────────────────────────────────────────────── */}
+      {/* CSS-Variablen steuern alle fixen Pixel-Größen im Tisch per clamp().
+          Formel: clamp(min_375px, referenzwert_vw, max_ab_~550px)
+          Referenz: iPhone 15 = 390px. Nur der Tisch ist fluid – Sheet/Header/EyesBar nicht. */}
       <main
         className="flex-1 relative overflow-hidden"
-        style={{ backgroundColor: '#2d5a27' }}
+        style={{
+          backgroundColor: '#2d5a27',
+          '--tisch-av':       'clamp(44px, 14.4vw, 80px)',
+          '--tisch-av-sm':    'clamp(32px, 10.3vw, 58px)',
+          '--tisch-tog':      'clamp(22px, 7.2vw, 40px)',
+          '--tisch-sp-col':   'clamp(24px, 7.7vw, 44px)',
+          '--tisch-sp-bdg':   'clamp(11px, 3.6vw, 20px)',
+          '--tisch-ann':      'clamp(13px, 4.1vw, 23px)',
+          '--tisch-geb':      'clamp(18px, 6.2vw, 36px)',
+          '--tisch-text-xs':  'clamp(6px, 2.1vw, 12px)',
+          '--tisch-text-sm':  'clamp(7px, 2.3vw, 13px)',
+          '--tisch-text-md':  'clamp(9px, 2.8vw, 16px)',
+          '--tisch-text-tog': 'clamp(8px, 2.6vw, 15px)',
+        }}
       >
         {participants.map(p => {
           const layout = getTablePosition(p.seat_position, participants.length)

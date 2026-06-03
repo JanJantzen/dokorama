@@ -307,12 +307,15 @@ export default function PlayerSheet({
           transform: `translateY(${dragY}px)`,
           transition: isDragging ? 'none' : 'transform 0.25s ease',
         }}
-        onTouchStart={onDragStart}
-        onTouchMove={onDragMove}
-        onTouchEnd={onDragEnd}
       >
-
-        <div className="flex justify-center pt-3 pb-1 shrink-0">
+        {/* Drag-Handle: Touch-Events nur hier, nicht auf dem ganzen Sheet.
+            So reagieren Buttons im Content-Bereich sofort ohne Drag-Verzögerung. */}
+        <div
+          className="flex justify-center pt-3 pb-1 shrink-0 cursor-grab active:cursor-grabbing"
+          onTouchStart={onDragStart}
+          onTouchMove={onDragMove}
+          onTouchEnd={onDragEnd}
+        >
           <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
         </div>
 
@@ -530,11 +533,14 @@ export default function PlayerSheet({
               transform: `translateY(${subDragY}px)`,
               transition: isSubDragging ? 'none' : 'transform 0.25s ease',
             }}
-            onTouchStart={onSubDragStart}
-            onTouchMove={onSubDragMove}
-            onTouchEnd={onSubDragEnd}
           >
-            <div className="flex justify-center pt-3 pb-1 shrink-0">
+            {/* Drag-Handle Sub-Flow: Touch-Events nur auf dem Handle */}
+            <div
+              className="flex justify-center pt-3 pb-1 shrink-0 cursor-grab active:cursor-grabbing"
+              onTouchStart={onSubDragStart}
+              onTouchMove={onSubDragMove}
+              onTouchEnd={onSubDragEnd}
+            >
               <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
             </div>
             <div className="flex items-center justify-end px-4 py-2 border-b border-border shrink-0">

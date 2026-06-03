@@ -10,29 +10,29 @@
 
 const TABLE_POSITIONS = {
   4: [
-    { x: 18, y: 86, side: 'left',  vertical: 'bottom' }, // Sitz 1: unten links  (Ecke)
-    { x: 82, y: 86, side: 'right', vertical: 'bottom' }, // Sitz 2: unten rechts (Ecke)
+    { x: 18, y: 80, side: 'left',  vertical: 'bottom' }, // Sitz 1: unten links  (Ecke)
+    { x: 82, y: 80, side: 'right', vertical: 'bottom' }, // Sitz 2: unten rechts (Ecke)
     { x: 82, y: 14, side: 'right', vertical: 'top'    }, // Sitz 3: oben rechts  (Ecke)
     { x: 18, y: 14, side: 'left',  vertical: 'top'    }, // Sitz 4: oben links   (Ecke)
   ],
   5: [
-    { x: 18, y: 86, side: 'left',  vertical: 'bottom' },
-    { x: 82, y: 86, side: 'right', vertical: 'bottom' },
+    { x: 18, y: 80, side: 'left',  vertical: 'bottom' },
+    { x: 82, y: 80, side: 'right', vertical: 'bottom' },
     { x: 82, y: 14, side: 'right', vertical: 'top'    },
     { x: 18, y: 14, side: 'left',  vertical: 'top'    },
     { x:  6, y: 50, side: 'left',  vertical: 'middle' }, // Sitz 5: links mitte  (Aussetzer-Slot)
   ],
   6: [
-    { x: 18, y: 86, side: 'left',  vertical: 'bottom' },
-    { x: 82, y: 86, side: 'right', vertical: 'bottom' },
+    { x: 18, y: 80, side: 'left',  vertical: 'bottom' },
+    { x: 82, y: 80, side: 'right', vertical: 'bottom' },
     { x: 82, y: 14, side: 'right', vertical: 'top'    },
     { x: 18, y: 14, side: 'left',  vertical: 'top'    },
     { x:  6, y: 50, side: 'left',  vertical: 'middle' },
     { x: 50, y:  8, side: 'top',   vertical: 'top'    }, // Sitz 6: oben mitte   (Aussetzer-Slot)
   ],
   7: [
-    { x: 18, y: 86, side: 'left',  vertical: 'bottom' },
-    { x: 82, y: 86, side: 'right', vertical: 'bottom' },
+    { x: 18, y: 80, side: 'left',  vertical: 'bottom' },
+    { x: 82, y: 80, side: 'right', vertical: 'bottom' },
     { x: 82, y: 14, side: 'right', vertical: 'top'    },
     { x: 18, y: 14, side: 'left',  vertical: 'top'    },
     { x:  6, y: 50, side: 'left',  vertical: 'middle' },
