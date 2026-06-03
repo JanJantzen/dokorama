@@ -112,8 +112,8 @@ function SpBadge({ label, color }) {
 }
 
 // Sonderpunkte-Spalte neben dem Avatar (4 feste Zeilen, max. 2 Icons pro Zeile)
-// Reihenfolge: Karlchen (letzter Stich) / Fuchs / Doko 1+2 / Doko 3+4
-// Wird ABSOLUT neben dem Cluster positioniert → beeinflusst nie die Cluster-Breite
+// Reihenfolge: Karlchen / Fuchs / Doko 1+2 / Doko 3+4
+// Feste Breite (30px) und feste Zeilenhöhe → Cluster wächst nie mit dem Inhalt
 function SonderpunkteCol({ gameState, playerId, isLeft }) {
   const sp = gameState.specialPoints
   const karlGemacht  = sp.filter(s => s.type === 'karlchen_gemacht'  && s.earnerId === playerId)
@@ -123,10 +123,11 @@ function SonderpunkteCol({ gameState, playerId, isLeft }) {
   const lostFuchs    = sp.filter(s => s.type === 'fuchs_gefangen'    && s.loserId  === playerId)
   const dokoPoints   = sp.filter(s => s.type === 'doppelkopf'        && s.earnerId === playerId)
   const rowDir = isLeft ? 'flex-row' : 'flex-row-reverse'
-  const ROW = `flex ${rowDir} gap-0.5 min-h-[14px] items-center`
+  // Jede Zeile: exakt 14px hoch, 2 Slots à 14px + 2px Gap = 30px breit (immer fix)
+  const ROW = `flex ${rowDir} gap-0.5 h-[14px] items-center`
 
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex flex-col gap-0.5 shrink-0" style={{ width: 30 }}>
       {/* Zeile 1: Karlchen (füllt sich erst im letzten Stich) */}
       <div className={ROW}>
         {karlVerloren.length > 0
@@ -239,50 +240,37 @@ function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) 
       className="absolute"
       style={{ left: `${layout.x}%`, top: `${layout.y}%`, transform: 'translate(-50%, -50%)' }}
     >
-      {/* Relativer Wrapper: Bezugspunkt für die absolut positionierten Sonderpunkte */}
-      <div className="relative">
+      {/* Cluster mit hellem Backdrop – feste Breite durch fixen Toggle + Avatar + Sonderpunkte */}
+      <div className="bg-white/15 rounded-2xl p-1.5 flex flex-col gap-0.5">
 
-        {/* Sonderpunkte: absolut, auf der Innenseite des Clusters, vertikal zentriert */}
-        <div
-          className="absolute top-1/2 -translate-y-1/2"
-          style={isLeft
-            ? { left: '100%', marginLeft: '5px' }
-            : { right: '100%', marginRight: '5px' }
-          }
-        >
+        {/* Oben: Ansagen (Unten-Spieler, innen) ODER Name+Rolle (Oben-Spieler, außen) */}
+        {isBottom ? <AnnouncementRow /> : <NameBlock />}
+
+        {/* Mitte: Toggle + Avatar + Sonderpunkte (alle mit fixer Breite) */}
+        <div className={`flex items-center gap-1.5 ${rowDir}`}>
+
+          <VerticalToggle playerId={playerId} party={party} onPartyChange={onPartyChange} />
+
+          <div className="relative shrink-0">
+            <button
+              onClick={() => onTap(playerId)}
+              className="rounded-full active:opacity-70 block"
+            >
+              <PlayerAvatar player={participant.players} size="md" />
+              {party && (
+                <span className={`absolute inset-0 rounded-full ring-2 pointer-events-none ${
+                  party === 're' ? 'ring-green-400' : 'ring-amber-400'
+                }`} />
+              )}
+            </button>
+            {participant.isDealer && <GebChip side={side} vertical={vertical} />}
+          </div>
+
           <SonderpunkteCol gameState={gameState} playerId={playerId} isLeft={isLeft} />
         </div>
 
-        {/* Haupt-Cluster mit hellem Backdrop */}
-        <div className="bg-white/15 rounded-2xl p-1.5 flex flex-col gap-0.5">
-
-          {/* Oben: Ansagen (Unten-Spieler, innen) ODER Name+Rolle (Oben-Spieler, außen) */}
-          {isBottom ? <AnnouncementRow /> : <NameBlock />}
-
-          {/* Mitte: Toggle + Avatar */}
-          <div className={`flex items-center gap-1.5 ${rowDir}`}>
-
-            <VerticalToggle playerId={playerId} party={party} onPartyChange={onPartyChange} />
-
-            <div className="relative shrink-0">
-              <button
-                onClick={() => onTap(playerId)}
-                className="rounded-full active:opacity-70 block"
-              >
-                <PlayerAvatar player={participant.players} size="md" />
-                {party && (
-                  <span className={`absolute inset-0 rounded-full ring-2 pointer-events-none ${
-                    party === 're' ? 'ring-green-400' : 'ring-amber-400'
-                  }`} />
-                )}
-              </button>
-              {participant.isDealer && <GebChip side={side} vertical={vertical} />}
-            </div>
-          </div>
-
-          {/* Unten: Name+Rolle (Unten-Spieler, außen) ODER Ansagen (Oben-Spieler, innen) */}
-          {isBottom ? <NameBlock /> : <AnnouncementRow />}
-        </div>
+        {/* Unten: Name+Rolle (Unten-Spieler, außen) ODER Ansagen (Oben-Spieler, innen) */}
+        {isBottom ? <NameBlock /> : <AnnouncementRow />}
       </div>
     </div>
   )
