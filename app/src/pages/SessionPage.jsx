@@ -111,30 +111,24 @@ function SpBadge({ label, color }) {
   )
 }
 
-// Sonderpunkte-Spalte neben dem Avatar (3 feste Zeilen)
+// Sonderpunkte-Spalte neben dem Avatar (4 feste Zeilen, max. 2 Icons pro Zeile)
+// Reihenfolge: Karlchen (letzter Stich) / Fuchs / Doko 1+2 / Doko 3+4
+// Wird ABSOLUT neben dem Cluster positioniert → beeinflusst nie die Cluster-Breite
 function SonderpunkteCol({ gameState, playerId, isLeft }) {
   const sp = gameState.specialPoints
-  const earnedFuchs   = sp.filter(s => s.type === 'fuchs_gefangen'    && s.earnerId === playerId)
-  const lostFuchs     = sp.filter(s => s.type === 'fuchs_gefangen'    && s.loserId  === playerId)
-  const dokoPoints    = sp.filter(s => s.type === 'doppelkopf'        && s.earnerId === playerId)
-  const karlGemacht   = sp.filter(s => s.type === 'karlchen_gemacht'  && s.earnerId === playerId)
-  const karlGefangen  = sp.filter(s => s.type === 'karlchen_gefangen' && s.earnerId === playerId)
-  const karlVerloren  = sp.filter(s => s.type === 'karlchen_gefangen' && s.loserId  === playerId)
+  const karlGemacht  = sp.filter(s => s.type === 'karlchen_gemacht'  && s.earnerId === playerId)
+  const karlGefangen = sp.filter(s => s.type === 'karlchen_gefangen' && s.earnerId === playerId)
+  const karlVerloren = sp.filter(s => s.type === 'karlchen_gefangen' && s.loserId  === playerId)
+  const earnedFuchs  = sp.filter(s => s.type === 'fuchs_gefangen'    && s.earnerId === playerId)
+  const lostFuchs    = sp.filter(s => s.type === 'fuchs_gefangen'    && s.loserId  === playerId)
+  const dokoPoints   = sp.filter(s => s.type === 'doppelkopf'        && s.earnerId === playerId)
   const rowDir = isLeft ? 'flex-row' : 'flex-row-reverse'
+  const ROW = `flex ${rowDir} gap-0.5 min-h-[14px] items-center`
 
   return (
     <div className="flex flex-col gap-0.5">
-      {/* Zeile 1: Fuchs */}
-      <div className={`flex ${rowDir} gap-0.5 min-h-[16px] items-center`}>
-        {earnedFuchs.map(s => <SpBadge key={s.id} label="F"  color="green" />)}
-        {lostFuchs.map(s   => <SpBadge key={s.id} label="Fv" color="red"   />)}
-      </div>
-      {/* Zeile 2: Doppelkopf */}
-      <div className={`flex ${rowDir} gap-0.5 min-h-[16px] items-center`}>
-        {dokoPoints.map(s => <SpBadge key={s.id} label="D" color="neutral" />)}
-      </div>
-      {/* Zeile 3: Karlchen (verloren = alleine, sonst gemacht + gefangen) */}
-      <div className={`flex ${rowDir} gap-0.5 min-h-[16px] items-center`}>
+      {/* Zeile 1: Karlchen (füllt sich erst im letzten Stich) */}
+      <div className={ROW}>
         {karlVerloren.length > 0
           ? karlVerloren.map(s => <SpBadge key={s.id} label="Kv" color="red" />)
           : <>
@@ -142,6 +136,19 @@ function SonderpunkteCol({ gameState, playerId, isLeft }) {
               {karlGefangen.map(s => <SpBadge key={s.id} label="Kg" color="green" />)}
             </>
         }
+      </div>
+      {/* Zeile 2: Fuchs */}
+      <div className={ROW}>
+        {earnedFuchs.map(s => <SpBadge key={s.id} label="F"  color="green" />)}
+        {lostFuchs.map(s   => <SpBadge key={s.id} label="Fv" color="red"   />)}
+      </div>
+      {/* Zeile 3: Doko 1+2 */}
+      <div className={ROW}>
+        {dokoPoints.slice(0, 2).map(s => <SpBadge key={s.id} label="D" color="neutral" />)}
+      </div>
+      {/* Zeile 4: Doko 3+4 */}
+      <div className={ROW}>
+        {dokoPoints.slice(2, 4).map(s => <SpBadge key={s.id} label="D" color="neutral" />)}
       </div>
     </div>
   )
@@ -195,6 +202,7 @@ function GebChip({ side, vertical }) {
 }
 
 // Vollständiger aktiver Spieler-Cluster (Ecke)
+// Sonderpunkte werden ABSOLUT neben dem Cluster positioniert – wachsen nie in den Bildrand
 function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) {
   const { side, vertical } = layout
   const isLeft   = side === 'left'
@@ -205,20 +213,19 @@ function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) 
   const role     = gameState.specialRoles[playerId]
   const roleLabel = getRoleLabel(role, gameState.soloType)
   const activeAnns = ANNOUNCEMENT_ORDER.filter(t => anns.includes(t))
-
   const rowDir = isLeft ? 'flex-row' : 'flex-row-reverse'
 
-  // Ansagen-Zeile (immer gleiche min-Höhe, auch wenn leer)
+  // Ansagen-Zeile mit fester Mindesthöhe (immer Platz reserviert, auch wenn leer)
   const AnnouncementRow = () => (
     <div className={`flex ${rowDir} gap-0.5 min-h-[16px] items-center`}>
       {activeAnns.map(t => <AnnBadge key={t} type={t} />)}
     </div>
   )
 
-  // Name + Rolle (immer gleiche Höhe, auch wenn Rolle leer)
+  // Name + Rolle mit fester Mindesthöhe (Rolle reserviert Platz auch wenn leer)
   const NameBlock = () => (
-    <div className="flex flex-col items-center" style={{ minWidth: 44 }}>
-      <span className="text-white text-[11px] font-semibold leading-tight text-center max-w-[70px] truncate">
+    <div className="flex flex-col items-center">
+      <span className="text-white text-[11px] font-semibold leading-tight text-center max-w-[72px] truncate">
         {participant.players.name}
       </span>
       <span className="text-white/70 text-[9px] leading-tight min-h-[11px]">
@@ -232,36 +239,50 @@ function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) 
       className="absolute"
       style={{ left: `${layout.x}%`, top: `${layout.y}%`, transform: 'translate(-50%, -50%)' }}
     >
-      <div className="bg-black/25 rounded-2xl p-1.5 flex flex-col gap-0.5">
+      {/* Relativer Wrapper: Bezugspunkt für die absolut positionierten Sonderpunkte */}
+      <div className="relative">
 
-        {/* Oben: Ansagen (für Unten-Spieler) ODER Name+Rolle (für Oben-Spieler) */}
-        {isBottom ? <AnnouncementRow /> : <NameBlock />}
-
-        {/* Mitte: Toggle | Avatar | Sonderpunkte */}
-        <div className={`flex items-center gap-1.5 ${rowDir}`}>
-
-          <VerticalToggle playerId={playerId} party={party} onPartyChange={onPartyChange} />
-
-          <div className="relative shrink-0">
-            <button
-              onClick={() => onTap(playerId)}
-              className="rounded-full active:opacity-70 block"
-            >
-              <PlayerAvatar player={participant.players} size="md" />
-              {party && (
-                <span className={`absolute inset-0 rounded-full ring-2 pointer-events-none ${
-                  party === 're' ? 'ring-green-400' : 'ring-amber-400'
-                }`} />
-              )}
-            </button>
-            {participant.isDealer && <GebChip side={side} vertical={vertical} />}
-          </div>
-
+        {/* Sonderpunkte: absolut, auf der Innenseite des Clusters, vertikal zentriert */}
+        <div
+          className="absolute top-1/2 -translate-y-1/2"
+          style={isLeft
+            ? { left: '100%', marginLeft: '5px' }
+            : { right: '100%', marginRight: '5px' }
+          }
+        >
           <SonderpunkteCol gameState={gameState} playerId={playerId} isLeft={isLeft} />
         </div>
 
-        {/* Unten: Name+Rolle (für Unten-Spieler) ODER Ansagen (für Oben-Spieler) */}
-        {isBottom ? <NameBlock /> : <AnnouncementRow />}
+        {/* Haupt-Cluster mit hellem Backdrop */}
+        <div className="bg-white/15 rounded-2xl p-1.5 flex flex-col gap-0.5">
+
+          {/* Oben: Ansagen (Unten-Spieler, innen) ODER Name+Rolle (Oben-Spieler, außen) */}
+          {isBottom ? <AnnouncementRow /> : <NameBlock />}
+
+          {/* Mitte: Toggle + Avatar */}
+          <div className={`flex items-center gap-1.5 ${rowDir}`}>
+
+            <VerticalToggle playerId={playerId} party={party} onPartyChange={onPartyChange} />
+
+            <div className="relative shrink-0">
+              <button
+                onClick={() => onTap(playerId)}
+                className="rounded-full active:opacity-70 block"
+              >
+                <PlayerAvatar player={participant.players} size="md" />
+                {party && (
+                  <span className={`absolute inset-0 rounded-full ring-2 pointer-events-none ${
+                    party === 're' ? 'ring-green-400' : 'ring-amber-400'
+                  }`} />
+                )}
+              </button>
+              {participant.isDealer && <GebChip side={side} vertical={vertical} />}
+            </div>
+          </div>
+
+          {/* Unten: Name+Rolle (Unten-Spieler, außen) ODER Ansagen (Oben-Spieler, innen) */}
+          {isBottom ? <NameBlock /> : <AnnouncementRow />}
+        </div>
       </div>
     </div>
   )
@@ -531,7 +552,7 @@ export default function SessionPage() {
   const isCornerSeat = (seatPos) => seatPos <= 4
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col select-none">
+    <div className="overflow-hidden flex flex-col select-none" style={{ height: '100dvh' }}>
 
       {/* ─── Header ─────────────────────────────────────────────────────── */}
       <header className="shrink-0 flex items-center justify-between px-4 pt-12 pb-3 bg-background border-b border-border z-10">

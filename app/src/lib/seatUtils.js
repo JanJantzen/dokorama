@@ -10,34 +10,34 @@
 
 const TABLE_POSITIONS = {
   4: [
-    { x: 16, y: 74, side: 'left',  vertical: 'bottom' }, // Sitz 1: unten links  (Ecke)
-    { x: 84, y: 74, side: 'right', vertical: 'bottom' }, // Sitz 2: unten rechts (Ecke)
-    { x: 84, y: 26, side: 'right', vertical: 'top'    }, // Sitz 3: oben rechts  (Ecke)
-    { x: 16, y: 26, side: 'left',  vertical: 'top'    }, // Sitz 4: oben links   (Ecke)
+    { x: 18, y: 78, side: 'left',  vertical: 'bottom' }, // Sitz 1: unten links  (Ecke)
+    { x: 82, y: 78, side: 'right', vertical: 'bottom' }, // Sitz 2: unten rechts (Ecke)
+    { x: 82, y: 22, side: 'right', vertical: 'top'    }, // Sitz 3: oben rechts  (Ecke)
+    { x: 18, y: 22, side: 'left',  vertical: 'top'    }, // Sitz 4: oben links   (Ecke)
   ],
   5: [
-    { x: 16, y: 74, side: 'left',  vertical: 'bottom' },
-    { x: 84, y: 74, side: 'right', vertical: 'bottom' },
-    { x: 84, y: 26, side: 'right', vertical: 'top'    },
-    { x: 16, y: 26, side: 'left',  vertical: 'top'    },
-    { x:  5, y: 50, side: 'left',  vertical: 'middle' }, // Sitz 5: links mitte  (Aussetzer-Slot)
+    { x: 18, y: 78, side: 'left',  vertical: 'bottom' },
+    { x: 82, y: 78, side: 'right', vertical: 'bottom' },
+    { x: 82, y: 22, side: 'right', vertical: 'top'    },
+    { x: 18, y: 22, side: 'left',  vertical: 'top'    },
+    { x:  6, y: 50, side: 'left',  vertical: 'middle' }, // Sitz 5: links mitte  (Aussetzer-Slot)
   ],
   6: [
-    { x: 16, y: 74, side: 'left',  vertical: 'bottom' },
-    { x: 84, y: 74, side: 'right', vertical: 'bottom' },
-    { x: 84, y: 26, side: 'right', vertical: 'top'    },
-    { x: 16, y: 26, side: 'left',  vertical: 'top'    },
-    { x:  5, y: 50, side: 'left',  vertical: 'middle' },
-    { x: 50, y:  7, side: 'top',   vertical: 'top'    }, // Sitz 6: oben mitte   (Aussetzer-Slot)
+    { x: 18, y: 78, side: 'left',  vertical: 'bottom' },
+    { x: 82, y: 78, side: 'right', vertical: 'bottom' },
+    { x: 82, y: 22, side: 'right', vertical: 'top'    },
+    { x: 18, y: 22, side: 'left',  vertical: 'top'    },
+    { x:  6, y: 50, side: 'left',  vertical: 'middle' },
+    { x: 50, y:  8, side: 'top',   vertical: 'top'    }, // Sitz 6: oben mitte   (Aussetzer-Slot)
   ],
   7: [
-    { x: 16, y: 74, side: 'left',  vertical: 'bottom' },
-    { x: 84, y: 74, side: 'right', vertical: 'bottom' },
-    { x: 84, y: 26, side: 'right', vertical: 'top'    },
-    { x: 16, y: 26, side: 'left',  vertical: 'top'    },
-    { x:  5, y: 50, side: 'left',  vertical: 'middle' },
-    { x: 50, y:  7, side: 'top',   vertical: 'top'    },
-    { x: 95, y: 50, side: 'right', vertical: 'middle' }, // Sitz 7: rechts mitte (Aussetzer-Slot)
+    { x: 18, y: 78, side: 'left',  vertical: 'bottom' },
+    { x: 82, y: 78, side: 'right', vertical: 'bottom' },
+    { x: 82, y: 22, side: 'right', vertical: 'top'    },
+    { x: 18, y: 22, side: 'left',  vertical: 'top'    },
+    { x:  6, y: 50, side: 'left',  vertical: 'middle' },
+    { x: 50, y:  8, side: 'top',   vertical: 'top'    },
+    { x: 94, y: 50, side: 'right', vertical: 'middle' }, // Sitz 7: rechts mitte (Aussetzer-Slot)
   ],
 }
 
