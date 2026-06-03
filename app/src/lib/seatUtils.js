@@ -1,71 +1,63 @@
 // seatUtils.js – Berechnung von Sitzpositionen, Geber-Rotation, Aussetzern und Tischpositionen
+//
+// Tisch-Layout-Prinzip:
+//   Sitze 1–4: immer die vier Ecken (unabhängig von Spielerzahl)
+//   Sitze 5–7: Aussetzer-Slots an der linken, oberen, rechten Kante (mittig)
+//
+// Jede Position hat Layout-Metadaten:
+//   side:     'left' | 'right' | 'top'  → wo der Toggle sitzt / Sonderpunkte auf Gegenseite
+//   vertical: 'top' | 'bottom' | 'middle' → ob Name oben/unten, Ansagen oben/unten
 
-// Tischpositionen als Prozentwerte (x, y) für absolute Positionierung im Tischbereich.
-// Position 1 = unten links, dann im Uhrzeigersinn.
-// x/y zeigen auf den MITTELPUNKT des Avatar-Elements (transform: translate(-50%,-50%)).
 const TABLE_POSITIONS = {
   4: [
-    { x: 14, y: 76 },  // Pos 1: unten links   (Ecke)
-    { x: 82, y: 76 },  // Pos 2: unten rechts  (Ecke)
-    { x: 82, y: 16 },  // Pos 3: oben rechts   (Ecke)
-    { x: 14, y: 16 },  // Pos 4: oben links    (Ecke)
+    { x: 16, y: 74, side: 'left',  vertical: 'bottom' }, // Sitz 1: unten links  (Ecke)
+    { x: 84, y: 74, side: 'right', vertical: 'bottom' }, // Sitz 2: unten rechts (Ecke)
+    { x: 84, y: 26, side: 'right', vertical: 'top'    }, // Sitz 3: oben rechts  (Ecke)
+    { x: 16, y: 26, side: 'left',  vertical: 'top'    }, // Sitz 4: oben links   (Ecke)
   ],
   5: [
-    { x: 14, y: 76 },  // Pos 1: unten links   (Ecke)
-    { x: 82, y: 76 },  // Pos 2: unten rechts  (Ecke)
-    { x: 82, y: 16 },  // Pos 3: oben rechts   (Ecke)
-    { x: 48, y:  6 },  // Pos 4: oben mitte    (zwischen Ecken)
-    { x: 14, y: 16 },  // Pos 5: oben links    (Ecke)
+    { x: 16, y: 74, side: 'left',  vertical: 'bottom' },
+    { x: 84, y: 74, side: 'right', vertical: 'bottom' },
+    { x: 84, y: 26, side: 'right', vertical: 'top'    },
+    { x: 16, y: 26, side: 'left',  vertical: 'top'    },
+    { x:  5, y: 50, side: 'left',  vertical: 'middle' }, // Sitz 5: links mitte  (Aussetzer-Slot)
   ],
   6: [
-    { x: 14, y: 76 },  // Pos 1: unten links   (Ecke)
-    { x: 48, y: 89 },  // Pos 2: unten mitte   (zwischen Ecken)
-    { x: 82, y: 76 },  // Pos 3: unten rechts  (Ecke)
-    { x: 82, y: 16 },  // Pos 4: oben rechts   (Ecke)
-    { x: 48, y:  6 },  // Pos 5: oben mitte    (zwischen Ecken)
-    { x: 14, y: 16 },  // Pos 6: oben links    (Ecke)
+    { x: 16, y: 74, side: 'left',  vertical: 'bottom' },
+    { x: 84, y: 74, side: 'right', vertical: 'bottom' },
+    { x: 84, y: 26, side: 'right', vertical: 'top'    },
+    { x: 16, y: 26, side: 'left',  vertical: 'top'    },
+    { x:  5, y: 50, side: 'left',  vertical: 'middle' },
+    { x: 50, y:  7, side: 'top',   vertical: 'top'    }, // Sitz 6: oben mitte   (Aussetzer-Slot)
   ],
   7: [
-    { x: 14, y: 76 },  // Pos 1: unten links   (Ecke)
-    { x: 48, y: 89 },  // Pos 2: unten mitte   (zwischen Ecken)
-    { x: 82, y: 76 },  // Pos 3: unten rechts  (Ecke)
-    { x: 93, y: 46 },  // Pos 4: rechts mitte  (zwischen Ecken)
-    { x: 82, y: 16 },  // Pos 5: oben rechts   (Ecke)
-    { x: 48, y:  6 },  // Pos 6: oben mitte    (zwischen Ecken)
-    { x: 14, y: 16 },  // Pos 7: oben links    (Ecke)
+    { x: 16, y: 74, side: 'left',  vertical: 'bottom' },
+    { x: 84, y: 74, side: 'right', vertical: 'bottom' },
+    { x: 84, y: 26, side: 'right', vertical: 'top'    },
+    { x: 16, y: 26, side: 'left',  vertical: 'top'    },
+    { x:  5, y: 50, side: 'left',  vertical: 'middle' },
+    { x: 50, y:  7, side: 'top',   vertical: 'top'    },
+    { x: 95, y: 50, side: 'right', vertical: 'middle' }, // Sitz 7: rechts mitte (Aussetzer-Slot)
   ],
 }
 
-// Gibt die Tischposition für eine Sitzposition zurück
+// Gibt die vollständige Layout-Konfiguration für eine Sitzposition zurück
 export function getTablePosition(seatPosition, totalPlayers) {
   const positions = TABLE_POSITIONS[totalPlayers] ?? TABLE_POSITIONS[4]
-  return positions[seatPosition - 1] // Sitzposition ist 1-basiert
+  return positions[seatPosition - 1] ?? positions[0]
 }
 
-// Berechnet für ein bestimmtes Spiel einer Runde:
-// - wer der Geber ist (Sitzposition rotiert)
-// - wer aussetzt (abhängig von Spielerzahl)
-//
-// Gibt das participants-Array zurück, erweitert um isDealer und isSitting
+// Berechnet für ein bestimmtes Spiel einer Runde wer Geber ist und wer aussetzt
 export function calcSeatStatus(participants, gameNumber) {
   const n = participants.length
-
-  // Der Geber rotiert: Spiel 1 → Sitzpos 1, Spiel 2 → Sitzpos 2, etc.
   const dealerSeatPos = ((gameNumber - 1) % n) + 1
 
-  // Aussetzer-Positionen abhängig von Spielerzahl (aus CLAUDE.md Abschnitt 5)
   let sittingPositions = []
   if (n === 5) {
-    // Bei 5 Spieler:innen sitzt der/die Geber:in aus
     sittingPositions = [dealerSeatPos]
   } else if (n === 6) {
-    // Bei 6: Geber:in und übernächste Position
-    sittingPositions = [
-      dealerSeatPos,
-      ((dealerSeatPos - 1 + 2) % n) + 1,
-    ]
+    sittingPositions = [dealerSeatPos, ((dealerSeatPos - 1 + 2) % n) + 1]
   } else if (n === 7) {
-    // Bei 7: drei Positionen gleichmäßig verteilt
     sittingPositions = [
       dealerSeatPos,
       ((dealerSeatPos - 1 + 2) % n) + 1,

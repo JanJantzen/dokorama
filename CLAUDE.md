@@ -888,22 +888,37 @@ Werden **rein per CSS/Text** gebaut – kein Custom-SVG nötig. Die App rendert 
 | Keine 30 | K3         | Muted (wenn aktiv)      |
 | Schwarz  | Sz         | Muted (wenn aktiv)      |
 
-### Sonderpunkte-Icons (Tisch-Ansicht als Badge, Sheet als Button)
+### Sonderpunkte-Icons
 
-Diese 4 Icons werden als SVG von Jan geliefert:
+**5 Icons gesamt – dieselben in Sheet und Tischansicht.** Im Sheet sind „verloren"-Varianten nicht anwählbar, erscheinen dort aber automatisch bei der Gegenseite (abgeleitet aus `loser_id`).
 
-| Icon               | Dateiname                    | Was es zeigen soll                        | Platzhalter-Text |
-|--------------------|------------------------------|-------------------------------------------|-----------------|
-| Fuchs              | `icon-fuchs.svg`             | Stilisierter Fuchs (Emoji 🦊 ggf. ok)    | F               |
-| Karlchen gemacht   | `icon-karlchen-gemacht.svg`  | Kreuz-Bube / ♣ mit Häkchen               | Km              |
-| Karlchen gefangen  | `icon-karlchen-gefangen.svg` | Kreuz-Bube / ♣ mit X                     | Kg              |
-| Doppelkopf         | `icon-doppelkopf.svg`        | Münzen-Stack oder Punkte-Symbol           | D               |
+| Icon | Dateiname | Was es zeigen soll | Platzhalter | Farbe in der App |
+|---|---|---|---|---|
+| Fuchs | `icon-fuchs.svg` | Stilisierter Fuchs – wer ihn gefangen hat | F | grün |
+| Gefangener Fuchs | `icon-fuchs-verloren.svg` | Fuchs hinter Gittern oder durchgestrichen – wem er abgenommen wurde | Fv | rot |
+| Doppelkopf | `icon-doppelkopf.svg` | Münzen-Stack oder Punkte-Symbol | D | neutral |
+| Karlchen | `icon-karlchen.svg` | Kreuz-Bube Karte – wer den letzten Stich damit gemacht hat | K | grün |
+| Gefangenes Karlchen | `icon-karlchen-gefangen.svg` | Kreuz-Bube hinter Gittern oder durchgestrichen | Kg | grün (Fänger) / rot (Verlierer) |
 
-**Wichtig:** SVGs müssen `currentColor` nutzen (kein hardcodiertes Schwarz o.ä.), damit die App die Farbe je nach Kontext (aktiv/inaktiv, Re/Kontra) setzen kann.
+**Farblogik (via `currentColor` in CSS):**
+- Positiv (gefangen, gemacht): grün
+- Negativ (verloren): rot
+- Das gefangene Karlchen-Icon wird für beide Rollen genutzt – Farbe unterscheidet Fänger (grün) von Verlierer (rot)
+
+**Wichtig:** SVGs müssen `currentColor` nutzen – kein hardcodiertes Schwarz, damit die App die Farbe je nach Kontext setzen kann.
 
 ### Sonderspiel-Labels (Tisch-Ansicht)
 
 Sonderspiele (Solo, Hochzeit, Armut) werden auf dem Tisch als **Textlabel** angezeigt – kein Icon nötig.
+
+### Hintergrundbilder für Austragungsorte
+
+- **Format:** JPEG oder WebP (kleinere Dateigröße als PNG)
+- **Mindestgröße:** 800×1400px (2× Auflösung für Retina-Displays)
+- **Seitenverhältnis:** Beliebig – App verwendet `background-size: cover` und `background-position: center`
+- **Ablageort:** Supabase Storage, Bucket `venue-images`, Dateinamen `{venue_id}.jpg`
+- **Default:** Einfarbiges Filzgrün (`#2d5a27`) wenn kein Bild vorhanden
+- **Anwendung:** Nur im Tischbereich (zwischen Header und EyesBar), nicht im Header oder der EyesBar selbst
 
 ### Platzhalter bis zur Icon-Lieferung
 

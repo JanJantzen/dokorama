@@ -1,7 +1,12 @@
-// SessionPage – Vollbild-Erfassungsscreen für eine aktive Partie
-// Lädt Session + aktuelle Runde + Teilnehmer aus Supabase.
-// Verwaltet den gesamten Spielzustand lokal bis zur Bestätigung.
-// Keine Tab-Bar – maximale Fläche für die Spielerfassung.
+// SessionPage – Vollbild-Erfassungsscreen
+//
+// Aufbau (nie scrollbar):
+//   Header      – fix oben: Partie-Info + Trophy + Hamburger-Menü
+//   Filztisch   – füllt den Rest: Spieler absolut positioniert
+//   EyesBar     – fix unten: Augeneingabe + Auswerten-Button
+//
+// Tisch-Layout: 4 aktive Spieler in den Ecken, bis zu 3 Aussetzer an den Kanten.
+// Jeder Spieler-Cluster hat eine unveränderliche Position – nichts springt.
 
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -12,13 +17,33 @@ import PlayerAvatar from '@/components/ui/PlayerAvatar'
 import PlayerSheet from '@/components/session/PlayerSheet'
 import EyesBar from '@/components/session/EyesBar'
 import EvaluationView from '@/components/session/EvaluationView'
-import { Trophy, ArrowLeft } from 'lucide-react'
+import { Trophy, Menu, X } from 'lucide-react'
 
-// ============================================================
-// Hilfsfunktionen für den Spielzustand
-// ============================================================
+// ─── Konstanten ────────────────────────────────────────────────────────────────
 
-// Erstellt einen leeren Spielzustand für ein neues Spiel
+// Feste Reihenfolge der Ansage-Badges auf dem Tisch (unabhängig von Eingabe-Reihenfolge)
+const ANNOUNCEMENT_ORDER  = ['re', 'kontra', 'keine_90', 'keine_60', 'keine_30', 'schwarz']
+const ANNOUNCEMENT_LABELS = { re: 'Re', kontra: 'Ko', keine_90: 'K9', keine_60: 'K6', keine_30: 'K3', schwarz: 'Sw' }
+
+const SOLO_SHORT = {
+  fleischlos: 'Fleisch', buben_solo: 'Buben', damen_solo: 'Damen',
+  farb_solo: 'Farb', stilles_solo: 'Still',
+}
+
+// ─── Hilfsfunktionen ──────────────────────────────────────────────────────────
+
+function formatDate(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr + 'T00:00:00')
+  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`
+}
+
+function getRoleLabel(specialRole, soloType) {
+  if (!specialRole) return ''
+  if (specialRole === 'solist') return SOLO_SHORT[soloType] ?? 'Solo'
+  return { hochzeit: 'HZ', eingeheiratet: 'EH', arm: 'arm', reich: 'reich' }[specialRole] ?? ''
+}
+
 function initGameState(participants) {
   const parties = {}
   const announcements = {}
@@ -26,124 +51,320 @@ function initGameState(participants) {
     parties[p.player_id] = p.isSitting ? 'ausgesetzt' : null
     announcements[p.player_id] = []
   }
-  return {
-    parties,
-    announcements, // { playerId: ['re'|'kontra'|'keine_90'|...] }
-    specialRoles: {},  // { playerId: 'solist'|'hochzeiter'|'eingeheiratet'|'armut'|'retter' }
-    soloType: null,    // 'fleischlos'|'buben_solo'|'damen_solo'|'farb_solo'|'stilles_solo'
-    soloColor: null,
-    specialPoints: [], // [{ id, type, earnerId, loserId }]
-    eyesInput: '',
-    eyesFor: null,     // 're' | 'kontra'
-  }
+  return { parties, announcements, specialRoles: {}, soloType: null, soloColor: null, specialPoints: [], eyesInput: '', eyesFor: null }
 }
 
-// Prüft ob der Spielzustand vollständig und konsistent ist (Auswerten-Button aktiv?)
 function isGameValid(gameState, participants) {
-  const active = participants.filter(p => !p.isSitting)
-  const reCount     = active.filter(p => gameState.parties[p.player_id] === 're').length
-  const kontraCount = active.filter(p => gameState.parties[p.player_id] === 'kontra').length
-  const hasSolo     = Object.values(gameState.specialRoles).some(r => r === 'solist')
-  const eyesOk      = gameState.eyesInput !== '' && !isNaN(parseInt(gameState.eyesInput)) && gameState.eyesFor !== null
-
-  // Bei Solo: 1 Re (Solist) + 3 Kontra; sonst: 2 Re + 2 Kontra
-  const teamsOk = hasSolo ? reCount === 1 && kontraCount === 3 : reCount === 2 && kontraCount === 2
+  const active    = participants.filter(p => !p.isSitting)
+  const reCount   = active.filter(p => gameState.parties[p.player_id] === 're').length
+  const koCount   = active.filter(p => gameState.parties[p.player_id] === 'kontra').length
+  const hasSolo   = Object.values(gameState.specialRoles).some(r => r === 'solist')
+  const teamsOk   = hasSolo ? reCount === 1 && koCount === 3 : reCount === 2 && koCount === 2
+  const eyesOk    = gameState.eyesInput !== '' && !isNaN(parseInt(gameState.eyesInput)) && gameState.eyesFor !== null
   return teamsOk && eyesOk
 }
 
-// Konvertiert den lokalen Spielzustand in die Parameter für calculateGameResult
 function buildCalculationInput(gameState, participants) {
   const eyesNum = parseInt(gameState.eyesInput)
   const reEyes  = gameState.eyesFor === 're' ? eyesNum : 240 - eyesNum
-
-  // Ansagen flach als Array [{party, type}]
   const announcements = []
   for (const [playerId, types] of Object.entries(gameState.announcements)) {
     const party = gameState.parties[playerId]
     if (!party || party === 'ausgesetzt') continue
-    for (const type of types) {
-      announcements.push({ party, type })
-    }
+    for (const type of types) announcements.push({ party, type })
   }
-
-  // Sonderpunkte mit earnerParty
-  const specialPoints = gameState.specialPoints.map(sp => ({
-    ...sp,
-    earnerParty: gameState.parties[sp.earnerId],
-  }))
-
-  // Spielergebnisse
+  const specialPoints = gameState.specialPoints.map(sp => ({ ...sp, earnerParty: gameState.parties[sp.earnerId] }))
   const playerResults = participants.map(p => ({
     playerId: p.player_id,
     party: gameState.parties[p.player_id] ?? 'ausgesetzt',
     specialRole: gameState.specialRoles[p.player_id] ?? null,
   }))
-
-  const gameType = deriveGameType(gameState.specialRoles, gameState.soloType)
-
-  return { reEyes, gameType, announcements, specialPoints, playerResults }
+  return { reEyes, gameType: deriveGameType(gameState.specialRoles, gameState.soloType), announcements, specialPoints, playerResults }
 }
 
-// ============================================================
-// Hauptkomponente
-// ============================================================
+// ─── Tisch-Unterkomponenten ────────────────────────────────────────────────────
+
+// Kleines Ansage-Badge (quadratisch) für den Tisch
+function AnnBadge({ type }) {
+  const label = ANNOUNCEMENT_LABELS[type]
+  const colorCls = type === 're'
+    ? 'bg-green-600 text-white'
+    : type === 'kontra'
+    ? 'bg-amber-500 text-white'
+    : 'bg-white/70 text-gray-800'
+  return (
+    <span className={`inline-flex items-center justify-center w-4 h-4 rounded-sm text-[9px] font-bold leading-none ${colorCls}`}>
+      {label}
+    </span>
+  )
+}
+
+// Kleines Sonderpunkt-Badge für den Tisch (Platzhalter – wird durch SVG-Icons ersetzt)
+function SpBadge({ label, color }) {
+  const colorCls = color === 'green' ? 'bg-green-500/80 text-white'
+    : color === 'red'   ? 'bg-red-500/80 text-white'
+    : 'bg-white/70 text-gray-800'
+  return (
+    <span className={`inline-flex items-center justify-center w-4 h-4 rounded-sm text-[9px] font-bold leading-none ${colorCls}`}>
+      {label}
+    </span>
+  )
+}
+
+// Sonderpunkte-Spalte neben dem Avatar (3 feste Zeilen)
+function SonderpunkteCol({ gameState, playerId, isLeft }) {
+  const sp = gameState.specialPoints
+  const earnedFuchs   = sp.filter(s => s.type === 'fuchs_gefangen'    && s.earnerId === playerId)
+  const lostFuchs     = sp.filter(s => s.type === 'fuchs_gefangen'    && s.loserId  === playerId)
+  const dokoPoints    = sp.filter(s => s.type === 'doppelkopf'        && s.earnerId === playerId)
+  const karlGemacht   = sp.filter(s => s.type === 'karlchen_gemacht'  && s.earnerId === playerId)
+  const karlGefangen  = sp.filter(s => s.type === 'karlchen_gefangen' && s.earnerId === playerId)
+  const karlVerloren  = sp.filter(s => s.type === 'karlchen_gefangen' && s.loserId  === playerId)
+  const rowDir = isLeft ? 'flex-row' : 'flex-row-reverse'
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      {/* Zeile 1: Fuchs */}
+      <div className={`flex ${rowDir} gap-0.5 min-h-[16px] items-center`}>
+        {earnedFuchs.map(s => <SpBadge key={s.id} label="F"  color="green" />)}
+        {lostFuchs.map(s   => <SpBadge key={s.id} label="Fv" color="red"   />)}
+      </div>
+      {/* Zeile 2: Doppelkopf */}
+      <div className={`flex ${rowDir} gap-0.5 min-h-[16px] items-center`}>
+        {dokoPoints.map(s => <SpBadge key={s.id} label="D" color="neutral" />)}
+      </div>
+      {/* Zeile 3: Karlchen (verloren = alleine, sonst gemacht + gefangen) */}
+      <div className={`flex ${rowDir} gap-0.5 min-h-[16px] items-center`}>
+        {karlVerloren.length > 0
+          ? karlVerloren.map(s => <SpBadge key={s.id} label="Kv" color="red" />)
+          : <>
+              {karlGemacht.map(s  => <SpBadge key={s.id} label="K"  color="green" />)}
+              {karlGefangen.map(s => <SpBadge key={s.id} label="Kg" color="green" />)}
+            </>
+        }
+      </div>
+    </div>
+  )
+}
+
+// Vertikaler Re/N/Ko-Toggle für den Tisch
+function VerticalToggle({ playerId, party, onPartyChange }) {
+  return (
+    <div className="flex flex-col rounded-lg border border-white/30 overflow-hidden shrink-0">
+      {[
+        { value: 're',     label: 'Re' },
+        { value: null,     label: '·'  },
+        { value: 'kontra', label: 'Ko' },
+      ].map(opt => (
+        <button
+          key={String(opt.value)}
+          onClick={() => onPartyChange(playerId, opt.value)}
+          className={`w-7 h-7 text-[10px] font-bold transition-colors ${
+            party === opt.value
+              ? opt.value === 're'     ? 'bg-green-600 text-white'
+              : opt.value === 'kontra' ? 'bg-amber-500 text-white'
+              : 'bg-white/30 text-white'
+              : 'bg-black/20 text-white/60'
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// Geber-Chip: kleiner gelber Kreis an der inneren Avatar-Ecke
+function GebChip({ side, vertical }) {
+  const pos = {
+    'left-bottom':  'top-0 right-0 -translate-y-1/3 translate-x-1/3',
+    'left-top':     'bottom-0 right-0 translate-y-1/3 translate-x-1/3',
+    'right-bottom': 'top-0 left-0 -translate-y-1/3 -translate-x-1/3',
+    'right-top':    'bottom-0 left-0 translate-y-1/3 -translate-x-1/3',
+    // Aussetzer-Kanten
+    'left-middle':  'top-1/2 right-0 -translate-y-1/2 translate-x-1/2',
+    'top-top':      'bottom-0 left-1/2 translate-y-1/2 -translate-x-1/2',
+    'right-middle': 'top-1/2 left-0 -translate-y-1/2 -translate-x-1/2',
+  }[`${side}-${vertical}`] ?? 'top-0 right-0'
+
+  return (
+    <span className={`absolute ${pos} w-[14px] h-[14px] rounded-full bg-yellow-400 text-yellow-900 text-[8px] font-black flex items-center justify-center z-10`}>
+      G
+    </span>
+  )
+}
+
+// Vollständiger aktiver Spieler-Cluster (Ecke)
+function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) {
+  const { side, vertical } = layout
+  const isLeft   = side === 'left'
+  const isBottom = vertical === 'bottom'
+  const playerId = participant.player_id
+  const party    = gameState.parties[playerId] ?? null
+  const anns     = gameState.announcements[playerId] ?? []
+  const role     = gameState.specialRoles[playerId]
+  const roleLabel = getRoleLabel(role, gameState.soloType)
+  const activeAnns = ANNOUNCEMENT_ORDER.filter(t => anns.includes(t))
+
+  const rowDir = isLeft ? 'flex-row' : 'flex-row-reverse'
+
+  // Ansagen-Zeile (immer gleiche min-Höhe, auch wenn leer)
+  const AnnouncementRow = () => (
+    <div className={`flex ${rowDir} gap-0.5 min-h-[16px] items-center`}>
+      {activeAnns.map(t => <AnnBadge key={t} type={t} />)}
+    </div>
+  )
+
+  // Name + Rolle (immer gleiche Höhe, auch wenn Rolle leer)
+  const NameBlock = () => (
+    <div className="flex flex-col items-center" style={{ minWidth: 44 }}>
+      <span className="text-white text-[11px] font-semibold leading-tight text-center max-w-[70px] truncate">
+        {participant.players.name}
+      </span>
+      <span className="text-white/70 text-[9px] leading-tight min-h-[11px]">
+        {roleLabel}
+      </span>
+    </div>
+  )
+
+  return (
+    <div
+      className="absolute"
+      style={{ left: `${layout.x}%`, top: `${layout.y}%`, transform: 'translate(-50%, -50%)' }}
+    >
+      <div className="bg-black/25 rounded-2xl p-1.5 flex flex-col gap-0.5">
+
+        {/* Oben: Ansagen (für Unten-Spieler) ODER Name+Rolle (für Oben-Spieler) */}
+        {isBottom ? <AnnouncementRow /> : <NameBlock />}
+
+        {/* Mitte: Toggle | Avatar | Sonderpunkte */}
+        <div className={`flex items-center gap-1.5 ${rowDir}`}>
+
+          <VerticalToggle playerId={playerId} party={party} onPartyChange={onPartyChange} />
+
+          <div className="relative shrink-0">
+            <button
+              onClick={() => onTap(playerId)}
+              className="rounded-full active:opacity-70 block"
+            >
+              <PlayerAvatar player={participant.players} size="md" />
+              {party && (
+                <span className={`absolute inset-0 rounded-full ring-2 pointer-events-none ${
+                  party === 're' ? 'ring-green-400' : 'ring-amber-400'
+                }`} />
+              )}
+            </button>
+            {participant.isDealer && <GebChip side={side} vertical={vertical} />}
+          </div>
+
+          <SonderpunkteCol gameState={gameState} playerId={playerId} isLeft={isLeft} />
+        </div>
+
+        {/* Unten: Name+Rolle (für Unten-Spieler) ODER Ansagen (für Oben-Spieler) */}
+        {isBottom ? <NameBlock /> : <AnnouncementRow />}
+      </div>
+    </div>
+  )
+}
+
+// Kompakter Spieler (Aussetzer-Slots an den Kanten, oder sitzender Eck-Spieler)
+function CompactPlayer({ participant, layout, onTap }) {
+  const { side, vertical } = layout
+  const isSitting  = participant.isSitting
+  const isTopEdge  = side === 'top'  // oben-mitte Aussetzer
+  const nameAbove  = isTopEdge || vertical === 'top'
+
+  return (
+    <div
+      className="absolute flex flex-col items-center gap-0.5"
+      style={{
+        left: `${layout.x}%`,
+        top:  `${layout.y}%`,
+        transform: 'translate(-50%, -50%)',
+        opacity: isSitting ? 0.45 : 0.8,
+      }}
+    >
+      {nameAbove && (
+        <span className="text-white text-[10px] font-medium text-center leading-tight max-w-[56px] truncate">
+          {participant.players.name}
+        </span>
+      )}
+      <div className="relative">
+        <button
+          onClick={() => !isSitting && onTap(participant.player_id)}
+          className={isSitting ? 'cursor-default' : 'active:opacity-70'}
+        >
+          <PlayerAvatar player={participant.players} size="sm" />
+        </button>
+        {participant.isDealer && <GebChip side={side} vertical={vertical} />}
+      </div>
+      {!nameAbove && (
+        <span className="text-white text-[10px] font-medium text-center leading-tight max-w-[56px] truncate">
+          {participant.players.name}
+        </span>
+      )}
+    </div>
+  )
+}
+
+// ─── Hamburger-Menü ────────────────────────────────────────────────────────────
+
+function SessionMenu({ onClose, onGoHome, onEndSession }) {
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
+      <div className="fixed top-16 right-4 z-50 bg-card rounded-2xl shadow-xl overflow-hidden min-w-[200px]">
+        <button
+          onClick={onGoHome}
+          className="w-full px-4 py-3 text-sm text-left text-foreground hover:bg-muted border-b border-border"
+        >
+          Ins Hauptmenü
+        </button>
+        <button
+          onClick={onEndSession}
+          className="w-full px-4 py-3 text-sm text-left text-destructive hover:bg-muted"
+        >
+          Abend beenden
+        </button>
+      </div>
+    </>
+  )
+}
+
+// ─── Hauptkomponente ───────────────────────────────────────────────────────────
 
 export default function SessionPage() {
   const { id: sessionId } = useParams()
   const navigate = useNavigate()
 
-  // --- Daten aus Supabase ---
-  const [sessionData, setSessionData]     = useState(null)
-  const [roundData, setRoundData]         = useState(null)
-  const [participants, setParticipants]   = useState([]) // mit seat_position, isDealer, isSitting
-  const [gameNumber, setGameNumber]       = useState(1)
-  const [loading, setLoading]             = useState(true)
+  const [sessionData,   setSessionData]   = useState(null)
+  const [roundData,     setRoundData]     = useState(null)
+  const [participants,  setParticipants]  = useState([])
+  const [gameNumber,    setGameNumber]    = useState(1)
+  const [loading,       setLoading]       = useState(true)
+  const [gameState,     setGameState]     = useState(null)
+  const [openSheetId,   setOpenSheetId]   = useState(null)
+  const [view,          setView]          = useState('table')
+  const [evalResult,    setEvalResult]    = useState(null)
+  const [saving,        setSaving]        = useState(false)
+  const [showMenu,      setShowMenu]      = useState(false)
 
-  // --- UI-Zustand ---
-  const [gameState, setGameState]         = useState(null)
-  const [openSheetId, setOpenSheetId]     = useState(null) // player_id des offenen Sheets
-  const [view, setView]                   = useState('table') // 'table' | 'evaluate'
-  const [evalResult, setEvalResult]       = useState(null)
-  const [saving, setSaving]               = useState(false)
-
-  // --- Daten laden ---
+  // Daten laden
   useEffect(() => {
     async function load() {
-      // Session laden
       const { data: session } = await supabase
-        .from('sessions')
-        .select('*, venues(name)')
-        .eq('id', sessionId)
-        .single()
-
-      // Laufende Runde der Session laden
+        .from('sessions').select('*, venues(name)').eq('id', sessionId).single()
       const { data: round } = await supabase
-        .from('rounds')
-        .select('*')
-        .eq('session_id', sessionId)
-        .eq('status', 'laufend')
-        .order('number', { ascending: false })
-        .limit(1)
-        .single()
-
-      // Teilnehmer der Runde mit Spielerdaten laden
+        .from('rounds').select('*').eq('session_id', sessionId).eq('status', 'laufend')
+        .order('number', { ascending: false }).limit(1).single()
       const { data: parts } = await supabase
-        .from('round_participations')
-        .select('*, players(id, name, avatar_url)')
-        .eq('round_id', round.id)
-        .order('seat_position')
-
-      // Wieviele Spiele gibt es schon in dieser Runde? → nächste Spielnummer
+        .from('round_participations').select('*, players(id, name, avatar_url)')
+        .eq('round_id', round.id).order('seat_position')
       const { count } = await supabase
-        .from('games')
-        .select('id', { count: 'exact', head: true })
-        .eq('round_id', round.id)
+        .from('games').select('id', { count: 'exact', head: true }).eq('round_id', round.id)
 
       const nextGameNum = (count ?? 0) + 1
-
-      // Sitz-Status (wer gibt, wer setzt aus) für das erste Spiel berechnen
       const partsWithStatus = calcSeatStatus(parts, nextGameNum)
-
       setSessionData(session)
       setRoundData(round)
       setParticipants(partsWithStatus)
@@ -154,418 +375,226 @@ export default function SessionPage() {
     load()
   }, [sessionId])
 
-  // Teilnehmer-Status bei Spielnummer-Wechsel aktualisieren
   const refreshSeatStatus = useCallback((num, rawParts) => {
     const updated = calcSeatStatus(rawParts, num)
     setParticipants(updated)
     setGameState(initGameState(updated))
   }, [])
 
-  // ============================================================
-  // Spielzustand-Mutationen (alle als Callbacks an Kind-Komponenten)
-  // ============================================================
+  // ─── State-Mutationen ──────────────────────────────────────────────────────
 
-  // Partei eines Spielers setzen (Re/Kontra/null)
-  // Entfernt gleichzeitig kollidierende Ansagen
   const handlePartyChange = useCallback((playerId, party) => {
     setGameState(prev => {
-      const newAnnouncements = { ...prev.announcements }
-
-      // Kollidierender Zustand: Re-Ansage bei Kontra-Partei → Re-Ansage entfernen
-      if (party === 'kontra' && newAnnouncements[playerId]?.includes('re')) {
-        newAnnouncements[playerId] = newAnnouncements[playerId].filter(t => t !== 're')
-      }
-      if (party === 're' && newAnnouncements[playerId]?.includes('kontra')) {
-        newAnnouncements[playerId] = newAnnouncements[playerId].filter(t => t !== 'kontra')
-      }
-
-      return {
-        ...prev,
-        parties: { ...prev.parties, [playerId]: party },
-        announcements: newAnnouncements,
-      }
+      const newAnns = { ...prev.announcements }
+      if (party === 'kontra' && newAnns[playerId]?.includes('re'))
+        newAnns[playerId] = newAnns[playerId].filter(t => t !== 're')
+      if (party === 're' && newAnns[playerId]?.includes('kontra'))
+        newAnns[playerId] = newAnns[playerId].filter(t => t !== 'kontra')
+      return { ...prev, parties: { ...prev.parties, [playerId]: party }, announcements: newAnns }
     })
   }, [])
 
-  // Ansage ein/ausschalten
-  // Re und Kontra schließen sich gegenseitig aus – wer Re ansagt kann nicht gleichzeitig Kontra haben
+  // Re und Kontra schließen sich als Ansage gegenseitig aus
   const handleAnnouncementToggle = useCallback((playerId, type) => {
     setGameState(prev => {
       const current = prev.announcements[playerId] ?? []
       let updated
-
       if (current.includes(type)) {
-        // Ansage abwählen
         updated = current.filter(t => t !== type)
       } else {
-        // Ansage hinzufügen – Re/Kontra schließen sich gegenseitig aus
-        updated = type === 're'
-          ? [...current.filter(t => t !== 'kontra'), 're']
-          : type === 'kontra'
-          ? [...current.filter(t => t !== 're'), 'kontra']
-          : [...current, type]
+        updated = type === 're'     ? [...current.filter(t => t !== 'kontra'), 're']
+                : type === 'kontra' ? [...current.filter(t => t !== 're'), 'kontra']
+                : [...current, type]
       }
-
-      return {
-        ...prev,
-        announcements: { ...prev.announcements, [playerId]: updated },
-      }
+      return { ...prev, announcements: { ...prev.announcements, [playerId]: updated } }
     })
   }, [])
 
-  // Sonderrolle setzen (Solo, Hochzeit, Armut etc.)
-  // Bei Solo: alle anderen aktiven Spieler werden automatisch Kontra
   const handleSpecialRoleSet = useCallback((playerId, role, extraData) => {
     setGameState(prev => {
-      const newRoles = { ...prev.specialRoles, [playerId]: role }
+      const newRoles   = { ...prev.specialRoles, [playerId]: role }
       const newParties = { ...prev.parties }
-
       if (role === 'solist') {
-        // Solist = Re, alle anderen aktiven Spieler = Kontra
         for (const p of participants) {
           if (p.isSitting) continue
           newParties[p.player_id] = p.player_id === playerId ? 're' : 'kontra'
         }
       }
-
       return {
         ...prev,
         specialRoles: newRoles,
-        parties: newParties,
-        soloType:  extraData?.soloType  ?? prev.soloType,
-        soloColor: extraData?.soloColor ?? prev.soloColor,
+        parties:      newParties,
+        soloType:     extraData?.soloType  ?? prev.soloType,
+        soloColor:    extraData?.soloColor ?? prev.soloColor,
       }
     })
   }, [participants])
 
-  // Sonderrolle entfernen
   const handleSpecialRoleClear = useCallback((playerId) => {
     setGameState(prev => {
-      // Wenn Solist entfernt wird, auch alle Kontra-Zuordnungen zurücksetzen
       const clearedRole = prev.specialRoles[playerId]
-      const newRoles = { ...prev.specialRoles }
+      const newRoles    = { ...prev.specialRoles }
       delete newRoles[playerId]
-
-      // Bei Hochzeit/Armut auch den Partner entfernen
       if (clearedRole === 'hochzeit') {
-        for (const [pid, role] of Object.entries(newRoles)) {
-          if (role === 'eingeheiratet') delete newRoles[pid]
-        }
+        for (const [pid, r] of Object.entries(newRoles)) if (r === 'eingeheiratet') delete newRoles[pid]
       }
       if (clearedRole === 'arm') {
-        for (const [pid, role] of Object.entries(newRoles)) {
-          if (role === 'reich') delete newRoles[pid]
-        }
+        for (const [pid, r] of Object.entries(newRoles)) if (r === 'reich') delete newRoles[pid]
       }
-
       return { ...prev, specialRoles: newRoles, soloType: null, soloColor: null }
     })
   }, [])
 
-  // Sonderpunkt hinzufügen
   const handleSpecialPointAdd = useCallback((earnerId, type, loserId) => {
     setGameState(prev => ({
       ...prev,
-      specialPoints: [
-        ...prev.specialPoints,
-        { id: crypto.randomUUID(), type, earnerId, loserId: loserId ?? null },
-      ],
+      specialPoints: [...prev.specialPoints, { id: crypto.randomUUID(), type, earnerId, loserId: loserId ?? null }],
     }))
   }, [])
 
-  // Sonderpunkt entfernen
   const handleSpecialPointRemove = useCallback((pointId) => {
-    setGameState(prev => ({
-      ...prev,
-      specialPoints: prev.specialPoints.filter(sp => sp.id !== pointId),
-    }))
+    setGameState(prev => ({ ...prev, specialPoints: prev.specialPoints.filter(sp => sp.id !== pointId) }))
   }, [])
 
-  // ============================================================
-  // Auswertung
-  // ============================================================
+  // ─── Auswertung ────────────────────────────────────────────────────────────
 
   function handleEvaluate() {
-    const input = buildCalculationInput(gameState, participants)
-    const result = calculateGameResult(input)
+    const result = calculateGameResult(buildCalculationInput(gameState, participants))
     setEvalResult(result)
     setView('evaluate')
   }
 
-  // Spiel bestätigen und in Supabase speichern
   async function handleConfirm() {
     setSaving(true)
     try {
       const input   = buildCalculationInput(gameState, participants)
-      const reEyes  = input.reEyes
-      const gameType = input.gameType
+      const { data: game } = await supabase.from('games').insert({
+        round_id:  roundData.id,
+        number:    gameNumber,
+        game_type: input.gameType,
+        farbe:     gameState.soloColor ?? null,
+        augen_re:  input.reEyes,
+      }).select().single()
 
-      // --- Spiel anlegen ---
-      const { data: game } = await supabase
-        .from('games')
-        .insert({
-          round_id:  roundData.id,
-          number:    gameNumber,
-          game_type: gameType,
-          farbe:     gameState.soloColor ?? null,
-          augen_re:  reEyes,
-        })
-        .select()
-        .single()
+      await supabase.from('game_results').insert(
+        participants.map(p => ({
+          game_id:     game.id,
+          player_id:   p.player_id,
+          partei:      gameState.parties[p.player_id] ?? 'ausgesetzt',
+          sonderrolle: gameState.specialRoles[p.player_id] ?? null,
+          zaehlopunkte: evalResult.perPlayer[p.player_id] ?? 0,
+        }))
+      )
 
-      // --- Spielergebnisse (zaehlopunkte aus Berechnung) ---
-      const gameResultsInsert = participants.map(p => ({
-        game_id:    game.id,
-        player_id:  p.player_id,
-        partei:     gameState.parties[p.player_id] ?? 'ausgesetzt',
-        sonderrolle: gameState.specialRoles[p.player_id] ?? null,
-        zaehlopunkte: evalResult.perPlayer[p.player_id] ?? 0,
-      }))
-      await supabase.from('game_results').insert(gameResultsInsert)
-
-      // --- Ansagen ---
       const announcementsInsert = []
-      for (const [playerId, types] of Object.entries(gameState.announcements)) {
-        for (const type of types) {
+      for (const [playerId, types] of Object.entries(gameState.announcements))
+        for (const type of types)
           announcementsInsert.push({ game_id: game.id, player_id: playerId, typ: type })
-        }
-      }
-      if (announcementsInsert.length > 0) {
-        await supabase.from('announcements').insert(announcementsInsert)
-      }
+      if (announcementsInsert.length > 0) await supabase.from('announcements').insert(announcementsInsert)
 
-      // --- Sonderpunkte ---
       const specialPointsInsert = gameState.specialPoints.map(sp => ({
-        game_id:   game.id,
-        player_id: sp.earnerId,
-        typ:       sp.type,
-        loser_id:  sp.loserId ?? null,
+        game_id: game.id, player_id: sp.earnerId, typ: sp.type, loser_id: sp.loserId ?? null,
       }))
-      if (specialPointsInsert.length > 0) {
-        await supabase.from('special_points').insert(specialPointsInsert)
-      }
+      if (specialPointsInsert.length > 0) await supabase.from('special_points').insert(specialPointsInsert)
 
-      // --- Nächstes Spiel vorbereiten ---
       const nextNum = gameNumber + 1
-
-      // Rohes participants-Array ohne Status (für Neuberechnung)
       const rawParts = participants.map(p => ({
-        player_id:     p.player_id,
-        players:       p.players,
-        seat_position: p.seat_position,
-        round_id:      p.round_id,
-        id:            p.id,
+        player_id: p.player_id, players: p.players, seat_position: p.seat_position,
+        round_id: p.round_id, id: p.id,
       }))
-
       setGameNumber(nextNum)
       refreshSeatStatus(nextNum, rawParts)
       setEvalResult(null)
       setView('table')
     } catch (err) {
-      console.error('Fehler beim Speichern des Spiels:', err)
+      console.error('Fehler beim Speichern:', err)
     } finally {
       setSaving(false)
     }
   }
 
-  // ============================================================
-  // Render
-  // ============================================================
+  // ─── Render ────────────────────────────────────────────────────────────────
 
   if (loading || !gameState) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-muted-foreground">
-        Lade…
-      </div>
+      <div className="flex items-center justify-center h-screen text-muted-foreground">Lade…</div>
     )
   }
 
-  // Aktive (nicht aussetzende) Spieler
-  const activePlayers = participants.filter(p => !p.isSitting)
-  const valid = isGameValid(gameState, participants)
+  const activePlayers    = participants.filter(p => !p.isSitting)
+  const valid            = isGameValid(gameState, participants)
+  const openSheetPlayer  = openSheetId ? participants.find(p => p.player_id === openSheetId) : null
+  const venueName        = sessionData?.venues?.name ?? ''
+  const dateStr          = formatDate(sessionData?.date)
 
-  // Spieler dessen Sheet gerade offen ist
-  const openSheetPlayer = openSheetId
-    ? participants.find(p => p.player_id === openSheetId)
-    : null
+  // Eck-Spieler (Sitze 1–4) bekommen das volle Layout, alle anderen den kompakten Compact-Player
+  const isCornerSeat = (seatPos) => seatPos <= 4
 
   return (
-    <div className="min-h-screen bg-background flex flex-col select-none">
+    <div className="h-screen overflow-hidden flex flex-col select-none">
 
-      {/* Schmale Kopfzeile */}
-      <header className="fixed top-0 left-0 right-0 z-20 flex items-center justify-between px-4 pt-12 pb-3 bg-background border-b border-border">
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center gap-1.5 text-muted-foreground"
-        >
-          <ArrowLeft size={18} />
-          <span className="text-sm">Beenden</span>
-        </button>
+      {/* ─── Header ─────────────────────────────────────────────────────── */}
+      <header className="shrink-0 flex items-center justify-between px-4 pt-12 pb-3 bg-background border-b border-border z-10">
 
-        <div className="text-center">
-          <p className="text-sm font-semibold">Runde {roundData.number} · Spiel {gameNumber}</p>
-          <p className="text-xs text-muted-foreground">{sessionData?.venues?.name ?? sessionData?.date}</p>
+        {/* Links: leer (kein Zurück-Button mehr) */}
+        <div className="w-16" />
+
+        {/* Mitte: Partie-Info */}
+        <div className="text-center flex-1">
+          <p className="text-[11px] text-muted-foreground leading-tight">
+            {[dateStr, venueName].filter(Boolean).join(' · ')}
+          </p>
+          <p className="text-sm font-semibold leading-tight">
+            Spiel {gameNumber} · Runde {roundData.number}
+          </p>
         </div>
 
-        {/* Ranglisten-Button (Funktion kommt in späterer Iteration) */}
-        <button className="text-muted-foreground p-1">
-          <Trophy size={18} />
-        </button>
+        {/* Rechts: Trophy + Hamburger */}
+        <div className="flex items-center gap-1 w-16 justify-end">
+          <button className="p-1.5 text-muted-foreground" title="Spielstand kommt später">
+            <Trophy size={18} />
+          </button>
+          <button className="p-1.5 text-muted-foreground" onClick={() => setShowMenu(true)}>
+            <Menu size={18} />
+          </button>
+        </div>
       </header>
 
-      {/* Tischbereich – füllt den Platz zwischen Header und EyesBar */}
+      {/* ─── Filztisch ───────────────────────────────────────────────────── */}
       <main
-        className="flex-1 relative"
-        style={{ paddingTop: '80px', paddingBottom: '72px' }}
+        className="flex-1 relative overflow-hidden"
+        style={{ backgroundColor: '#2d5a27' }}
       >
-        <div className="relative w-full h-full" style={{ minHeight: 'calc(100vh - 152px)' }}>
+        {participants.map(p => {
+          const layout = getTablePosition(p.seat_position, participants.length)
 
-          {/* Alle Spieler absolut positioniert */}
-          {participants.map(p => {
-            const pos = getTablePosition(p.seat_position, participants.length)
-            const isSitting = p.isSitting
-            const party = gameState.parties[p.player_id]
-            const announcements = gameState.announcements[p.player_id] ?? []
-            const specialRole = gameState.specialRoles[p.player_id]
-
+          if (isCornerSeat(p.seat_position) && !p.isSitting) {
+            // Vollständiger aktiver Eck-Spieler
             return (
-              <div
+              <CornerPlayer
                 key={p.player_id}
-                style={{
-                  position: 'absolute',
-                  left: `${pos.x}%`,
-                  top: `${pos.y}%`,
-                  transform: 'translate(-50%, -50%)',
-                }}
-                className="flex flex-col items-center gap-1"
-              >
-                {/* Geber-Chip */}
-                {p.isDealer && (
-                  <span className="text-xs bg-yellow-400 text-yellow-900 font-bold px-1.5 py-0.5 rounded-full">
-                    G
-                  </span>
-                )}
-
-                {/* Avatar (Tap öffnet Sheet, außer bei Aussetzern) */}
-                <button
-                  onClick={() => !isSitting && setOpenSheetId(p.player_id)}
-                  className={`relative rounded-full transition-opacity ${
-                    isSitting ? 'opacity-35 cursor-default' : 'active:opacity-70'
-                  }`}
-                >
-                  <PlayerAvatar
-                    player={p.players}
-                    size={isSitting ? 'sm' : 'md'}
-                  />
-
-                  {/* Parteifarbiger Ring */}
-                  {party === 're' && !isSitting && (
-                    <span className="absolute inset-0 rounded-full ring-2 ring-green-600" />
-                  )}
-                  {party === 'kontra' && !isSitting && (
-                    <span className="absolute inset-0 rounded-full ring-2 ring-amber-500" />
-                  )}
-                </button>
-
-                {/* Spielername */}
-                <span className={`text-xs font-medium ${isSitting ? 'text-muted-foreground' : 'text-foreground'}`}>
-                  {p.players.name}
-                </span>
-
-                {/* Drei-Zustands-Partei-Toggle (nur aktive Spieler) */}
-                {!isSitting && (
-                  <div className="flex rounded-lg border border-border overflow-hidden">
-                    {[
-                      { value: 're',     label: 'Re' },
-                      { value: null,     label: '·' },
-                      { value: 'kontra', label: 'Ko' },
-                    ].map(opt => (
-                      <button
-                        key={String(opt.value)}
-                        onClick={() => handlePartyChange(p.player_id, opt.value)}
-                        className={`w-8 h-6 text-xs font-semibold transition-colors ${
-                          party === opt.value
-                            ? opt.value === 're'
-                              ? 'bg-green-700 text-white'
-                              : opt.value === 'kontra'
-                              ? 'bg-amber-500 text-white'
-                              : 'bg-muted-foreground/30 text-foreground'
-                            : 'bg-background text-muted-foreground'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Angepinnte Badges (Ansagen + Sonderrolle) */}
-                {!isSitting && (announcements.length > 0 || specialRole) && (
-                  <div className="flex flex-wrap justify-center gap-1 max-w-[90px]">
-                    {specialRole && (
-                      <span className="text-xs bg-primary/10 text-primary font-medium px-1.5 py-0.5 rounded-full">
-                        {specialRole === 'solist' ? 'Solo' :
-                         specialRole === 'hochzeiter' ? 'Hochzeit' :
-                         specialRole === 'eingeheiratet' ? 'EH' :
-                         specialRole === 'armut' ? 'Armut' :
-                         specialRole === 'retter' ? 'Rett.' : specialRole}
-                      </span>
-                    )}
-                    {announcements.map(type => (
-                      <span
-                        key={type}
-                        className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full"
-                      >
-                        {type === 'keine_90' ? 'K90' :
-                         type === 'keine_60' ? 'K60' :
-                         type === 'keine_30' ? 'K30' :
-                         type === 'schwarz'  ? 'Sz'  :
-                         type === 're'       ? 'Re'  :
-                         type === 'kontra'   ? 'Ko'  : type}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Sonderpunkte-Badges */}
-                {!isSitting && gameState.specialPoints.filter(sp => sp.earnerId === p.player_id).length > 0 && (
-                  <div className="flex flex-wrap justify-center gap-0.5 max-w-[90px]">
-                    {gameState.specialPoints
-                      .filter(sp => sp.earnerId === p.player_id)
-                      .map(sp => (
-                        <span key={sp.id} className="text-xs">
-                          {sp.type === 'fuchs_gefangen'    ? '🦊' :
-                           sp.type === 'karlchen_gemacht'  ? '♞✓' :
-                           sp.type === 'karlchen_gefangen' ? '♞×' :
-                           sp.type === 'doppelkopf'        ? '💰' : '?'}
-                        </span>
-                      ))
-                    }
-                  </div>
-                )}
-
-                {/* "Verloren"-Hinweis: Fuchs/Karlchen verloren (abgeleitet) */}
-                {!isSitting && (() => {
-                  const lost = gameState.specialPoints.filter(sp => sp.loserId === p.player_id)
-                  if (lost.length === 0) return null
-                  return (
-                    <div className="flex flex-wrap justify-center gap-0.5">
-                      {lost.map(sp => (
-                        <span key={sp.id} className="text-xs text-muted-foreground">
-                          {sp.type === 'fuchs_gefangen'    ? '🦊↑' :
-                           sp.type === 'karlchen_gefangen' ? '♞↑'  : '?'}
-                        </span>
-                      ))}
-                    </div>
-                  )
-                })()}
-              </div>
+                participant={p}
+                layout={layout}
+                gameState={gameState}
+                onTap={setOpenSheetId}
+                onPartyChange={handlePartyChange}
+              />
             )
-          })}
-        </div>
+          }
+
+          // Kompakter Spieler: sitzender Eck-Spieler ODER Aussetzer-Slot-Spieler
+          return (
+            <CompactPlayer
+              key={p.player_id}
+              participant={p}
+              layout={layout}
+              onTap={setOpenSheetId}
+            />
+          )
+        })}
       </main>
 
-      {/* Untere Augeneingabe-Leiste */}
+      {/* ─── EyesBar ─────────────────────────────────────────────────────── */}
       {view === 'table' && (
         <EyesBar
           eyesInput={gameState.eyesInput}
@@ -577,7 +606,19 @@ export default function SessionPage() {
         />
       )}
 
-      {/* Bottom Sheet für Spieler (wenn offen) */}
+      {/* ─── Hamburger-Menü ──────────────────────────────────────────────── */}
+      {showMenu && (
+        <SessionMenu
+          onClose={() => setShowMenu(false)}
+          onGoHome={() => navigate('/')}
+          onEndSession={() => {
+            // TODO: Bestätigungs-Dialog + Session abschließen
+            navigate('/')
+          }}
+        />
+      )}
+
+      {/* ─── Player Sheet ────────────────────────────────────────────────── */}
       {view === 'table' && openSheetPlayer && (
         <PlayerSheet
           player={openSheetPlayer}
@@ -593,7 +634,7 @@ export default function SessionPage() {
         />
       )}
 
-      {/* Auswertungs-Screen (Vollbild-Overlay) */}
+      {/* ─── Auswertungs-Screen ──────────────────────────────────────────── */}
       {view === 'evaluate' && (
         <EvaluationView
           result={evalResult}
