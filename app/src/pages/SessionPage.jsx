@@ -119,7 +119,11 @@ function SessionPageInner() {
   const ViewSwitchIcon = erfassungsView === 'table' ? LayoutList : LayoutGrid
 
   return (
-    <div className="flex flex-col select-none" style={{ position: 'fixed', inset: 0 }}>
+    // Zentriertes fixed-Layout: respektiert den globalen 500px-Cap aus App.jsx
+    <div
+      className="flex flex-col select-none"
+      style={{ position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '500px' }}
+    >
 
       {/* ─── Header ─────────────────────────────────────────────────────── */}
       <header className="shrink-0 flex items-center justify-between px-4 pt-12 pb-3 bg-background border-b border-border z-10">

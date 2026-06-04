@@ -203,13 +203,19 @@ function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) 
   )
 
   return (
+    // Corner-Anchoring: Cluster klebt in der Ecke, null grüner Filz zum Rand.
+    // overflow-hidden auf dem Tisch clippt die Außenecken des rounded-2xl automatisch.
     <div
       className="absolute"
-      style={{ left: `${layout.x}%`, top: `${layout.y}%`, transform: 'translate(-50%, -50%)' }}
+      style={{
+        [isLeft ? 'left' : 'right']: 0,
+        [isBottom ? 'bottom' : 'top']: 0,
+      }}
     >
       <div
         className="relative bg-white/15 rounded-2xl p-1.5 flex flex-col gap-0.5"
         style={{
+          minWidth:     'clamp(150px, 40vw, 200px)',
           paddingLeft:  isLeft ? 'calc(var(--tisch-tog) + 10px)' : undefined,
           paddingRight: isLeft ? undefined : 'calc(var(--tisch-tog) + 10px)',
         }}

@@ -18,7 +18,8 @@ export default function EyesBar({
   const otherEyes = isNumeric ? 240 - eyesNum : null
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border px-4 pt-3 pb-5">
+    // shrink-0: feste Höhe im Flex-Flow der SessionPage – der Tisch (flex-1) bekommt den Rest
+    <div className="shrink-0 bg-card border-t border-border px-4 pt-3 pb-5">
       <div className="flex items-center gap-2">
         {/* Augeneingabe */}
         <div className="flex-1 flex items-center gap-2">

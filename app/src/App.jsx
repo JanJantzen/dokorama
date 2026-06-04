@@ -18,16 +18,19 @@ function AppLayout() {
   const showTabBar = ['/', '/statistiken', '/spieler'].includes(location.pathname)
 
   return (
-    <div className="min-h-screen bg-background">
-      <Routes>
-        <Route path="/"              element={<HomePage />}        />
-        <Route path="/statistiken"   element={<StatsPage />}       />
-        <Route path="/spieler"       element={<PlayersPage />}     />
-        <Route path="/partie/starten" element={<StartSessionPage />} />
-        <Route path="/partie/:id"    element={<SessionPage />}     />
-      </Routes>
-
-      {showTabBar && <TabBar />}
+    // Äußerer Wrapper: füllt den Screen, zentriert die App-Spalte, bg-muted als Hintergrund
+    // auf Tablets/Desktop wo die App-Spalte schmaler als der Screen ist
+    <div className="min-h-screen bg-muted flex justify-center">
+      <div className="w-full max-w-[500px] bg-background relative min-h-screen">
+        <Routes>
+          <Route path="/"               element={<HomePage />}         />
+          <Route path="/statistiken"    element={<StatsPage />}        />
+          <Route path="/spieler"        element={<PlayersPage />}      />
+          <Route path="/partie/starten" element={<StartSessionPage />} />
+          <Route path="/partie/:id"     element={<SessionPage />}      />
+        </Routes>
+        {showTabBar && <TabBar />}
+      </div>
     </div>
   )
 }
