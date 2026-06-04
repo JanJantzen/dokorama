@@ -23,7 +23,8 @@ export function getAvatarColor(name) {
 }
 
 // size: 'sm' | 'md' | 'lg' | 'xl'
-export default function PlayerAvatar({ player, size = 'md' }) {
+// style: optionales Inline-Style-Objekt um die Größe zu überschreiben (für fluid scaling)
+export default function PlayerAvatar({ player, size = 'md', style }) {
   const sizeClass = {
     sm: 'w-10 h-10 text-base',
     md: 'w-14 h-14 text-xl',
@@ -37,6 +38,7 @@ export default function PlayerAvatar({ player, size = 'md' }) {
         src={player.avatar_url}
         alt={player.name}
         className={`${sizeClass} rounded-full object-cover`}
+        style={style}
       />
     )
   }
@@ -44,7 +46,7 @@ export default function PlayerAvatar({ player, size = 'md' }) {
   return (
     <div
       className={`${sizeClass} rounded-full flex items-center justify-center font-bold text-white shrink-0`}
-      style={{ backgroundColor: getAvatarColor(player.name) }}
+      style={{ backgroundColor: getAvatarColor(player.name), ...style }}
     >
       {player.name[0].toUpperCase()}
     </div>

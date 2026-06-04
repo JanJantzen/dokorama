@@ -2,7 +2,7 @@
 
 > Diese Datei ist das zentrale Briefing für jeden Claude-Assistenten, der an diesem Projekt arbeitet.
 > Sie wird bei jeder neuen Sitzung gelesen. Halte sie aktuell.
-> Letzte Aktualisierung: 3. Juni 2026 – Icon-Spezifikationen in Abschnitt 16 ergänzt; „Retter:in" zu „Armut (reich)" umbenannt (Code-Identifier: `reich`); Namenskonventionen für Sonderrollen finalisiert (hochzeit/eingeheiratet/arm/reich).
+> Letzte Aktualisierung: 4. Juni 2026 – Roadmap Phase 2 aktualisiert: Multi-View-Architektur (SessionContext/GameContext/TableView/BlockView), Block-Ansicht als neue Phase 2b verankert, alle neuen Erfassungspunkte ergänzt. Roadmap-Regel eingeführt: Punkte erst ✅ wenn Jan explizit „done" sagt.
 
 ---
 
@@ -722,6 +722,8 @@ Die App soll als PWA funktionieren, damit sie auf dem Homescreen installiert wer
 
 ## 13. Roadmap
 
+> **Roadmap-Regel:** Ein Punkt wird erst als ✅ markiert wenn Jan explizit „done" sagt – nicht schon wenn Code dazu gebaut wurde.
+
 ### ✅ Phase 1: Fundament – abgeschlossen 1. Juni 2026
 
 1. ✅ **Entwicklungsumgebung:** Node.js, React/Vite, Tailwind CSS + shadcn/ui, GitHub-Repo
@@ -733,48 +735,64 @@ Die App soll als PWA funktionieren, damit sie auf dem Homescreen installiert wer
 
 **Technischer Stand:** Supabase-Client verbunden (`src/lib/supabase.js`), App live unter `dokorama.vercel.app`, Struktur: `Dokorama/app/` (React-Code), `Dokorama/database/` (SQL-Dateien)
 
-### Phase 2: Erfassung
+### Phase 2: Erfassung – in Arbeit
+
+**Architektur-Fundament (gebaut, noch nicht von Jan abgenommen):**
+- `SessionContext` + `GameContext`: geteilter Zustand für Multi-View-Erfassung
+- `TableView` (Tisch-Ansicht) aus `SessionPage` extrahiert
+- `BlockView` als Platzhalter angelegt, Architektur bereit
+- View-Switcher im Header (Icon der jeweils anderen Ansicht)
 
 7. Partie starten (Datum, Austragungsort, anwesende Spieler:innen aus Pool wählen, Sitzreihenfolge)
 8. Runden-Logik (automatische Verwaltung, Rotation, Aussetzer-Berechnung, Verlängerung bei Solo)
-9. Einzelspiel erfassen (mitlaufendes Protokoll: Ansagen, Sonderpunkte, Spieltyp-Besonderheiten, Parteien, Augen). UI-Gestaltung (Tischplatten-Ansicht? Buttons vs. Popups? Dealer-Button?) wird beim Prototyping hier entschieden.
-10. Spielwert automatisch berechnen (Jans Regeln hardcoded, validiert gegen 15 Testfälle)
-11. Bestätigung mit Übersicht und Duplikat-Schutz
+9. **Tisch-Ansicht Einzelspiel erfassen** – `TableView` gebaut, noch in Iteration:
+   - Plausichecks & Abhängigkeiten: kein inkonsistenter Zustand erlaubt (erklärende Warnungen statt stiller Auto-Auflösung)
+10. **Spielwert automatisch berechnen** – `scoreCalculation.js` gebaut, gegen 15 Testfälle validiert
+11. **Auswertungs-Screen & Bestätigung** – `EvaluationView` gebaut; Duplikat-Schutz fehlt noch
 12. Korrektur/Löschen von Spielen
-13. Laufende Punktetabelle pro Partie und pro Runde
-14. Runden-Übergang (Hinweis, Punktetabelle, Optionen „Nächste Runde" / „Partie beenden")
+13. **Spielstandanzeige** – Pokal-Button öffnet aktuell nichts
+14. **Runden-Übergang** – Hinweis „Runde X beendet!", Punktetabelle, Optionen „Nächste Runde / Partie beenden"
+15. **Hamburger-Menü** – Menüpunkte mit Leben füllen
+16. **Partie abschließen** – vollständiger Flow inkl. Hinweis bei unfertiger letzter Runde
+17. **Laufende & fertige Partien** – Übersicht und Handling beider Zustände auf der Startseite
+
+### Phase 2b: Block-Ansicht (nach Tisch-Ansicht stabil, vor Phase 3)
+
+Neue alternative Erfassungs-UI: nüchterner Schreibblock-Stil, alle Infos auf einer Seite ohne Sheets. Teilt denselben `GameContext` wie die Tisch-Ansicht – Zustand bleibt beim Wechsel erhalten. Architektur ist bereit (Platzhalter `BlockView` existiert). Fundament erlaubt später weitere alternative UIs (z.B. Diktat-Ansicht).
+
+18. **Block-Ansicht bauen** – Inhalt hinter dem Platzhalter implementieren
 
 ### Phase 3: App einsatzbereit machen
 
-15. PWA-Setup (Installierbar, Offline-Warnung, Datenverlust-Schutz)
-16. Responsive Design Feinschliff
+19. PWA-Setup (Installierbar, Offline-Warnung, Datenverlust-Schutz)
+20. Responsive Design Feinschliff
 
 **→ Ab hier kann die App das Büchlein ersetzen!**
 
 ### Phase 4: Statistiken (Basis)
 
-17. Gesamtscore / Rangliste
-18. Leistung (Siegquoten, Durchschnitte, Streaks – auf allen drei Ebenen)
-19. Ausdauer / Engagement (Teilnahme, Anwesenheitsquote)
-20. Zeitraum-Filter (Total, Kalenderjahr)
+21. Gesamtscore / Rangliste
+22. Leistung (Siegquoten, Durchschnitte, Streaks – auf allen drei Ebenen)
+23. Ausdauer / Engagement (Teilnahme, Anwesenheitsquote)
+24. Zeitraum-Filter (Total, Kalenderjahr)
 
 ### Phase 5: Statistiken (Erweitert)
 
-21. Risikofreude (Ansagen-Statistiken)
-22. Einzelkämpfer (Solo-Statistiken)
-23. Sonderpunkte & Sonderspiele
-24. Normierung auf pro 4 Runden
+25. Risikofreude (Ansagen-Statistiken)
+26. Einzelkämpfer (Solo-Statistiken)
+27. Sonderpunkte & Sonderspiele
+28. Normierung auf pro 4 Runden
 
 ### Phase 6: Extras
 
-25. Export-Funktion (CSV/JSON)
-26. Realtime-Updates (Supabase Realtime)
+29. Export-Funktion (CSV/JSON)
+30. Realtime-Updates (Supabase Realtime)
 
 ### Historische Daten (parallel ab Phase 2):
 
-27. **Excel-Import (2024):** Import-Script für die vorhandene Excel-Datei. Daten sind nicht vollständig kompatibel mit dem neuen Datenmodell – fehlende Details bleiben leer.
-28. **Foto-Workflow (2025/2026, ggf. älter):** Fotos von Roberts handgeschriebenen Zetteln im Chat-Dialog transkribieren, in CSVs übersetzen, dann in die Datenbank importieren. Separates Chat-Projekt, unabhängig von der App-Entwicklung. Kann starten sobald das Datenmodell steht.
-29. **CSV-Import in der App:** Feature zum Importieren der erstellten CSVs.
+31. **Excel-Import (2024):** Import-Script für die vorhandene Excel-Datei. Daten sind nicht vollständig kompatibel mit dem neuen Datenmodell – fehlende Details bleiben leer.
+32. **Foto-Workflow (2025/2026, ggf. älter):** Fotos von Roberts handgeschriebenen Zetteln im Chat-Dialog transkribieren, in CSVs übersetzen, dann in die Datenbank importieren. Separates Chat-Projekt, unabhängig von der App-Entwicklung. Kann starten sobald das Datenmodell steht.
+33. **CSV-Import in der App:** Feature zum Importieren der erstellten CSVs.
 
 ### Irgendwann / kein fester Zeitpunkt:
 
@@ -788,6 +806,8 @@ Die App soll als PWA funktionieren, damit sie auf dem Homescreen installiert wer
 - Fun Stats / Rekorde
 - Ortsspezifische Hintergrundbilder für den Erfassungsscreen
 - Individuelle Drehung der Tischansicht (jede:r sieht sich selbst unten links)
+- Weitere alternative Erfassungs-UIs (z.B. Diktat-Ansicht) – Architektur durch Multi-View-System bereits vorbereitet
+- View-Präferenz (Tisch/Block) pro eingeloggtem Schreiber in User-Profil speichern (nach User-Management)
 - Doko-Dating, gruppenübergreifende Statistiken
 - Turniere (siehe Perspektive in Abschnitt 3)
 - Monetarisierung (siehe Perspektive in Abschnitt 3)
