@@ -104,8 +104,12 @@ function ShrinkText({ text }) {
 function HorizontalPartyToggle({ playerId, party, onPartyChange }) {
   return (
     <div
-      className="flex w-full rounded-md border border-white/30 overflow-hidden shrink-0"
-      style={{ height: 'var(--tisch-badge)' }}
+      className="flex border border-white/30 overflow-hidden shrink-0"
+      style={{
+        height: 'var(--tisch-badge)',
+        margin: '0 calc(-1 * var(--tisch-gap))',
+        width: 'calc(100% + var(--tisch-gap))',
+      }}
     >
       {[
         { value: 're',     label: 'Re', grow: 2 },
@@ -134,10 +138,10 @@ function HorizontalPartyToggle({ playerId, party, onPartyChange }) {
 // Geber-Chip – schwebt diagonal 4px außerhalb der inneren (abgerundeten) Ecke
 function GebChip({ side, vertical }) {
   const posStyle = {
-    'left-bottom':  { top: 0, right: 0, transform: 'translate(calc(50% + 4px), calc(-50% - 4px))' },
-    'right-bottom': { top: 0, left: 0,  transform: 'translate(calc(-50% - 4px), calc(-50% - 4px))' },
-    'right-top':    { bottom: 0, left: 0, transform: 'translate(calc(-50% - 4px), calc(50% + 4px))' },
-    'left-top':     { bottom: 0, right: 0, transform: 'translate(calc(50% + 4px), calc(50% + 4px))' },
+    'left-bottom':  { top: 0, right: 0, transform: 'translate(calc(100% + 2px), calc(-100% - 2px))' },
+    'right-bottom': { top: 0, left: 0,  transform: 'translate(calc(-100% - 2px), calc(-100% - 2px))' },
+    'right-top':    { bottom: 0, left: 0, transform: 'translate(calc(-100% - 2px), calc(100% + 2px))' },
+    'left-top':     { bottom: 0, right: 0, transform: 'translate(calc(100% + 2px), calc(100% + 2px))' },
   }[`${side}-${vertical}`]
 
   return (
