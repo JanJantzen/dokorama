@@ -48,11 +48,11 @@ const SONDERPUNKT_TYPEN = [
 
 function SpIcon({ icon, disabled = false }) {
   return (
-    <span className={`inline-flex items-center justify-center w-12 h-12 rounded-xl overflow-hidden shrink-0 ${
-      disabled ? 'opacity-30' : ''
-    }`}>
-      <img src={icon} alt="" className="w-full h-full object-cover" />
-    </span>
+    <img
+      src={icon}
+      alt=""
+      className={`w-full aspect-square object-cover ${disabled ? 'opacity-30' : ''}`}
+    />
   )
 }
 
@@ -467,10 +467,10 @@ export default function PlayerSheet({
                     key={def.type}
                     onClick={() => !disabled && handleSonderpunktAdd(def.type, def.needsLoser)}
                     disabled={disabled}
-                    className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-medium transition-colors ${
+                    className={`flex-1 rounded-xl border overflow-hidden transition-colors ${
                       disabled
-                        ? 'border-border bg-muted text-muted-foreground/40 cursor-not-allowed'
-                        : 'border-border bg-background active:bg-muted text-foreground'
+                        ? 'border-border bg-muted opacity-40 cursor-not-allowed'
+                        : 'border-border bg-background active:opacity-70'
                     }`}
                   >
                     <SpIcon icon={def.icon} disabled={disabled} />

@@ -52,14 +52,15 @@ function getRoleLabel(specialRole, soloType, soloColor) {
 
 function AnnBadge({ type }) {
   const label    = ANNOUNCEMENT_LABELS[type]
+  // Pill-Form mit Farbverlauf und leichtem Schatten für visuelle Augenhöhe mit den SP-Icons
   const colorCls = type === 're'
-    ? 'bg-green-600 text-white'
+    ? 'bg-gradient-to-b from-green-500 to-green-700 text-white shadow-sm ring-1 ring-green-900/30'
     : type === 'kontra'
-    ? 'bg-amber-500 text-white'
-    : 'bg-white/70 text-gray-800'
+    ? 'bg-gradient-to-b from-amber-400 to-amber-600 text-white shadow-sm ring-1 ring-amber-900/30'
+    : 'bg-gradient-to-b from-white/85 to-white/60 text-gray-800 shadow-sm ring-1 ring-black/10'
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-sm font-bold leading-none shrink-0 ${colorCls}`}
+      className={`inline-flex items-center justify-center rounded-full font-bold leading-none shrink-0 ${colorCls}`}
       style={{ width: 'var(--tisch-badge)', height: 'var(--tisch-badge)', fontSize: 'var(--tisch-text-role)' }}
     >
       {label}
@@ -140,26 +141,27 @@ function HorizontalPartyToggle({ playerId, party, onPartyChange }) {
   )
 }
 
-// Geber-Chip für aktive Eckspieler – absolut auf dem Backdrop, diagonal aus der inneren Ecke heraus
+// Geber-Chip für aktive Eckspieler – transparent, flush an der inneren Ecke des Backdrops
 function CornerGebChip({ side, vertical }) {
+  // translate(100%, -100%) = Chip-Ecke liegt exakt an der Backdrop-Ecke (Ecke an Ecke)
   const posStyle = {
-    'left-bottom':  { top: 0, right: 0, transform: 'translate(calc(100% + 2px), calc(-100% - 2px))' },
-    'right-bottom': { top: 0, left: 0,  transform: 'translate(calc(-100% - 2px), calc(-100% - 2px))' },
-    'right-top':    { bottom: 0, left: 0, transform: 'translate(calc(-100% - 2px), calc(100% + 2px))' },
-    'left-top':     { bottom: 0, right: 0, transform: 'translate(calc(100% + 2px), calc(100% + 2px))' },
+    'left-bottom':  { top: 0, right: 0,    transform: 'translate(100%, -100%)' },
+    'right-bottom': { top: 0, left: 0,     transform: 'translate(-100%, -100%)' },
+    'right-top':    { bottom: 0, left: 0,  transform: 'translate(-100%, 100%)' },
+    'left-top':     { bottom: 0, right: 0, transform: 'translate(100%, 100%)' },
   }[`${side}-${vertical}`]
 
   return (
     <span
-      className="absolute rounded-full overflow-hidden z-10 shadow-sm"
+      className="absolute z-10"
       style={{ ...posStyle, width: 'var(--tisch-geb)', height: 'var(--tisch-geb)' }}
     >
-      <img src={iconDealer} alt="Geber" className="w-full h-full object-cover" />
+      <img src={iconDealer} alt="Geber" className="w-full h-full object-contain" />
     </span>
   )
 }
 
-// Geber-Chip für Aussetzer – absolut auf dem Avatar-Container, 2px neben dem Avatar Richtung Tischmitte
+// Geber-Chip für Aussetzer – transparent, neben dem Avatar Richtung Tischmitte
 function CompactGebChip({ side }) {
   const posStyle = {
     left:  { left: '100%',  top: '50%',  transform: 'translate(2px, -50%)' },
@@ -169,10 +171,10 @@ function CompactGebChip({ side }) {
 
   return (
     <span
-      className="absolute rounded-full overflow-hidden z-10 shadow-sm"
+      className="absolute z-10"
       style={{ ...posStyle, width: 'var(--tisch-geb)', height: 'var(--tisch-geb)' }}
     >
-      <img src={iconDealer} alt="Geber" className="w-full h-full object-cover" />
+      <img src={iconDealer} alt="Geber" className="w-full h-full object-contain" />
     </span>
   )
 }
@@ -425,7 +427,7 @@ export default function TableView() {
           '--tisch-av':         'clamp(75px, 20vw,   100px)',
           '--tisch-av-sm':      'clamp(60px, 16vw,    80px)',
           '--tisch-badge':      'clamp(28px, 7.47vw,  37px)',
-          '--tisch-geb':        'clamp(35px, 9.33vw,  47px)',
+          '--tisch-geb':        'clamp(48px, 12.8vw,  64px)',
           // Abstände
           '--tisch-gap':        'clamp(2px,  0.53vw,   3px)',  // interne Gaps
           '--tisch-gap-outer':  'clamp(4px,  1.07vw,   6px)',  // Gaps zwischen AnnRow/MainRow/Toggle
