@@ -9,7 +9,7 @@
 // handleConfirm lebt hier weil es beide Contexts braucht (Spiel speichern + Session weiterschalten).
 
 import { useNavigate, useParams } from 'react-router-dom'
-import { LayoutGrid, LayoutList, Trophy, Menu, ArrowLeft } from 'lucide-react'
+import { Ratio, LayoutList, Trophy, Menu, ArrowLeft } from 'lucide-react'
 import { SessionProvider, useSession } from '@/contexts/SessionContext'
 import { GameProvider, useGame, buildCalculationInput } from '@/contexts/GameContext'
 import { supabase } from '@/lib/supabase'
@@ -116,7 +116,7 @@ function SessionPageInner() {
   const venueName = sessionData?.venues?.name ?? ''
 
   // Zeigt das Icon der jeweils ANDEREN Erfassungs-Ansicht (Standard-Mobile-Pattern)
-  const ViewSwitchIcon = erfassungsView === 'table' ? LayoutList : LayoutGrid
+  const ViewSwitchIcon = erfassungsView === 'table' ? LayoutList : Ratio
 
   return (
     // Zentriertes fixed-Layout: respektiert den globalen 500px-Cap aus App.jsx
