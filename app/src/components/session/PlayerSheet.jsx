@@ -14,6 +14,11 @@ import { useState, useRef } from 'react'
 import PlayerAvatar from '@/components/ui/PlayerAvatar'
 import { X } from 'lucide-react'
 
+import iconFuchsGemacht    from '@/assets/icons/icon-fuchs-gemacht.png'
+import iconDoppelkopf      from '@/assets/icons/icon-doppelkopf.png'
+import iconKarlchenGemacht  from '@/assets/icons/icon-karlchen-gemacht.png'
+import iconKarlchenGefangen from '@/assets/icons/icon-karlchen-gefangen.png'
+
 // Maximale Doppelköpfe: 16 Karten mit Punktwert ≥10 → max. 4 Stiche mit ≥40 Augen möglich
 const DOPPELKOPF_MAX = 4
 
@@ -35,19 +40,18 @@ const FARBEN = [
 
 // Viererreihe: Fuchs / Doko / Karl / gefangen
 const SONDERPUNKT_TYPEN = [
-  { type: 'fuchs_gefangen',    label: 'Fuchs',    placeholder: 'F',  needsLoser: true,  max: 2            },
-  { type: 'doppelkopf',        label: 'Doko',     placeholder: 'D',  needsLoser: false, max: DOPPELKOPF_MAX },
-  { type: 'karlchen_gemacht',  label: 'Karl',     placeholder: 'K',  needsLoser: false, max: 1            },
-  { type: 'karlchen_gefangen', label: 'gefangen', placeholder: 'Kg', needsLoser: true,  max: 1            },
+  { type: 'fuchs_gefangen',    label: 'Fuchs',    icon: iconFuchsGemacht,   needsLoser: true,  max: 2            },
+  { type: 'doppelkopf',        label: 'Doko',     icon: iconDoppelkopf,     needsLoser: false, max: DOPPELKOPF_MAX },
+  { type: 'karlchen_gemacht',  label: 'Karl',     icon: iconKarlchenGemacht, needsLoser: false, max: 1            },
+  { type: 'karlchen_gefangen', label: 'gefangen', icon: iconKarlchenGefangen, needsLoser: true, max: 1            },
 ]
 
-// Platzhalter-Icon bis echte SVGs geliefert werden (→ CLAUDE.md Abschnitt 16)
-function IconPlaceholder({ text, disabled = false }) {
+function SpIcon({ icon, disabled = false }) {
   return (
-    <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs font-bold shrink-0 ${
-      disabled ? 'bg-muted text-muted-foreground/40' : 'bg-muted text-muted-foreground'
+    <span className={`inline-flex items-center justify-center w-9 h-9 rounded-lg overflow-hidden shrink-0 ${
+      disabled ? 'opacity-30' : ''
     }`}>
-      {text}
+      <img src={icon} alt="" className="w-full h-full object-cover" />
     </span>
   )
 }
@@ -469,7 +473,7 @@ export default function PlayerSheet({
                         : 'border-border bg-background active:bg-muted text-foreground'
                     }`}
                   >
-                    <IconPlaceholder text={def.placeholder} disabled={disabled} />
+                    <SpIcon icon={def.icon} disabled={disabled} />
                     <span>{def.label}</span>
                   </button>
                 )
@@ -486,7 +490,7 @@ export default function PlayerSheet({
                     : null
                   return (
                     <div key={sp.id} className="flex items-center gap-2 bg-secondary rounded-xl px-3 py-2">
-                      <IconPlaceholder text={def?.placeholder} />
+                      <SpIcon icon={def?.icon} />
                       <span className="text-sm flex-1">
                         {def?.label}
                         {loserName && (

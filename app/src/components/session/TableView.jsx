@@ -13,6 +13,13 @@ import PlayerAvatar from '@/components/ui/PlayerAvatar'
 import PlayerSheet from '@/components/session/PlayerSheet'
 import EyesBar from '@/components/session/EyesBar'
 
+import iconFuchsGemacht    from '@/assets/icons/icon-fuchs-gemacht.png'
+import iconFuchsVerloren   from '@/assets/icons/icon-fuchs-verloren.png'
+import iconDoppelkopf      from '@/assets/icons/icon-doppelkopf.png'
+import iconKarlchenGemacht  from '@/assets/icons/icon-karlchen-gemacht.png'
+import iconKarlchenGefangen from '@/assets/icons/icon-karlchen-gefangen.png'
+import iconKarlchenVerloren from '@/assets/icons/icon-karlchen-verloren.png'
+
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 
 const ANNOUNCEMENT_ORDER  = ['re', 'kontra', 'keine_90', 'keine_60', 'keine_30', 'schwarz']
@@ -59,16 +66,16 @@ function AnnBadge({ type }) {
   )
 }
 
-function SpBadge({ label, color }) {
-  const colorCls = color === 'green' ? 'bg-green-500/90 text-white'
-    : color === 'red'               ? 'bg-red-500/90 text-white'
-    :                                 'bg-white/80 text-gray-800'
+function SpBadge({ icon, color }) {
+  const ringCls = color === 'green' ? 'ring-1 ring-green-400/70'
+    : color === 'red'               ? 'ring-1 ring-red-400/70'
+    :                                 ''
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-sm font-bold leading-none shrink-0 ${colorCls}`}
-      style={{ width: 'var(--tisch-badge)', height: 'var(--tisch-badge)', fontSize: 'var(--tisch-text-role)' }}
+      className={`inline-flex items-center justify-center rounded-sm shrink-0 overflow-hidden ${ringCls}`}
+      style={{ width: 'var(--tisch-badge)', height: 'var(--tisch-badge)' }}
     >
-      {label}
+      <img src={icon} alt="" className="w-full h-full object-cover" />
     </span>
   )
 }
@@ -221,10 +228,10 @@ function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) 
     return (
       <div className="flex items-center" style={{ gap: 'var(--tisch-gap)', height: 'var(--tisch-badge)' }}>
         {karlVerloren.length > 0
-          ? karlVerloren.map(s => <SpBadge key={s.id} label="Kv" color="red" />)
+          ? karlVerloren.map(s => <SpBadge key={s.id} icon={iconKarlchenVerloren} color="red" />)
           : <>
-              {karlGemacht.map(s  => <SpBadge key={s.id} label="K"  color="green" />)}
-              {karlGefangen.map(s => <SpBadge key={s.id} label="Kg" color="green" />)}
+              {karlGemacht.map(s  => <SpBadge key={s.id} icon={iconKarlchenGemacht}  color="green" />)}
+              {karlGefangen.map(s => <SpBadge key={s.id} icon={iconKarlchenGefangen} color="green" />)}
             </>
         }
       </div>
@@ -236,8 +243,8 @@ function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) 
     const lost   = sp.filter(s => s.type === 'fuchs_gefangen' && s.loserId  === playerId)
     return (
       <div className="flex items-center" style={{ gap: 'var(--tisch-gap)', height: 'var(--tisch-badge)' }}>
-        {earned.map(s => <SpBadge key={s.id} label="F"  color="green" />)}
-        {lost.map(s   => <SpBadge key={s.id} label="Fv" color="red"   />)}
+        {earned.map(s => <SpBadge key={s.id} icon={iconFuchsGemacht}  color="green" />)}
+        {lost.map(s   => <SpBadge key={s.id} icon={iconFuchsVerloren} color="red"   />)}
       </div>
     )
   }
@@ -248,7 +255,7 @@ function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) 
       .slice(from, to)
     return (
       <div className="flex items-center" style={{ gap: 'var(--tisch-gap)', height: 'var(--tisch-badge)' }}>
-        {badges.map(s => <SpBadge key={s.id} label="D" color="neutral" />)}
+        {badges.map(s => <SpBadge key={s.id} icon={iconDoppelkopf} color="neutral" />)}
       </div>
     )
   }
