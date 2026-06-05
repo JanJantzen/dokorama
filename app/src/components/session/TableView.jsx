@@ -8,7 +8,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useGame, isGameValid, buildCalculationInput } from '@/contexts/GameContext'
 import { useSession } from '@/contexts/SessionContext'
 import { calculateGameResult } from '@/lib/scoreCalculation'
-import { getTablePosition } from '@/lib/seatUtils'
+import { getDisplayPositions } from '@/lib/seatUtils'
 import PlayerAvatar from '@/components/ui/PlayerAvatar'
 import PlayerSheet from '@/components/session/PlayerSheet'
 import EyesBar from '@/components/session/EyesBar'
@@ -135,14 +135,32 @@ function HorizontalPartyToggle({ playerId, party, onPartyChange }) {
   )
 }
 
-// Geber-Chip – schwebt diagonal 4px außerhalb der inneren (abgerundeten) Ecke
-function GebChip({ side, vertical }) {
+// Geber-Chip für aktive Eckspieler – absolut auf dem Backdrop, diagonal aus der inneren Ecke heraus
+function CornerGebChip({ side, vertical }) {
   const posStyle = {
     'left-bottom':  { top: 0, right: 0, transform: 'translate(calc(100% + 2px), calc(-100% - 2px))' },
     'right-bottom': { top: 0, left: 0,  transform: 'translate(calc(-100% - 2px), calc(-100% - 2px))' },
     'right-top':    { bottom: 0, left: 0, transform: 'translate(calc(-100% - 2px), calc(100% + 2px))' },
     'left-top':     { bottom: 0, right: 0, transform: 'translate(calc(100% + 2px), calc(100% + 2px))' },
   }[`${side}-${vertical}`]
+
+  return (
+    <span
+      className="absolute rounded-full bg-yellow-400 text-yellow-900 font-black flex items-center justify-center z-10 shadow-sm"
+      style={{ ...posStyle, width: 'var(--tisch-geb)', height: 'var(--tisch-geb)', fontSize: 'var(--tisch-text-role)' }}
+    >
+      G
+    </span>
+  )
+}
+
+// Geber-Chip für Aussetzer – absolut auf dem Avatar-Container, 2px neben dem Avatar Richtung Tischmitte
+function CompactGebChip({ side }) {
+  const posStyle = {
+    left:  { left: '100%',  top: '50%',  transform: 'translate(2px, -50%)' },
+    top:   { top: '100%',   left: '50%', transform: 'translate(-50%, 2px)' },
+    right: { right: '100%', top: '50%',  transform: 'translate(-2px, -50%)' },
+  }[side]
 
   return (
     <span
@@ -315,7 +333,7 @@ function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) 
           [innerCornerProp]: 'var(--tisch-radius)',
         }}
       >
-        {participant.isDealer && <GebChip side={side} vertical={vertical} />}
+        {participant.isDealer && <CornerGebChip side={side} vertical={vertical} />}
 
         {isBottom ? (
           <>
@@ -338,39 +356,28 @@ function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) 
 // ─── Kompakter Spieler (Aussetzer-Slots) ──────────────────────────────────────
 
 function CompactPlayer({ participant, layout, onTap }) {
-  const { side, vertical } = layout
-  const isSitting = participant.isSitting
-  const nameAbove = side === 'top' || vertical === 'top'
+  const { side, posStyle } = layout
+  const nameAbove = side === 'top'
 
   return (
     <div
-      className="absolute flex flex-col items-center gap-0.5"
-      style={{
-        left: `${layout.x}%`,
-        top:  `${layout.y}%`,
-        transform: 'translate(-50%, -50%)',
-        opacity: isSitting ? 0.45 : 0.8,
-      }}
+      className="absolute flex flex-col items-center"
+      style={{ ...posStyle, gap: 'var(--tisch-gap)', opacity: 0.55 }}
     >
       {nameAbove && (
-        <span className="text-white font-medium text-center leading-tight max-w-[56px] truncate"
-              style={{ fontSize: 'var(--tisch-text-role)' }}>
+        <span className="text-white font-medium text-center leading-tight truncate"
+              style={{ fontSize: 'var(--tisch-text-role)', maxWidth: 'var(--tisch-av-sm)' }}>
           {participant.players.name}
         </span>
       )}
       <div className="relative">
-        <button
-          onClick={() => !isSitting && onTap(participant.player_id)}
-          className={isSitting ? 'cursor-default' : 'active:opacity-70'}
-        >
-          <PlayerAvatar player={participant.players} size="sm"
-            style={{ width: 'var(--tisch-av-sm)', height: 'var(--tisch-av-sm)' }} />
-        </button>
-        {participant.isDealer && <GebChip side={side} vertical={vertical} />}
+        <PlayerAvatar player={participant.players} size="sm"
+          style={{ width: 'var(--tisch-av-sm)', height: 'var(--tisch-av-sm)' }} />
+        {participant.isDealer && <CompactGebChip side={side} />}
       </div>
       {!nameAbove && (
-        <span className="text-white font-medium text-center leading-tight max-w-[56px] truncate"
-              style={{ fontSize: 'var(--tisch-text-role)' }}>
+        <span className="text-white font-medium text-center leading-tight truncate"
+              style={{ fontSize: 'var(--tisch-text-role)', maxWidth: 'var(--tisch-av-sm)' }}>
           {participant.players.name}
         </span>
       )}
@@ -411,7 +418,7 @@ export default function TableView() {
           backgroundColor: '#2d5a27',
           // Element-Größen
           '--tisch-av':         'clamp(75px, 20vw,   100px)',
-          '--tisch-av-sm':      'clamp(32px, 8.53vw,  43px)',
+          '--tisch-av-sm':      'clamp(60px, 16vw,    80px)',
           '--tisch-badge':      'clamp(28px, 7.47vw,  37px)',
           '--tisch-geb':        'clamp(35px, 9.33vw,  47px)',
           // Abstände
@@ -425,29 +432,32 @@ export default function TableView() {
           '--tisch-text-role':  'clamp(8px,  2.13vw,  11px)',
         }}
       >
-        {participants.map(p => {
-          const layout = getTablePosition(p.seat_position, participants.length)
-          if (p.seat_position <= 4 && !p.isSitting) {
+        {(() => {
+          const displayPositions = getDisplayPositions(participants)
+          return participants.map(p => {
+            const layout = displayPositions.get(p.player_id)
+            if (layout.isCorner) {
+              return (
+                <CornerPlayer
+                  key={p.player_id}
+                  participant={p}
+                  layout={layout}
+                  gameState={gameState}
+                  onTap={setOpenSheetId}
+                  onPartyChange={handlePartyChange}
+                />
+              )
+            }
             return (
-              <CornerPlayer
+              <CompactPlayer
                 key={p.player_id}
                 participant={p}
                 layout={layout}
-                gameState={gameState}
                 onTap={setOpenSheetId}
-                onPartyChange={handlePartyChange}
               />
             )
-          }
-          return (
-            <CompactPlayer
-              key={p.player_id}
-              participant={p}
-              layout={layout}
-              onTap={setOpenSheetId}
-            />
-          )
-        })}
+          })
+        })()}
       </main>
 
       <EyesBar
