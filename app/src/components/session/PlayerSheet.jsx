@@ -48,7 +48,7 @@ const SONDERPUNKT_TYPEN = [
 
 function SpIcon({ icon, disabled = false }) {
   return (
-    <span className={`inline-flex items-center justify-center w-9 h-9 rounded-lg overflow-hidden shrink-0 ${
+    <span className={`inline-flex items-center justify-center w-12 h-12 rounded-xl overflow-hidden shrink-0 ${
       disabled ? 'opacity-30' : ''
     }`}>
       <img src={icon} alt="" className="w-full h-full object-cover" />
@@ -474,7 +474,6 @@ export default function PlayerSheet({
                     }`}
                   >
                     <SpIcon icon={def.icon} disabled={disabled} />
-                    <span>{def.label}</span>
                   </button>
                 )
               })}

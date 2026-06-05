@@ -19,6 +19,7 @@ import iconDoppelkopf      from '@/assets/icons/icon-doppelkopf.png'
 import iconKarlchenGemacht  from '@/assets/icons/icon-karlchen-gemacht.png'
 import iconKarlchenGefangen from '@/assets/icons/icon-karlchen-gefangen.png'
 import iconKarlchenVerloren from '@/assets/icons/icon-karlchen-verloren.png'
+import iconDealer           from '@/assets/icons/icon-dealer.png'
 
 // ─── Konstanten ────────────────────────────────────────────────────────────────
 
@@ -66,13 +67,10 @@ function AnnBadge({ type }) {
   )
 }
 
-function SpBadge({ icon, color }) {
-  const ringCls = color === 'green' ? 'ring-1 ring-green-400/70'
-    : color === 'red'               ? 'ring-1 ring-red-400/70'
-    :                                 ''
+function SpBadge({ icon }) {
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-sm shrink-0 overflow-hidden ${ringCls}`}
+      className="inline-flex items-center justify-center rounded-sm shrink-0 overflow-hidden"
       style={{ width: 'var(--tisch-badge)', height: 'var(--tisch-badge)' }}
     >
       <img src={icon} alt="" className="w-full h-full object-cover" />
@@ -153,10 +151,10 @@ function CornerGebChip({ side, vertical }) {
 
   return (
     <span
-      className="absolute rounded-full bg-yellow-400 text-yellow-900 font-black flex items-center justify-center z-10 shadow-sm"
-      style={{ ...posStyle, width: 'var(--tisch-geb)', height: 'var(--tisch-geb)', fontSize: 'var(--tisch-text-role)' }}
+      className="absolute rounded-full overflow-hidden z-10 shadow-sm"
+      style={{ ...posStyle, width: 'var(--tisch-geb)', height: 'var(--tisch-geb)' }}
     >
-      G
+      <img src={iconDealer} alt="Geber" className="w-full h-full object-cover" />
     </span>
   )
 }
@@ -171,10 +169,10 @@ function CompactGebChip({ side }) {
 
   return (
     <span
-      className="absolute rounded-full bg-yellow-400 text-yellow-900 font-black flex items-center justify-center z-10 shadow-sm"
-      style={{ ...posStyle, width: 'var(--tisch-geb)', height: 'var(--tisch-geb)', fontSize: 'var(--tisch-text-role)' }}
+      className="absolute rounded-full overflow-hidden z-10 shadow-sm"
+      style={{ ...posStyle, width: 'var(--tisch-geb)', height: 'var(--tisch-geb)' }}
     >
-      G
+      <img src={iconDealer} alt="Geber" className="w-full h-full object-cover" />
     </span>
   )
 }
@@ -230,8 +228,8 @@ function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) 
         {karlVerloren.length > 0
           ? karlVerloren.map(s => <SpBadge key={s.id} icon={iconKarlchenVerloren} color="red" />)
           : <>
-              {karlGemacht.map(s  => <SpBadge key={s.id} icon={iconKarlchenGemacht}  color="green" />)}
-              {karlGefangen.map(s => <SpBadge key={s.id} icon={iconKarlchenGefangen} color="green" />)}
+              {karlGemacht.map(s  => <SpBadge key={s.id} icon={iconKarlchenGemacht}  />)}
+              {karlGefangen.map(s => <SpBadge key={s.id} icon={iconKarlchenGefangen} />)}
             </>
         }
       </div>
@@ -243,8 +241,8 @@ function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) 
     const lost   = sp.filter(s => s.type === 'fuchs_gefangen' && s.loserId  === playerId)
     return (
       <div className="flex items-center" style={{ gap: 'var(--tisch-gap)', height: 'var(--tisch-badge)' }}>
-        {earned.map(s => <SpBadge key={s.id} icon={iconFuchsGemacht}  color="green" />)}
-        {lost.map(s   => <SpBadge key={s.id} icon={iconFuchsVerloren} color="red"   />)}
+        {earned.map(s => <SpBadge key={s.id} icon={iconFuchsGemacht}  />)}
+        {lost.map(s   => <SpBadge key={s.id} icon={iconFuchsVerloren} />)}
       </div>
     )
   }
@@ -255,7 +253,7 @@ function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) 
       .slice(from, to)
     return (
       <div className="flex items-center" style={{ gap: 'var(--tisch-gap)', height: 'var(--tisch-badge)' }}>
-        {badges.map(s => <SpBadge key={s.id} icon={iconDoppelkopf} color="neutral" />)}
+        {badges.map(s => <SpBadge key={s.id} icon={iconDoppelkopf} />)}
       </div>
     )
   }
