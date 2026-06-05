@@ -883,62 +883,61 @@ Neue alternative Erfassungs-UI: nüchterner Schreibblock-Stil, alle Infos auf ei
 
 ## 16. Icon-Spezifikationen
 
-> Letzte Aktualisierung: 3. Juni 2026. Icons werden von Jan als SVG nachgeliefert. Bis dahin: Platzhalter im Code.
+> Letzte Aktualisierung: 5. Juni 2026. Icons als PNG-Master fertig, noch nicht in die App eingebaut.
 
-### Allgemeine technische Anforderungen (alle Icons)
+### Entscheidung: PNG statt SVG-Vektor
 
-- **Format:** SVG
-- **Viewport:** 24×24px
-- **Stil:** Monochrome Line Art – kein Hardcoding von Farben, stattdessen `fill="currentColor"` bzw. `stroke="currentColor"`, damit die App per CSS einfärben kann
-- **Hintergrund:** Transparent – kein Hintergrund-Shape in der SVG selbst
-- **Badge-Hülle:** Abgerundetes Quadrat (~4–5px border-radius), wird von der App per CSS gesetzt
-- **Erkennbar bei:** 20px (kleines Tisch-Badge), 24px (normales Tisch-Badge), 32px (Sheet-Button)
-- **Ablageort:** `app/src/assets/icons/`
+Die Sonderpunkte-Icons wurden als KI-Illustrationen mit komplexen Verläufen, Schattierungen und malerischen Details entwickelt. Automatische Vektorisierung erzeugt Artefakte und Qualitätsverlust – gerade bei 28–48px, wo maximale Erkennbarkeit gefordert ist.
+
+**Ergebnis:** Die PNG-Master (1024×1024, transparenter Hintergrund) sind die qualitativ bessere Lösung. Für die App werden 96×96px WebP-Versionen daraus erzeugt – klein, scharf, schnell.
+
+**Was das bedeutet für die Implementierung:**
+- Kein `currentColor` / CSS-Umfärbung – die Farben sind im Bild eingebacken
+- Jeder visuelle Zustand hat eine eigene Datei (z.B. fuchs-gemacht vs. fuchs-verloren)
+- `<img src={...} />` statt SVG-Inline
+
+### Asset-Struktur
+
+| Ablageort | Inhalt | Zweck |
+|---|---|---|
+| `app/src/assets/icons/masters/` | 1024×1024 PNG | Source of Truth, nicht vom App-Bundle importiert |
+| `app/src/assets/icons/` | 96×96 PNG | Was React importiert und anzeigt |
+
+Die 96×96-Versionen werden per `sips` aus den Master-PNGs erzeugt (macOS-Bordmittel, kein extra Tool nötig). WebP-Export ist auf diesem System nicht verfügbar – 96×96 PNG ist mit 16–22 KB pro Icon praktisch gleichwertig.
 
 ### Ansagen-Badges (Tisch-Ansicht)
 
-Werden **rein per CSS/Text** gebaut – kein Custom-SVG nötig. Die App rendert den Badge-Text in einem abgerundeten Quadrat.
+Werden **rein per CSS/Text** gebaut – kein Icon nötig. Die App rendert den Badge-Text in einem abgerundeten Quadrat.
 
-| Ansage   | Badge-Text | Farbe (via CSS)         |
-|----------|------------|-------------------------|
-| Re       | Re         | Grün (wenn aktiv)       |
-| Kontra   | Ko         | Amber (wenn aktiv)      |
-| Keine 90 | K9         | Muted (wenn aktiv)      |
-| Keine 60 | K6         | Muted (wenn aktiv)      |
-| Keine 30 | K3         | Muted (wenn aktiv)      |
-| Schwarz  | Sz         | Muted (wenn aktiv)      |
+| Ansage   | Badge-Text | Farbe (via CSS)    |
+|----------|------------|--------------------|
+| Re       | Re         | Grün (wenn aktiv)  |
+| Kontra   | Ko         | Amber (wenn aktiv) |
+| Keine 90 | K9         | Muted (wenn aktiv) |
+| Keine 60 | K6         | Muted (wenn aktiv) |
+| Keine 30 | K3         | Muted (wenn aktiv) |
+| Schwarz  | Sz         | Muted (wenn aktiv) |
 
 ### Sonderpunkte-Icons
 
-**5 Icons gesamt – dieselben in Sheet und Tischansicht.** Im Sheet sind „verloren"-Varianten nicht anwählbar, erscheinen dort aber automatisch bei der Gegenseite (abgeleitet aus `loser_id`).
+**6 Icons gesamt** – jeder visuelle Zustand hat eine eigene Illustration.
 
-| Icon | Dateiname | Was es zeigen soll | Platzhalter | Farbe in der App |
-|---|---|---|---|---|
-| Fuchs | `icon-fuchs.svg` | Stilisierter Fuchs – wer ihn gefangen hat | F | grün |
-| Gefangener Fuchs | `icon-fuchs-verloren.svg` | Fuchs hinter Gittern oder durchgestrichen – wem er abgenommen wurde | Fv | rot |
-| Doppelkopf | `icon-doppelkopf.svg` | Münzen-Stack oder Punkte-Symbol | D | neutral |
-| Karlchen | `icon-karlchen.svg` | Kreuz-Bube Karte – wer den letzten Stich damit gemacht hat | K | grün |
-| Gefangenes Karlchen | `icon-karlchen-gefangen.svg` | Kreuz-Bube hinter Gittern oder durchgestrichen | Kg | grün (Fänger) / rot (Verlierer) |
+| Dateiname (Master / WebP) | Ereignis | Platzhalter | Kontext |
+|---|---|---|---|
+| `icon-fuchs-gemacht` | Fuchs gefangen (Fänger) | F | grüner Rand |
+| `icon-fuchs-verloren` | Fuchs gefangen (Verlierer) | Fv | roter Rand |
+| `icon-karlchen-gemacht` | Karlchen gemacht | K | grüner Rand |
+| `icon-karlchen-gefangen` | Karlchen gefangen (Fänger) | Kg | grüner Rand |
+| `icon-karlchen-verloren` | Karlchen gefangen (Verlierer) | Kv | roter Rand |
+| `icon-doppelkopf` | Doppelkopf-Stich | D | neutraler Rand |
 
-**Farblogik (via `currentColor` in CSS):**
-- Positiv (gefangen, gemacht): grün
-- Negativ (verloren): rot
-- Das gefangene Karlchen-Icon wird für beide Rollen genutzt – Farbe unterscheidet Fänger (grün) von Verlierer (rot)
+**Farblogik:** Die Illustration enthält die inhaltliche Farbe bereits. Die App setzt zusätzlich einen farbigen Rand um das Badge (grün / rot / neutral) – das ist die einzige CSS-Steuerung.
 
-**Wichtig:** SVGs müssen `currentColor` nutzen – kein hardcodiertes Schwarz, damit die App die Farbe je nach Kontext setzen kann.
+### Visuelle Augenhöhe: Badges und Icons
 
-### Visuelle Augenhöhe: Badges und Icons (⚠ für später – greift erst wenn Icons fertig)
+Die Sonderpunkte-Icons sind mehrfarbige, plastische Illustrationen. Die An-/Absage-Badges (Re, Ko, K9 etc.) bleiben Text – CSS hebt sie auf dasselbe visuelle Niveau: abgerundete Pille, dezente Tiefe, Farben aus derselben Palette, gleiche Eckenrundung.
 
-Die Sonderpunkte werden als **mehrfarbige, plastische Bild-Icons** gestaltet (Fuchs, Kreuz-Bube, König-Doppelkopf etc.). Die An-/Absage-Badges (Re, Ko, K9, K6, K3, Sw) bleiben **inhaltlich Buchstaben** und werden nicht als SVG-Icons gezeichnet.
-
-**Warum kein SVG für Ansagen:**
-- CSS-Umfärbbarkeit bleibt erhalten (Re grün / Ko amber, aktiv/inaktiv)
-- Bei 28px werden Schatten/Reflexionen zu Matsch und verschlechtern die Buchstabenlesbarkeit
-- Sechs SVGs die sich nur in zwei Buchstaben unterscheiden = viel Pflegeaufwand für wenig Gewinn
-
-**Ziel:** Beide Gruppen sollen am Tisch nach einer Designwelt aussehen (visuelle Augenhöhe). Die Text-Badges werden per CSS auf das visuelle Niveau der Icons gehoben: abgerundete Pille, dezente Materialität/Tiefe, Farben aus derselben Palette wie die Icons, gleiche Eckenrundung — als lebende CSS-Stileigenschaft, die sich an Größe und Hell-/Dunkelmodus anpasst.
-
-**Vorbehalt:** Visuelle Augenhöhe lässt sich von beiden Seiten herstellen. Sollte sich am echten Tisch-Look zeigen, dass die Icons sehr plastisch/glänzend wirken und damit zum sonst schlichten, cleanen App-Design (Waldgrün, heller Hintergrund) nicht passen, ist die Alternative, die Icons etwas zurückzunehmen statt die Badges hochzuziehen — bis beide in derselben Wertigkeitsklasse sitzen. **Finale Entscheidung am gerenderten Screen.**
+**Vorbehalt:** Falls die Icons am echten Screen zu plastisch/glänzend wirken und nicht zum schlichten App-Design passen, können sie leicht zurückgenommen werden (z.B. leichte Desaturierung via CSS `filter`). Finale Entscheidung am gerenderten Screen.
 
 ### Sonderspiel-Labels (Tisch-Ansicht)
 
@@ -946,13 +945,13 @@ Sonderspiele (Solo, Hochzeit, Armut) werden auf dem Tisch als **Textlabel** ange
 
 ### Hintergrundbilder für Austragungsorte
 
-- **Format:** JPEG oder WebP (kleinere Dateigröße als PNG)
+- **Format:** JPEG oder WebP
 - **Mindestgröße:** 800×1400px (2× Auflösung für Retina-Displays)
 - **Seitenverhältnis:** Beliebig – App verwendet `background-size: cover` und `background-position: center`
 - **Ablageort:** Supabase Storage, Bucket `venue-images`, Dateinamen `{venue_id}.jpg`
 - **Default:** Einfarbiges Filzgrün (`#2d5a27`) wenn kein Bild vorhanden
 - **Anwendung:** Nur im Tischbereich (zwischen Header und EyesBar), nicht im Header oder der EyesBar selbst
 
-### Platzhalter bis zur Icon-Lieferung
+### Platzhalter bis zur Icon-Integration
 
-Abgerundetes Quadrat (`bg-muted`, border-radius 4px) mit 1–2 Buchstaben in Schriftgröße 10px. Gleiche Größe und Position wie die echten Icons – drop-in-ready sobald die SVGs ankommen.
+Abgerundetes Quadrat (`bg-muted`, border-radius 4px) mit 1–2 Buchstaben in Schriftgröße 10px. Gleiche Größe und Position wie die echten Icons – drop-in-ready sobald die WebP-Dateien in `app/src/assets/icons/` liegen.
