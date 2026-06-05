@@ -927,6 +927,19 @@ Werden **rein per CSS/Text** gebaut – kein Custom-SVG nötig. Die App rendert 
 
 **Wichtig:** SVGs müssen `currentColor` nutzen – kein hardcodiertes Schwarz, damit die App die Farbe je nach Kontext setzen kann.
 
+### Visuelle Augenhöhe: Badges und Icons (⚠ für später – greift erst wenn Icons fertig)
+
+Die Sonderpunkte werden als **mehrfarbige, plastische Bild-Icons** gestaltet (Fuchs, Kreuz-Bube, König-Doppelkopf etc.). Die An-/Absage-Badges (Re, Ko, K9, K6, K3, Sw) bleiben **inhaltlich Buchstaben** und werden nicht als SVG-Icons gezeichnet.
+
+**Warum kein SVG für Ansagen:**
+- CSS-Umfärbbarkeit bleibt erhalten (Re grün / Ko amber, aktiv/inaktiv)
+- Bei 28px werden Schatten/Reflexionen zu Matsch und verschlechtern die Buchstabenlesbarkeit
+- Sechs SVGs die sich nur in zwei Buchstaben unterscheiden = viel Pflegeaufwand für wenig Gewinn
+
+**Ziel:** Beide Gruppen sollen am Tisch nach einer Designwelt aussehen (visuelle Augenhöhe). Die Text-Badges werden per CSS auf das visuelle Niveau der Icons gehoben: abgerundete Pille, dezente Materialität/Tiefe, Farben aus derselben Palette wie die Icons, gleiche Eckenrundung — als lebende CSS-Stileigenschaft, die sich an Größe und Hell-/Dunkelmodus anpasst.
+
+**Vorbehalt:** Visuelle Augenhöhe lässt sich von beiden Seiten herstellen. Sollte sich am echten Tisch-Look zeigen, dass die Icons sehr plastisch/glänzend wirken und damit zum sonst schlichten, cleanen App-Design (Waldgrün, heller Hintergrund) nicht passen, ist die Alternative, die Icons etwas zurückzunehmen statt die Badges hochzuziehen — bis beide in derselben Wertigkeitsklasse sitzen. **Finale Entscheidung am gerenderten Screen.**
+
 ### Sonderspiel-Labels (Tisch-Ansicht)
 
 Sonderspiele (Solo, Hochzeit, Armut) werden auf dem Tisch als **Textlabel** angezeigt – kein Icon nötig.
