@@ -143,12 +143,12 @@ function HorizontalPartyToggle({ playerId, party, onPartyChange }) {
 
 // Geber-Chip für aktive Eckspieler – transparent, flush an der inneren Ecke des Backdrops
 function CornerGebChip({ side, vertical }) {
-  // translate(100%, -100%) = Chip-Ecke liegt exakt an der Backdrop-Ecke (Ecke an Ecke)
+  // translate(70%, -70%) = Chip überlappt die Backdrop-Ecke leicht, sitzt visuell direkt daran
   const posStyle = {
-    'left-bottom':  { top: 0, right: 0,    transform: 'translate(100%, -100%)' },
-    'right-bottom': { top: 0, left: 0,     transform: 'translate(-100%, -100%)' },
-    'right-top':    { bottom: 0, left: 0,  transform: 'translate(-100%, 100%)' },
-    'left-top':     { bottom: 0, right: 0, transform: 'translate(100%, 100%)' },
+    'left-bottom':  { top: 0, right: 0,    transform: 'translate(70%, -70%)' },
+    'right-bottom': { top: 0, left: 0,     transform: 'translate(-70%, -70%)' },
+    'right-top':    { bottom: 0, left: 0,  transform: 'translate(-70%, 70%)' },
+    'left-top':     { bottom: 0, right: 0, transform: 'translate(70%, 70%)' },
   }[`${side}-${vertical}`]
 
   return (

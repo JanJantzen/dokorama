@@ -46,13 +46,13 @@ const SONDERPUNKT_TYPEN = [
   { type: 'karlchen_gefangen', label: 'gefangen', icon: iconKarlchenGefangen, needsLoser: true, max: 1            },
 ]
 
-function SpIcon({ icon, disabled = false }) {
+// size='full' → füllt den Eltern-Button (Viererreihe), size='sm' → kleines Icon in der Liste
+function SpIcon({ icon, disabled = false, size = 'full' }) {
+  const cls = size === 'sm'
+    ? 'w-8 h-8 rounded-lg overflow-hidden shrink-0 object-cover'
+    : 'w-full aspect-square object-cover'
   return (
-    <img
-      src={icon}
-      alt=""
-      className={`w-full aspect-square object-cover ${disabled ? 'opacity-30' : ''}`}
-    />
+    <img src={icon} alt="" className={`${cls} ${disabled ? 'opacity-30' : ''}`} />
   )
 }
 
@@ -489,7 +489,7 @@ export default function PlayerSheet({
                     : null
                   return (
                     <div key={sp.id} className="flex items-center gap-2 bg-secondary rounded-xl px-3 py-2">
-                      <SpIcon icon={def?.icon} />
+                      <SpIcon icon={def?.icon} size="sm" />
                       <span className="text-sm flex-1">
                         {def?.label}
                         {loserName && (
