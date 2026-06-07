@@ -13,6 +13,12 @@ import PlayerAvatar from '@/components/ui/PlayerAvatar'
 import PlayerSheet from '@/components/session/PlayerSheet'
 import EyesBar from '@/components/session/EyesBar'
 
+import iconAnnRe  from '@/assets/icons/icon-ann-re.png'
+import iconAnnKo  from '@/assets/icons/icon-ann-ko.png'
+import iconAnnK9  from '@/assets/icons/icon-ann-k9.png'
+import iconAnnK6  from '@/assets/icons/icon-ann-k6.png'
+import iconAnnK3  from '@/assets/icons/icon-ann-k3.png'
+import iconAnnSw  from '@/assets/icons/icon-ann-sw.png'
 import iconFuchsGemacht    from '@/assets/icons/icon-fuchs-gemacht.png'
 import iconFuchsVerloren   from '@/assets/icons/icon-fuchs-verloren.png'
 import iconDoppelkopf      from '@/assets/icons/icon-doppelkopf.png'
@@ -50,20 +56,15 @@ function getRoleLabel(specialRole, soloType, soloColor) {
 
 // ─── Geteilte UI-Bausteine ─────────────────────────────────────────────────────
 
+const ANN_ICONS = { re: iconAnnRe, kontra: iconAnnKo, keine_90: iconAnnK9, keine_60: iconAnnK6, keine_30: iconAnnK3, schwarz: iconAnnSw }
+
 function AnnBadge({ type }) {
-  const label    = ANNOUNCEMENT_LABELS[type]
-  // Pill-Form mit Farbverlauf und leichtem Schatten für visuelle Augenhöhe mit den SP-Icons
-  const colorCls = type === 're'
-    ? 'bg-gradient-to-b from-green-500 to-green-700 text-white shadow-sm ring-1 ring-green-900/30'
-    : type === 'kontra'
-    ? 'bg-gradient-to-b from-amber-400 to-amber-600 text-white shadow-sm ring-1 ring-amber-900/30'
-    : 'bg-gradient-to-b from-white/85 to-white/60 text-gray-800 shadow-sm ring-1 ring-black/10'
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-full font-bold leading-none shrink-0 ${colorCls}`}
-      style={{ width: 'var(--tisch-badge)', height: 'var(--tisch-badge)', fontSize: 'var(--tisch-text-role)' }}
+      className="inline-flex items-center justify-center rounded-sm shrink-0 overflow-hidden"
+      style={{ width: 'var(--tisch-badge)', height: 'var(--tisch-badge)' }}
     >
-      {label}
+      <img src={ANN_ICONS[type]} alt={ANNOUNCEMENT_LABELS[type]} className="w-full h-full object-cover" />
     </span>
   )
 }
