@@ -806,6 +806,7 @@ Neue alternative Erfassungs-UI: nüchterner Schreibblock-Stil, alle Infos auf ei
 - Fun Stats / Rekorde
 - Ortsspezifische Hintergrundbilder für den Erfassungsscreen
 - Individuelle Drehung der Tischansicht (jede:r sieht sich selbst unten links)
+- **Wischgeste Parteizuordnung (Tisch-Ansicht):** Wischen von Avatar A zu Avatar B verbindet beide als Team. Wenn einer bereits zugeordnet ist → anderer bekommt dieselbe Partei. Wenn keiner → Dialog Re/Ko/Abbrechen. Wenn unterschiedliche Parteien → Hinweis mit Auflösungsoptionen. Technisch: `elementFromPoint()` am `touchend` für Cross-Element-Detection, Schwellwert ~20px zur Tap-Unterscheidung. Benachbarte Avatare (gleiche Seite) sind der Haupt-Use-Case; Diagonale funktioniert, ist aber lange Geste.
 - Weitere alternative Erfassungs-UIs (z.B. Diktat-Ansicht) – Architektur durch Multi-View-System bereits vorbereitet
 - View-Präferenz (Tisch/Block) pro eingeloggtem Schreiber in User-Profil speichern (nach User-Management)
 - Doko-Dating, gruppenübergreifende Statistiken

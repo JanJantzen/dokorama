@@ -107,37 +107,19 @@ function ShrinkText({ text }) {
   )
 }
 
-// Re/·/Ko-Toggle – horizontal über die volle Backdrop-Breite, flex 2/1/2
-function HorizontalPartyToggle({ playerId, party, onPartyChange }) {
+// Partei-Beschriftung – zeigt "Re" (grün) oder "Kontra" (rot), leer bei unbekannt.
+// Ausrichtung folgt der Spieler-Seite: links = linksbündig, rechts = rechtsbündig.
+function PartyLabel({ party, isLeft }) {
+  if (!party) return null
+  const isRe = party === 're'
   return (
-    <div
-      className="flex border border-white/30 overflow-hidden shrink-0"
-      style={{
-        height: 'var(--tisch-badge)',
-        margin: '0 calc(-1 * var(--tisch-gap))',
-        width: 'calc(100% + var(--tisch-gap))',
-      }}
-    >
-      {[
-        { value: 're',     label: 'Re', grow: 2 },
-        { value: null,     label: '·',  grow: 1 },
-        { value: 'kontra', label: 'Ko', grow: 2 },
-      ].map(opt => (
-        <button
-          key={String(opt.value)}
-          onClick={() => onPartyChange(playerId, opt.value)}
-          style={{ flex: opt.grow, fontSize: 'var(--tisch-text-role)' }}
-          className={`font-bold transition-colors ${
-            party === opt.value
-              ? opt.value === 're'     ? 'bg-green-600 text-white'
-              : opt.value === 'kontra' ? 'bg-amber-500 text-white'
-              : 'bg-white/30 text-white'
-              : 'bg-black/20 text-white/60'
-          }`}
-        >
-          {opt.label}
-        </button>
-      ))}
+    <div className={`flex w-full ${isLeft ? 'justify-start' : 'justify-end'}`}>
+      <span
+        className={`font-semibold ${isRe ? 'text-green-500' : 'text-red-500'}`}
+        style={{ fontSize: 'var(--tisch-text-role)' }}
+      >
+        {isRe ? 'Re' : 'Kontra'}
+      </span>
     </div>
   )
 }
@@ -182,7 +164,7 @@ function CompactGebChip({ side }) {
 
 // ─── Spieler-Cluster (aktive Ecke) ────────────────────────────────────────────
 
-function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) {
+function CornerPlayer({ participant, layout, gameState, onTap }) {
   const { side, vertical } = layout
   const isLeft    = side === 'left'
   const isBottom  = vertical === 'bottom'
@@ -334,7 +316,11 @@ function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) 
       }}
     >
       <div
-        className="relative bg-white/15 flex flex-col w-full"
+        className={`relative bg-white/15 flex flex-col w-full border-2 ${
+          party === 're'     ? 'border-green-500' :
+          party === 'kontra' ? 'border-red-500'   :
+                               'border-white/20'
+        }`}
         style={{
           ...paddingStyle,
           gap: 'var(--tisch-gap-outer)',
@@ -347,11 +333,11 @@ function CornerPlayer({ participant, layout, gameState, onTap, onPartyChange }) 
           <>
             <AnnouncementRow />
             <MainRow />
-            <HorizontalPartyToggle playerId={playerId} party={party} onPartyChange={onPartyChange} />
+            <PartyLabel party={party} isLeft={isLeft} />
           </>
         ) : (
           <>
-            <HorizontalPartyToggle playerId={playerId} party={party} onPartyChange={onPartyChange} />
+            <PartyLabel party={party} isLeft={isLeft} />
             <MainRow />
             <AnnouncementRow />
           </>
@@ -452,7 +438,6 @@ export default function TableView() {
                   layout={layout}
                   gameState={gameState}
                   onTap={setOpenSheetId}
-                  onPartyChange={handlePartyChange}
                 />
               )
             }
