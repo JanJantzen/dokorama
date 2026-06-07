@@ -931,13 +931,28 @@ Werden **rein per CSS/Text** gebaut – kein Icon nötig. Die App rendert den Ba
 | `icon-karlchen-verloren` | Karlchen gefangen (Verlierer) | Kv | roter Rand |
 | `icon-doppelkopf` | Doppelkopf-Stich | D | neutraler Rand |
 
-**Farblogik:** Die Illustration enthält die inhaltliche Farbe bereits. Die App setzt zusätzlich einen farbigen Rand um das Badge (grün / rot / neutral) – das ist die einzige CSS-Steuerung.
+**Farblogik:** Kein farbiger Rand – die Illustration enthält alle visuellen Informationen selbst.
 
-### Visuelle Augenhöhe: Badges und Icons
+### Ansagen/Absagen-Icons (Tisch-Ansicht)
 
-Die Sonderpunkte-Icons sind mehrfarbige, plastische Illustrationen. Die An-/Absage-Badges (Re, Ko, K9 etc.) bleiben Text – CSS hebt sie auf dasselbe visuelle Niveau: abgerundete Pille, dezente Tiefe, Farben aus derselben Palette, gleiche Eckenrundung.
+Ebenfalls PNG-Chips, gleiche Strategie wie Sonderpunkte. Masters: `chip_RE/KO/K9/K6/K3/SW.png`.
 
-**Vorbehalt:** Falls die Icons am echten Screen zu plastisch/glänzend wirken und nicht zum schlichten App-Design passen, können sie leicht zurückgenommen werden (z.B. leichte Desaturierung via CSS `filter`). Finale Entscheidung am gerenderten Screen.
+| Dateiname (App) | Ansage |
+|---|---|
+| `icon-ann-re.png` | Re |
+| `icon-ann-ko.png` | Kontra |
+| `icon-ann-k9.png` | Keine 90 |
+| `icon-ann-k6.png` | Keine 60 |
+| `icon-ann-k3.png` | Keine 30 |
+| `icon-ann-sw.png` | Schwarz |
+
+### Dealer-Icon
+
+Master: `icon_dealer.png` → App: `icon-dealer.png` (96×96). **Ein neues Dealer-Icon ist in Arbeit** (Jan, Stand 7. Juni 2026) – wird als Drop-in in denselben Pfad geliefert.
+
+### Re/Kontra-Toggle
+
+Der horizontale Toggle am Avatar ist funktional aber visuell noch unbefriedigend. Lösung noch offen – wird nach den Plausichecks angegangen.
 
 ### Sonderspiel-Labels (Tisch-Ansicht)
 
