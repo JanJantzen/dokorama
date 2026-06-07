@@ -109,17 +109,24 @@ function ShrinkText({ text }) {
 
 // Partei-Beschriftung – zeigt "Re" (grün) oder "Kontra" (rot), leer bei unbekannt.
 // Ausrichtung folgt der Spieler-Seite: links = linksbündig, rechts = rechtsbündig.
-function PartyLabel({ party, isLeft }) {
-  if (!party) return null
+// Immer gerendert (minHeight), damit der Backdrop nicht springt wenn Partei gesetzt wird.
+function PartyLabel({ party, isLeft, isBottom }) {
   const isRe = party === 're'
+  // Abstand zur MainRow auf --tisch-gap reduzieren (statt --tisch-gap-outer vom Eltern-flex)
+  const marginSide = isBottom ? 'marginTop' : 'marginBottom'
   return (
-    <div className={`flex w-full ${isLeft ? 'justify-start pl-2' : 'justify-end pr-2'}`}>
-      <span
-        className={`font-bold ${isRe ? 'text-green-300/80' : 'text-red-300/80'}`}
-        style={{ fontSize: 'var(--tisch-text-name)' }}
-      >
-        {isRe ? 'Re' : 'Kontra'}
-      </span>
+    <div
+      className={`flex w-full ${isLeft ? 'justify-start pl-2' : 'justify-end pr-2'}`}
+      style={{ minHeight: 'var(--tisch-text-name)', [marginSide]: 'calc(var(--tisch-gap) - var(--tisch-gap-outer))' }}
+    >
+      {party && (
+        <span
+          className={`font-bold ${isRe ? 'text-green-100/60' : 'text-red-300/80'}`}
+          style={{ fontSize: 'var(--tisch-text-name)' }}
+        >
+          {isRe ? 'Re' : 'Kontra'}
+        </span>
+      )}
     </div>
   )
 }
@@ -316,10 +323,10 @@ function CornerPlayer({ participant, layout, gameState, onTap }) {
       }}
     >
       <div
-        className={`relative bg-white/15 flex flex-col w-full border-2 ${
-          party === 're'     ? 'border-green-300/50' :
-          party === 'kontra' ? 'border-red-300/50'   :
-                               'border-white/20'
+        className={`relative bg-white/15 flex flex-col w-full ring-2 ${
+          party === 're'     ? 'ring-green-300/50' :
+          party === 'kontra' ? 'ring-red-300/50'   :
+                               'ring-white/20'
         }`}
         style={{
           ...paddingStyle,
@@ -333,11 +340,11 @@ function CornerPlayer({ participant, layout, gameState, onTap }) {
           <>
             <AnnouncementRow />
             <MainRow />
-            <PartyLabel party={party} isLeft={isLeft} />
+            <PartyLabel party={party} isLeft={isLeft} isBottom={isBottom} />
           </>
         ) : (
           <>
-            <PartyLabel party={party} isLeft={isLeft} />
+            <PartyLabel party={party} isLeft={isLeft} isBottom={isBottom} />
             <MainRow />
             <AnnouncementRow />
           </>
