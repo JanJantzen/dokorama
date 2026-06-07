@@ -113,10 +113,10 @@ function PartyLabel({ party, isLeft }) {
   if (!party) return null
   const isRe = party === 're'
   return (
-    <div className={`flex w-full ${isLeft ? 'justify-start' : 'justify-end'}`}>
+    <div className={`flex w-full ${isLeft ? 'justify-start pl-2' : 'justify-end pr-2'}`}>
       <span
-        className={`font-semibold ${isRe ? 'text-green-500' : 'text-red-500'}`}
-        style={{ fontSize: 'var(--tisch-text-role)' }}
+        className={`font-bold ${isRe ? 'text-green-300/80' : 'text-red-300/80'}`}
+        style={{ fontSize: 'var(--tisch-text-name)' }}
       >
         {isRe ? 'Re' : 'Kontra'}
       </span>
@@ -317,8 +317,8 @@ function CornerPlayer({ participant, layout, gameState, onTap }) {
     >
       <div
         className={`relative bg-white/15 flex flex-col w-full border-2 ${
-          party === 're'     ? 'border-green-500' :
-          party === 'kontra' ? 'border-red-500'   :
+          party === 're'     ? 'border-green-300/50' :
+          party === 'kontra' ? 'border-red-300/50'   :
                                'border-white/20'
         }`}
         style={{
