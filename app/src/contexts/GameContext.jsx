@@ -15,6 +15,7 @@
 import { createContext, useContext, useRef, useState, useCallback } from 'react'
 import { deriveGameType } from '@/lib/scoreCalculation'
 import { applyAction, wouldViolate, isComplete } from '@/lib/consistency'
+import { buildAnnouncementConflictDialog } from '@/lib/consistencyDialogs'
 
 const GameContext = createContext(null)
 
@@ -134,13 +135,24 @@ export function GameProvider({ children, initialParticipants }) {
   }, [])
 
   // ── Resolver-Dispatch (wird in den Teilen 1–6 gefüllt) ──────────────────────
-  // Bekommt die auslösende Aktion + die verletzten Invarianten und gibt einen
-  // Dialog-Deskriptor zurück – oder null, wenn für diesen Fall (noch) kein
-  // spezifischer Dialog definiert ist. In Teil 0 immer null → alles läuft in den
-  // sicheren Fallback (P8).
-  const resolveConflict = useCallback((/* action, violations, state */) => {
+  // Bekommt die auslösende Aktion + die verletzten Invarianten + den Zustand und
+  // gibt einen Dialog-Deskriptor zurück – oder null, wenn für diesen Fall (noch)
+  // kein spezifischer Dialog definiert ist (→ sicherer Fallback, P8).
+  const resolveConflict = useCallback((action, violations, state) => {
+    // Teil 1 – zweite gleiche An-/Absage im Team (B.2.3/B.2.5, C.2.3/C.2.5).
+    // Greift nur, wenn die EINZIGE Verletzung die An-/Absage-Doppelung ist
+    // (I5 = Re/Kontra, I6 = Absage). Sind zusätzlich Partei-Invarianten verletzt
+    // (z.B. Team schon voll), gehört der Fall zum Partei-Knoten (Teil 2) und
+    // läuft bis dahin in den Fallback.
+    if (action.type === 'makeAnnouncement'
+        && violations.every(v => v === 'I5' || v === 'I6')) {
+      return buildAnnouncementConflictDialog({
+        action, state, participants: participantsRef.current,
+        commit: commitAction,
+      })
+    }
     return null
-  }, [])
+  }, [commitAction])
 
   // Generische Eintrittstür für JEDE potenziell konflikt-behaftete Aktion (P5/P8):
   //   1. Vorausschau: würde die Aktion eine Invariante verletzen?
@@ -177,6 +189,19 @@ export function GameProvider({ children, initialParticipants }) {
     commitAction({ type: 'toggleAnnouncement', playerId, announcement: type })
   }, [commitAction])
 
+  // An-/Absage über den Sheet-Button (Teil 1): läuft durch die Konsistenzprüfung.
+  // Sauber → wird ausgeführt; Doppelung im Team → Auflösungs-Dialog (C.2.3/C.2.5).
+  const makeAnnouncement = useCallback((playerId, type) => {
+    requestAction({ type: 'makeAnnouncement', playerId, announcement: type })
+  }, [requestAction])
+
+  // Vorausschau für die Ansicht (P5): Würde dieser An-/Absage-Klick gerade einen
+  // Konflikt auslösen? Steuert das Ausgrauen des Buttons (grau, aber klickbar).
+  const previewAnnouncement = useCallback((playerId, type) => {
+    return wouldViolate(gameState, participantsRef.current,
+      { type: 'makeAnnouncement', playerId, announcement: type }).length > 0
+  }, [gameState])
+
   const handleSpecialRoleSet = useCallback((playerId, role, extraData) => {
     commitAction({ type: 'setSpecialRole', playerId, role, extraData })
   }, [commitAction])
@@ -203,6 +228,8 @@ export function GameProvider({ children, initialParticipants }) {
       resetCurrentGame,
       handlePartyChange,
       handleAnnouncementToggle,
+      makeAnnouncement,
+      previewAnnouncement,
       handleSpecialRoleSet,
       handleSpecialRoleClear,
       handleSpecialPointAdd,

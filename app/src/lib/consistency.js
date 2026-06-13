@@ -47,6 +47,21 @@ export function applyAction(state, participants, action) {
       return { ...state, parties: { ...state.parties, [playerId]: party }, announcements: newAnns }
     }
 
+    // Eine An-/Absage über den Sheet-Button machen. Das ist der vollständige Klick
+    // wie ihn der Schreiber auslöst: Bei Re/Kontra zieht die Ansage zuerst die
+    // passende Partei nach sich (B.2.2), dann wird die An-/Absage getoggelt.
+    // (Absagen ziehen keine Partei nach – B.2.4.) Damit rechnet die Vorausschau
+    // die GANZE Wirkung eines Klicks durch, nicht nur den Toggle-Teil.
+    case 'makeAnnouncement': {
+      const { playerId, announcement } = action
+      let next = state
+      if (announcement === 're' && next.parties[playerId] !== 're')
+        next = applyAction(next, participants, { type: 'setParty', playerId, party: 're' })
+      if (announcement === 'kontra' && next.parties[playerId] !== 'kontra')
+        next = applyAction(next, participants, { type: 'setParty', playerId, party: 'kontra' })
+      return applyAction(next, participants, { type: 'toggleAnnouncement', playerId, announcement })
+    }
+
     // Eine An-/Absage an-/abschalten. Re und Kontra schließen sich bei derselben
     // Person gegenseitig aus (B.2.1); die Absagen (Keine 90/60/30/Schwarz) nicht.
     case 'toggleAnnouncement': {

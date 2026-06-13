@@ -61,7 +61,8 @@ export default function PlayerSheet({
   gameState,
   activePlayers,
   onPartyChange,
-  onAnnouncementToggle,
+  onAnnouncement,
+  previewAnnouncement,
   onSpecialRoleSet,
   onSpecialRoleClear,
   onSpecialPointAdd,
@@ -154,10 +155,10 @@ export default function PlayerSheet({
     return null
   }
 
+  // An-/Absage-Klick: läuft jetzt durch die Konsistenz-Engine (Teil 1). Die
+  // Partei-Folge bei Re/Kontra und die Doppelungs-Prüfung stecken dort.
   function handleAnnouncement(type) {
-    if (type === 're'     && currentParty !== 're')     onPartyChange(playerId, 're')
-    if (type === 'kontra' && currentParty !== 'kontra') onPartyChange(playerId, 'kontra')
-    onAnnouncementToggle(playerId, type)
+    onAnnouncement(playerId, type)
   }
 
   function handleSoloTyp(type) {
@@ -375,6 +376,9 @@ export default function PlayerSheet({
             <div className="flex gap-2 mb-2">
               {[{ type: 're', label: 'Re' }, { type: 'kontra', label: 'Kontra' }].map(btn => {
                 const active = currentAnnouncements.includes(btn.type)
+                // P5: würde dieser Klick eine Doppelung erzeugen? → ausgegraut,
+                // aber klickbar (der Klick öffnet dann den Auflösungs-Dialog).
+                const conflict = !active && previewAnnouncement(playerId, btn.type)
                 return (
                   <button
                     key={btn.type}
@@ -383,7 +387,7 @@ export default function PlayerSheet({
                       active
                         ? 'bg-primary text-primary-foreground border-primary'
                         : 'bg-background text-foreground border-border'
-                    }`}
+                    } ${conflict ? 'opacity-40' : ''}`}
                   >
                     {btn.label}
                   </button>
@@ -398,6 +402,7 @@ export default function PlayerSheet({
                 { type: 'schwarz',  label: 'Schwarz'  },
               ].map(btn => {
                 const active = currentAnnouncements.includes(btn.type)
+                const conflict = !active && previewAnnouncement(playerId, btn.type)
                 return (
                   <button
                     key={btn.type}
@@ -406,7 +411,7 @@ export default function PlayerSheet({
                       active
                         ? 'bg-primary text-primary-foreground border-primary'
                         : 'bg-background text-foreground border-border'
-                    }`}
+                    } ${conflict ? 'opacity-40' : ''}`}
                   >
                     {btn.label}
                   </button>
