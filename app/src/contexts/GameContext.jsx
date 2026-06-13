@@ -75,6 +75,11 @@ export function GameProvider({ children, initialParticipants }) {
     setGameState(initGameState(newParticipants))
   }, [])
 
+  // Setzt das aktuelle Spiel auf Leerstand zurück – ohne Participants zu ändern
+  const resetCurrentGame = useCallback(() => {
+    setGameState(initGameState(participantsRef.current))
+  }, [])
+
   const handlePartyChange = useCallback((playerId, party) => {
     setGameState(prev => {
       const newAnns = { ...prev.announcements }
@@ -163,6 +168,7 @@ export function GameProvider({ children, initialParticipants }) {
     <GameContext.Provider value={{
       gameState,
       resetForNextGame,
+      resetCurrentGame,
       handlePartyChange,
       handleAnnouncementToggle,
       handleSpecialRoleSet,

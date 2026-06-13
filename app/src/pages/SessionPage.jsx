@@ -232,7 +232,6 @@ function ResetGameScreen({ gameNumber, onClose, onConfirm }) {
             <li>✗ Sonderpunkte</li>
             <li>✗ Augenzahl</li>
           </ul>
-          <p className="text-xs text-amber-600 mt-2">Noch nicht gespeichert – keine Datenbankänderung.</p>
         </div>
 
         {/* B: Weiter eingeben */}
@@ -260,7 +259,7 @@ function SessionPageInner() {
     showMenu, setShowMenu,
     setGameNumber, refreshSeatStatus,
   } = useSession()
-  const { gameState, resetForNextGame } = useGame()
+  const { gameState, resetForNextGame, resetCurrentGame } = useGame()
 
   const [showEndScreen,   setShowEndScreen]   = useState(false)
   const [showResetScreen, setShowResetScreen] = useState(false)
@@ -320,7 +319,7 @@ function SessionPageInner() {
 
   // GameContext-Zustand auf Initialstand zurücksetzen (keine DB-Änderung)
   function handleResetConfirm() {
-    resetForNextGame(participants)
+    resetCurrentGame()
     if (activeView === 'evaluate') backToErfassung()
     setShowResetScreen(false)
   }
