@@ -17,6 +17,10 @@ const ANN_LABELS = {
   keine_90: 'Keine 90', keine_60: 'Keine 60', keine_30: 'Keine 30', schwarz: 'Schwarz',
 }
 
+// Anzeige-Texte der Parteien (Teil 2).
+const PARTY_LABELS = { re: 'Re', kontra: 'Kontra' }
+const otherParty = party => (party === 're' ? 'kontra' : 're')
+
 // ─────────────────────────────────────────────────────────────────────────────
 // C.2.3 / C.2.5 – Zweite Person im Team will dieselbe An-/Absage machen
 //
@@ -76,6 +80,108 @@ export function buildAnnouncementConflictDialog({ action, state, participants, c
         onSelect: () => {
           commit({ type: 'makeAnnouncement',    playerId: clickerId,        announcement })
           commit({ type: 'toggleAnnouncement',  playerId: partner.player_id, announcement })
+        },
+      },
+    ],
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C.5.6 – Partei-Zuordnung: Tisch voll / Teams stehen fest (Teil 2)
+//
+// Tritt nur bei vollständig zugeordnetem Tisch auf (die Kaskade B.5.4 lässt keinen
+// Zwischenzustand "drei zugeordnet, einer offen" zu). Die klickende Person will in
+// ein bereits volles Team – die Teams stehen fest und werden NICHT beiläufig
+// aufgelöst (B.5.6, "direkt gesetzte Zuordnung wird respektiert"). Auflösung =
+// Tausch: eine der beiden Gegenüber wird verdrängt und rutscht per Kaskade auf die
+// Gegenseite. Reihenfolge der "Statt"-Optionen: Tischreihenfolge (seat_position).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function buildFullTeamDialog({ action, state, participants, commit }) {
+  const { playerId, party } = action            // party = das volle Ziel-Team
+  const active = participants.filter(p => !p.isSitting)
+  const nameOf = id => active.find(p => p.player_id === id)?.players.name ?? '?'
+
+  const clicker     = nameOf(playerId)
+  const targetLabel = PARTY_LABELS[party]
+  const otherLabel  = PARTY_LABELS[otherParty(party)]
+
+  // Die beiden Personen, die das Ziel-Team aktuell belegen (nach Tischposition).
+  const members = active
+    .filter(p => p.player_id !== playerId && state.parties[p.player_id] === party)
+    .sort((a, b) => a.seat_position - b.seat_position)
+  // Defensiv: ohne belegtes Ziel-Team gibt es nichts zu verdrängen.
+  if (members.length === 0) return null
+
+  return {
+    was:   `${clicker} kann nicht einfach ${targetLabel} sein.`,
+    warum: `Die Teams stehen schon fest – ${members.map(m => m.players.name).join(' und ')} sind ${targetLabel}.`,
+    options: [
+      { label: 'Abbrechen', subtitle: 'Ohne Änderung zurück.' },
+      ...members.map(m => ({
+        label: `Statt ${m.players.name}`,
+        subtitle: [
+          `${clicker} ist ${targetLabel}`,
+          `${m.players.name} ist ${otherLabel}`,
+        ],
+        // Tausch: den Verdrängten auf die Gegenseite, dann den Klickenden ins
+        // Ziel-Team. Reihenfolge egal – der Endzustand ist konsistent (2+2).
+        onSelect: () => {
+          commit({ type: 'setParty', playerId: m.player_id, party: otherParty(party) })
+          commit({ type: 'setParty', playerId, party })
+        },
+      })),
+    ],
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C.5.9 – Partei-Aktion scheitert an der eigenen bestehenden Ansage (Teil 2)
+//
+// Die klickende Person hat selbst Re/Kontra gesagt und gehört damit zu einer
+// Partei; der Toggle würde sie auf die Gegenseite bringen (I7). Aufgelöst wird die
+// ANSAGE (Button "zurückziehen") – es wird nichts umgetragen, die Ansage
+// verschwindet, danach wird die gewünschte Partei gesetzt (B.5.9).
+//
+// Hier: reine Partei-Aktion (Toggle) → "Was geht nicht?" benennt die ZIELPARTEI
+// ("… kann nicht Re sein", Aktions-Achse aus C.Konventionen). Andere Eintrittstüren
+// (Sonderspiel-Setzen, Ansage) bekommen ihre aktionsnahe Formulierung in Teil 2b.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function buildPartyAnnouncementConflictDialog({ action, state, participants, commit }) {
+  const { playerId, party } = action            // party = gewünschte Zielpartei
+  const active = participants.filter(p => !p.isSitting)
+  const nameOf = id => active.find(p => p.player_id === id)?.players.name ?? '?'
+
+  const anns = state.announcements[playerId] ?? []
+  // Die der Zielpartei widersprechende eigene Ansage (Re bei Ziel Kontra etc.).
+  const conflicting = party === 're'     && anns.includes('kontra') ? 'kontra'
+                    : party === 'kontra' && anns.includes('re')     ? 're'
+                    : null
+  // Defensiv: ohne widersprechende eigene Ansage greift dieser Dialog nicht.
+  if (!conflicting) return null
+
+  const clicker     = nameOf(playerId)
+  const targetLabel = PARTY_LABELS[party]
+  const conflLabel  = PARTY_LABELS[conflicting]
+
+  return {
+    was:   `${clicker} kann nicht ${targetLabel} sein.`,
+    warum: `${clicker} hat ${conflLabel} gesagt und gehört damit zur ${conflLabel}-Partei.`,
+    options: [
+      { label: 'Abbrechen', subtitle: 'Ohne Änderung zurück.' },
+      {
+        label: `${conflLabel} zurückziehen`,
+        subtitle: [
+          `${clicker}s ${conflLabel}-Ansage wird zurückgezogen`,
+          `${clicker} ist ${targetLabel}`,
+          'Die übrigen Partei-Zuordnungen werden, soweit möglich, neu bestimmt',
+        ],
+        // Erst die widersprechende Ansage wegnehmen, dann die gewünschte Partei
+        // setzen (jetzt ohne I7-Konflikt) – die Kaskade füllt den Rest.
+        onSelect: () => {
+          commit({ type: 'toggleAnnouncement', playerId, announcement: conflicting })
+          commit({ type: 'setParty', playerId, party })
         },
       },
     ],

@@ -31,20 +31,53 @@
 // Eine "action" ist ein schlichtes Objekt: { type: '...', ...Felder }.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Kaskade (B.5.4): Sobald EINE Seite ihre Soll-Größe erreicht, fallen die übrigen
+// NEUTRALEN aktiven Spieler automatisch auf die Gegenseite. Nur Neutrale werden
+// gefüllt – eine bereits gesetzte Partei wird nie umgeklappt. Bei vier Aktiven
+// genügt ein Durchlauf (füllt eine Seite auf, ist der Tisch komplett).
+// Soll-Größen: Solo = 1 Re (Solist) + 3 Kontra, sonst 2 + 2.
+//
+// Wichtig: NUR bei EXAKT erreichter Soll-Größe wird gefüllt. Eine Überfüllung
+// (dritte Person ins volle Team) ist KEIN Kaskaden-Fall, sondern bleibt als
+// I2-Verletzung stehen und läuft als Auflösungs-Dialog C.5.6.
+function cascadeParties(parties, specialRoles, participants) {
+  const active   = participants.filter(p => !p.isSitting)
+  const hasSolo  = Object.values(specialRoles).some(r => r === 'solist')
+  const reCap    = hasSolo ? 1 : 2
+  const koCap    = hasSolo ? 3 : 2
+  const isParty  = v => v === 're' || v === 'kontra'
+  const reCount  = active.filter(p => parties[p.player_id] === 're').length
+  const koCount  = active.filter(p => parties[p.player_id] === 'kontra').length
+
+  let fill = null
+  if      (reCount === reCap && koCount < koCap) fill = 'kontra'
+  else if (koCount === koCap && reCount < reCap) fill = 're'
+  if (!fill) return parties
+
+  const result = { ...parties }
+  for (const p of active) if (!isParty(result[p.player_id])) result[p.player_id] = fill
+  return result
+}
+
 export function applyAction(state, participants, action) {
   switch (action.type) {
 
-    // Partei direkt setzen (Re / Kontra / neutral=null).
-    // Eine widersprechende Re/Kontra-ANSAGE derselben Person wird mitentfernt
-    // (man kann nicht Kontra sein und gleichzeitig "Re" angesagt haben).
+    // Partei direkt setzen (Re / Kontra / neutral=null) und anschließend die
+    // Kaskade laufen lassen (B.5.4 – siehe cascadeParties oben).
+    //
+    // KEIN stilles Entfernen einer widersprechenden Ansage mehr (Unterschied zu
+    // Teil 1): Hat die Person "Re" gesagt und soll Kontra werden, bleibt der
+    // Widerspruch als I7-Verletzung im simulierten Zustand stehen und löst den
+    // Auflösungs-Dialog C.5.9 aus ("Re zurückziehen"), statt die Ansage
+    // klammheimlich zu löschen (B.5.9).
     case 'setParty': {
       const { playerId, party } = action
-      const newAnns = { ...state.announcements }
-      if (party === 'kontra' && newAnns[playerId]?.includes('re'))
-        newAnns[playerId] = newAnns[playerId].filter(t => t !== 're')
-      if (party === 're' && newAnns[playerId]?.includes('kontra'))
-        newAnns[playerId] = newAnns[playerId].filter(t => t !== 'kontra')
-      return { ...state, parties: { ...state.parties, [playerId]: party }, announcements: newAnns }
+      const parties = cascadeParties(
+        { ...state.parties, [playerId]: party },
+        state.specialRoles,
+        participants,
+      )
+      return { ...state, parties }
     }
 
     // Eine An-/Absage über den Sheet-Button machen. Das ist der vollständige Klick

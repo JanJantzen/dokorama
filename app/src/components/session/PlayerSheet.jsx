@@ -60,7 +60,10 @@ export default function PlayerSheet({
   player,
   gameState,
   activePlayers,
+  teamsComplete,
   onPartyChange,
+  onChangeParty,
+  previewParty,
   onAnnouncement,
   previewAnnouncement,
   onSpecialRoleSet,
@@ -334,25 +337,34 @@ export default function PlayerSheet({
             <div className="flex rounded-lg border border-border overflow-hidden">
               {[
                 { value: 're',     label: 'Re' },
-                { value: null,     label: '·'  },
+                // "neutral" ist nur ein Durchgangszustand: bei vollständig
+                // zugeordnetem Tisch nicht mehr als Option anbieten (B.5.5).
+                ...(teamsComplete ? [] : [{ value: null, label: '·' }]),
                 { value: 'kontra', label: 'Ko' },
-              ].map(opt => (
-                <button
-                  key={String(opt.value)}
-                  onClick={() => onPartyChange(playerId, opt.value)}
-                  className={`w-9 h-8 text-xs font-semibold transition-colors ${
-                    currentParty === opt.value
-                      ? opt.value === 're'
-                        ? 'bg-green-700 text-white'
-                        : opt.value === 'kontra'
-                        ? 'bg-amber-500 text-white'
-                        : 'bg-muted-foreground/30 text-foreground'
-                      : 'bg-background text-muted-foreground'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+              ].map(opt => {
+                const isActive = currentParty === opt.value
+                // P5: würde dieser Partei-Klick einen Konflikt auslösen? → optisch
+                // ausgegraut, aber klickbar (der Klick öffnet den Auflösungs-Dialog).
+                const conflict = !isActive && opt.value !== null
+                  && previewParty?.(playerId, opt.value)
+                return (
+                  <button
+                    key={String(opt.value)}
+                    onClick={() => onChangeParty(playerId, opt.value)}
+                    className={`w-9 h-8 text-xs font-semibold transition-colors ${
+                      isActive
+                        ? opt.value === 're'
+                          ? 'bg-green-700 text-white'
+                          : opt.value === 'kontra'
+                          ? 'bg-amber-500 text-white'
+                          : 'bg-muted-foreground/30 text-foreground'
+                        : 'bg-background text-muted-foreground'
+                    } ${conflict ? 'opacity-40' : ''}`}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
             </div>
             <button onClick={onClose} className="p-1 text-muted-foreground">
               <X size={20} />

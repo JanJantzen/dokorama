@@ -8,6 +8,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useGame, isGameValid, buildCalculationInput } from '@/contexts/GameContext'
 import { useSession } from '@/contexts/SessionContext'
 import { calculateGameResult } from '@/lib/scoreCalculation'
+import { isComplete } from '@/lib/consistency'
 import { getDisplayPositions } from '@/lib/seatUtils'
 import PlayerAvatar from '@/components/ui/PlayerAvatar'
 import PlayerSheet from '@/components/session/PlayerSheet'
@@ -391,7 +392,8 @@ function CompactPlayer({ participant, layout, onTap }) {
 export default function TableView() {
   const {
     gameState,
-    handlePartyChange, makeAnnouncement, previewAnnouncement,
+    handlePartyChange, changeParty, previewParty,
+    makeAnnouncement, previewAnnouncement,
     handleSpecialRoleSet, handleSpecialRoleClear,
     handleSpecialPointAdd, handleSpecialPointRemove,
     updateEyes, updateEyesFor,
@@ -474,7 +476,10 @@ export default function TableView() {
           player={openSheetPlayer}
           gameState={gameState}
           activePlayers={activePlayers}
+          teamsComplete={isComplete(gameState, participants)}
           onPartyChange={handlePartyChange}
+          onChangeParty={changeParty}
+          previewParty={previewParty}
           onAnnouncement={makeAnnouncement}
           previewAnnouncement={previewAnnouncement}
           onSpecialRoleSet={handleSpecialRoleSet}

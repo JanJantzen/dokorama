@@ -15,7 +15,11 @@
 import { createContext, useContext, useRef, useState, useCallback } from 'react'
 import { deriveGameType } from '@/lib/scoreCalculation'
 import { applyAction, wouldViolate, isComplete } from '@/lib/consistency'
-import { buildAnnouncementConflictDialog } from '@/lib/consistencyDialogs'
+import {
+  buildAnnouncementConflictDialog,
+  buildFullTeamDialog,
+  buildPartyAnnouncementConflictDialog,
+} from '@/lib/consistencyDialogs'
 
 const GameContext = createContext(null)
 
@@ -151,6 +155,37 @@ export function GameProvider({ children, initialParticipants }) {
         commit: commitAction,
       })
     }
+
+    // Teil 2a – reiner Partei-Toggle (setParty). Zwei Konfliktarten werden hier
+    // aufgelöst; alles andere (Sonderspiel-Bindung I10, Mehrursachen, verspätete
+    // Dritt-Konflikte) folgt in Teil 2b/2c und läuft bis dahin in den Fallback.
+    if (action.type === 'setParty') {
+      const anns = state.announcements[action.playerId] ?? []
+      const ownAnnouncementConflict =
+        (action.party === 're'     && anns.includes('kontra')) ||
+        (action.party === 'kontra' && anns.includes('re'))
+
+      // C.5.9 – die klickende Person ist durch ihre EIGENE Ansage gebunden
+      // (Vorrang vor "Team voll", weil die Ansage die bindende Ursache ist, P1).
+      // Solange keine Sonderspiel-Bindung (I10) dazukommt – das ist Teil 2b.
+      if (ownAnnouncementConflict && !violations.includes('I10')) {
+        return buildPartyAnnouncementConflictDialog({
+          action, state, participants: participantsRef.current,
+          commit: commitAction,
+        })
+      }
+
+      // C.5.6 – Ziel-Team voll / Teams stehen fest (I2), ohne bindende Ursache.
+      if (violations.includes('I2')
+          && !violations.includes('I10')
+          && !ownAnnouncementConflict) {
+        return buildFullTeamDialog({
+          action, state, participants: participantsRef.current,
+          commit: commitAction,
+        })
+      }
+    }
+
     return null
   }, [commitAction])
 
@@ -181,9 +216,26 @@ export function GameProvider({ children, initialParticipants }) {
   // Behalten ihre bisherige Signatur (TableView/PlayerSheet rufen sie unverändert
   // auf), delegieren die Zustandsänderung aber an den zentralen Reducer.
 
+  // Direktes (ungeprüftes) Partei-Setzen. Wird noch von den Sonderspiel-Flows im
+  // PlayerSheet benutzt – die werden erst in Teil 2b über die Konsistenzprüfung
+  // geführt. Läuft trotzdem schon durch applyAction (inkl. Kaskade B.5.4).
   const handlePartyChange = useCallback((playerId, party) => {
     commitAction({ type: 'setParty', playerId, party })
   }, [commitAction])
+
+  // Geprüfter Partei-Toggle (Teil 2a): läuft durch die Konsistenz-Engine.
+  // Sauber → wird ausgeführt; Team voll → C.5.6, eigene widersprechende Ansage
+  // → C.5.9; alles andere bis Teil 2b/2c → sicherer Fallback (P8).
+  const changeParty = useCallback((playerId, party) => {
+    requestAction({ type: 'setParty', playerId, party })
+  }, [requestAction])
+
+  // Vorausschau fürs Ausgrauen des Toggles (P5): Würde dieser Partei-Klick gerade
+  // einen Konflikt auslösen?
+  const previewParty = useCallback((playerId, party) => {
+    return wouldViolate(gameState, participantsRef.current,
+      { type: 'setParty', playerId, party }).length > 0
+  }, [gameState])
 
   const handleAnnouncementToggle = useCallback((playerId, type) => {
     commitAction({ type: 'toggleAnnouncement', playerId, announcement: type })
@@ -227,6 +279,8 @@ export function GameProvider({ children, initialParticipants }) {
       resetForNextGame,
       resetCurrentGame,
       handlePartyChange,
+      changeParty,
+      previewParty,
       handleAnnouncementToggle,
       makeAnnouncement,
       previewAnnouncement,
