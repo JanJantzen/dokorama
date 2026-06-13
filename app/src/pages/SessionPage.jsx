@@ -5,11 +5,14 @@
 //   └─ GameProvider  – Zustand des aktuellen Spiels
 //      └─ Header     – fix oben: Partie-Info + View-Switcher + Trophy + Hamburger
 //      └─ ActiveView – TableView | BlockView | EvaluationView
+//      └─ EndSessionScreen  – Overlay z-50: Partie beenden (3 Optionen)
+//      └─ ResetGameScreen   – Overlay z-50: Spiel zurücksetzen (2 Optionen)
 //
 // handleConfirm lebt hier weil es beide Contexts braucht (Spiel speichern + Session weiterschalten).
 
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Ratio, LayoutList, Trophy, Menu, ArrowLeft } from 'lucide-react'
+import { Ratio, LayoutList, Trophy, Menu, ArrowLeft, X } from 'lucide-react'
 import { SessionProvider, useSession } from '@/contexts/SessionContext'
 import { GameProvider, useGame, buildCalculationInput } from '@/contexts/GameContext'
 import { supabase } from '@/lib/supabase'
@@ -23,9 +26,21 @@ function formatDate(dateStr) {
   return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`
 }
 
+// Plural-Helfer: pl(3, 'Spiel', 'Spiele') → '3 Spiele'
+function pl(n, singular, plural) {
+  return `${n} ${n === 1 ? singular : plural}`
+}
+
+// Gleiche fixed-Zentrierung wie der äußere SessionPage-Container
+const overlayStyle = {
+  position: 'fixed', top: 0, bottom: 0,
+  left: '50%', transform: 'translateX(-50%)',
+  width: '100%', maxWidth: '500px', zIndex: 50,
+}
+
 // ─── Hamburger-Menü ────────────────────────────────────────────────────────────
 
-function SessionMenu({ onClose, onEndSession }) {
+function SessionMenu({ onClose, onEndSession, onResetGame }) {
   const greyItems = ['Hauptmenü', 'Tischordnung', 'Statistiken']
   return (
     <>
@@ -37,11 +52,199 @@ function SessionMenu({ onClose, onEndSession }) {
           </div>
         ))}
         <div className="border-t border-border" />
+        <button onClick={onResetGame} className="w-full px-4 py-3 text-sm text-left text-amber-600 active:bg-muted border-b border-border">
+          Spiel zurücksetzen
+        </button>
         <button onClick={onEndSession} className="w-full px-4 py-3 text-sm text-left text-destructive active:bg-muted">
           Partie beenden
         </button>
       </div>
     </>
+  )
+}
+
+// ─── Partie beenden – Entscheidungsscreen ──────────────────────────────────────
+//
+// Drei Optionen:
+//   A) Beenden & Speichern  – vollständige Runden bleiben, laufende Runde wird gelöscht
+//   B) Alles verwerfen      – gesamte Partie inkl. aller Runden und Spiele aus der DB löschen
+//   C) Weiterspielen        – zurück zur Erfassung
+//
+// Farbe von A: grün wenn keine Spiele verloren gehen (laufende Runde leer), sonst rot.
+
+function EndSessionScreen({ sessionData, roundData, gameNumber, onClose }) {
+  const navigate = useNavigate()
+  const [counts,  setCounts]  = useState(null)  // { prevRoundsCount, prevGamesCount }
+  const [working, setWorking] = useState(false)
+
+  // Zähle abgeschlossene Runden und ihre Spiele aus der DB
+  useEffect(() => {
+    async function fetchCounts() {
+      // Alle Runden dieser Partie außer der aktuellen
+      const { data: prevRounds } = await supabase
+        .from('rounds').select('id')
+        .eq('session_id', sessionData.id).neq('id', roundData.id)
+      const prevRoundIds = prevRounds?.map(r => r.id) ?? []
+
+      let prevGames = 0
+      if (prevRoundIds.length > 0) {
+        const { count } = await supabase
+          .from('games').select('id', { count: 'exact', head: true })
+          .in('round_id', prevRoundIds)
+        prevGames = count ?? 0
+      }
+      setCounts({ prevRoundsCount: prevRoundIds.length, prevGamesCount: prevGames })
+    }
+    fetchCounts()
+  }, [sessionData.id, roundData.id])
+
+  // Spiele die bereits in der laufenden Runde gespeichert wurden (aktuelles Spiel noch nicht gespeichert)
+  const currentRoundSaved = gameNumber - 1
+  const saveIsGreen = currentRoundSaved === 0
+
+  // Beenden & Speichern: laufende Runde (+ ihre Spiele via CASCADE) löschen, Session abschließen
+  async function handleSave() {
+    setWorking(true)
+    try {
+      await supabase.from('rounds').delete().eq('id', roundData.id)
+      await supabase.from('sessions').update({ status: 'abgeschlossen' }).eq('id', sessionData.id)
+      navigate('/')
+    } catch (err) { console.error(err); setWorking(false) }
+  }
+
+  // Alles verwerfen: Session löschen → CASCADE löscht alle Runden → alle Spiele
+  async function handleAbort() {
+    setWorking(true)
+    try {
+      await supabase.from('sessions').delete().eq('id', sessionData.id)
+      navigate('/')
+    } catch (err) { console.error(err); setWorking(false) }
+  }
+
+  if (!counts) {
+    return (
+      <div className="bg-background flex items-center justify-center" style={overlayStyle}>
+        <p className="text-muted-foreground text-sm">Lade…</p>
+      </div>
+    )
+  }
+
+  const totalRoundsForAbort = counts.prevRoundsCount + (currentRoundSaved > 0 ? 1 : 0)
+  const totalGamesForAbort  = counts.prevGamesCount + currentRoundSaved
+
+  return (
+    <div className="bg-background flex flex-col" style={overlayStyle}>
+
+      <header className="shrink-0 flex items-center px-4 pt-12 pb-3 border-b border-border">
+        <button onClick={onClose} className="p-1.5 text-muted-foreground mr-3">
+          <X size={20} />
+        </button>
+        <p className="font-semibold text-sm">Partie beenden</p>
+      </header>
+
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+
+        {/* A: Beenden & Speichern */}
+        <div className={`rounded-xl border p-4 ${saveIsGreen ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+          <button
+            onClick={handleSave}
+            disabled={working}
+            className={`w-full text-left font-semibold text-base mb-2 disabled:opacity-50 ${saveIsGreen ? 'text-green-800' : 'text-destructive'}`}
+          >
+            Beenden & Speichern
+          </button>
+          <ul className="text-sm space-y-1">
+            {counts.prevRoundsCount > 0 ? (
+              <li className="text-green-700">
+                ✓ {pl(counts.prevRoundsCount, 'Runde', 'Runden')} ({pl(counts.prevGamesCount, 'Spiel', 'Spiele')}) werden gespeichert
+              </li>
+            ) : (
+              <li className="text-muted-foreground">Keine abgeschlossenen Runden vorhanden</li>
+            )}
+            {currentRoundSaved > 0 && (
+              <li className="text-destructive">
+                ✗ Laufende Runde ({pl(currentRoundSaved, 'Spiel', 'Spiele')}) wird gelöscht
+              </li>
+            )}
+          </ul>
+        </div>
+
+        {/* B: Alles verwerfen */}
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+          <button
+            onClick={handleAbort}
+            disabled={working}
+            className="w-full text-left font-semibold text-base text-destructive mb-2 disabled:opacity-50"
+          >
+            Alles verwerfen
+          </button>
+          <ul className="text-sm space-y-1">
+            {totalGamesForAbort > 0 ? (
+              <li className="text-destructive">
+                ✗ {pl(totalRoundsForAbort, 'Runde', 'Runden')} und {pl(totalGamesForAbort, 'Spiel', 'Spiele')} werden gelöscht
+              </li>
+            ) : (
+              <li className="text-muted-foreground">Noch keine Spiele erfasst – Partie wird gelöscht</li>
+            )}
+          </ul>
+        </div>
+
+        {/* C: Weiterspielen */}
+        <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+          <button onClick={onClose} className="w-full text-left font-semibold text-base text-green-800">
+            Weiterspielen
+          </button>
+          <p className="text-sm text-green-700 mt-1">Zurück zur Erfassung</p>
+        </div>
+
+      </div>
+    </div>
+  )
+}
+
+// ─── Spiel zurücksetzen – Bestätigungsscreen ───────────────────────────────────
+//
+// Löscht nur den In-Memory-Zustand von GameContext – keine Datenbankänderung.
+// Das aktuelle Spiel ist noch nicht gespeichert (passiert erst nach Bestätigung im EvaluationView).
+
+function ResetGameScreen({ gameNumber, onClose, onConfirm }) {
+  return (
+    <div className="bg-background flex flex-col" style={overlayStyle}>
+
+      <header className="shrink-0 flex items-center px-4 pt-12 pb-3 border-b border-border">
+        <button onClick={onClose} className="p-1.5 text-muted-foreground mr-3">
+          <X size={20} />
+        </button>
+        <p className="font-semibold text-sm">Spiel {gameNumber} zurücksetzen</p>
+      </header>
+
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+
+        {/* A: Zurücksetzen */}
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <button onClick={onConfirm} className="w-full text-left font-semibold text-base text-amber-700 mb-2">
+            Zurücksetzen
+          </button>
+          <ul className="text-sm text-amber-700 space-y-1">
+            <li>✗ Partei-Zuordnungen (Re / Kontra)</li>
+            <li>✗ Ansagen und Absagen</li>
+            <li>✗ Sonderspiele (Solo, Hochzeit, Armut)</li>
+            <li>✗ Sonderpunkte</li>
+            <li>✗ Augenzahl</li>
+          </ul>
+          <p className="text-xs text-amber-600 mt-2">Noch nicht gespeichert – keine Datenbankänderung.</p>
+        </div>
+
+        {/* B: Weiter eingeben */}
+        <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+          <button onClick={onClose} className="w-full text-left font-semibold text-base text-green-800">
+            Weiter eingeben
+          </button>
+          <p className="text-sm text-green-700 mt-1">Zurück zur Erfassung</p>
+        </div>
+
+      </div>
+    </div>
   )
 }
 
@@ -58,6 +261,9 @@ function SessionPageInner() {
     setGameNumber, refreshSeatStatus,
   } = useSession()
   const { gameState, resetForNextGame } = useGame()
+
+  const [showEndScreen,   setShowEndScreen]   = useState(false)
+  const [showResetScreen, setShowResetScreen] = useState(false)
 
   // Spiel in DB speichern, GameState zurücksetzen, nächstes Spiel starten
   async function handleConfirm() {
@@ -112,6 +318,13 @@ function SessionPageInner() {
     }
   }
 
+  // GameContext-Zustand auf Initialstand zurücksetzen (keine DB-Änderung)
+  function handleResetConfirm() {
+    resetForNextGame(participants)
+    if (activeView === 'evaluate') backToErfassung()
+    setShowResetScreen(false)
+  }
+
   const dateStr   = formatDate(sessionData?.date)
   const venueName = sessionData?.venues?.name ?? ''
 
@@ -119,7 +332,6 @@ function SessionPageInner() {
   const ViewSwitchIcon = erfassungsView === 'table' ? LayoutList : Ratio
 
   return (
-    // Zentriertes fixed-Layout: respektiert den globalen 500px-Cap aus App.jsx
     <div
       className="flex flex-col select-none"
       style={{ position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '500px' }}
@@ -179,9 +391,29 @@ function SessionPageInner() {
       {showMenu && (
         <SessionMenu
           onClose={() => setShowMenu(false)}
-          onEndSession={() => navigate('/')}
+          onEndSession={() => { setShowMenu(false); setShowEndScreen(true) }}
+          onResetGame={() => { setShowMenu(false); setShowResetScreen(true) }}
         />
       )}
+
+      {/* ─── Overlays ────────────────────────────────────────────────────── */}
+      {showEndScreen && (
+        <EndSessionScreen
+          sessionData={sessionData}
+          roundData={roundData}
+          gameNumber={gameNumber}
+          onClose={() => setShowEndScreen(false)}
+        />
+      )}
+
+      {showResetScreen && (
+        <ResetGameScreen
+          gameNumber={gameNumber}
+          onClose={() => setShowResetScreen(false)}
+          onConfirm={handleResetConfirm}
+        />
+      )}
+
     </div>
   )
 }
