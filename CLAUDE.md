@@ -2,7 +2,8 @@
 
 > Diese Datei ist das zentrale Briefing für jeden Claude-Assistenten, der an diesem Projekt arbeitet.
 > Sie wird bei jeder neuen Sitzung gelesen. Halte sie aktuell.
-> Letzte Aktualisierung: 4. Juni 2026 – Roadmap Phase 2 aktualisiert: Multi-View-Architektur (SessionContext/GameContext/TableView/BlockView), Block-Ansicht als neue Phase 2b verankert, alle neuen Erfassungspunkte ergänzt. Roadmap-Regel eingeführt: Punkte erst ✅ wenn Jan explizit „done" sagt.
+> Letzte Aktualisierung: 13. Juni 2026 – Konsistenzlogik: separate Spec `KONSISTENZREGELN.md` als verbindlich verankert; Roadmap-Punkt 9 in 7 Teile (0–6) aufgeschlüsselt; Wisch-Geste aus „Irgendwann" in Phase 2 (Teil 5) vorgezogen; Doppelkopf-Obergrenze auf max. 4 pro Spiel korrigiert; Hinweis zum Nachziehen der Schreiber-ID fürs Fallback-Log beim Login-Bau ergänzt.
+> Vorherige Aktualisierung: 4. Juni 2026 – Roadmap Phase 2 aktualisiert: Multi-View-Architektur (SessionContext/GameContext/TableView/BlockView), Block-Ansicht als neue Phase 2b verankert, alle neuen Erfassungspunkte ergänzt. Roadmap-Regel eingeführt: Punkte erst ✅ wenn Jan explizit „done" sagt.
 
 ---
 
@@ -145,7 +146,7 @@ Erfasst wird: Welche Ansage/Absage von welchem/welcher Spieler:in. Ob das Ziel e
 | Fuchs gefangen    | Karo-Ass des Gegners in einem beliebigen Stich gewonnen     | Wer hat gefangen, wer hat verloren        | Ja (bis zu 2)       |
 | Karlchen gemacht  | Letzten Stich mit dem Kreuz-Buben gemacht                   | Wer hat es gemacht                        | Nein (1 letzter Stich) |
 | Karlchen gefangen | Kreuz-Buben des Gegners im letzten Stich überstochen        | Wer hat gefangen, wer hat verloren        | Nein (1 letzter Stich) |
-| Doppelkopf        | Stich mit 40+ Augen                                         | Wer hat den Stich gemacht                 | Ja (mehrere möglich) |
+| Doppelkopf        | Stich mit 40+ Augen                                         | Wer hat den Stich gemacht                 | Ja (max. 4 pro Spiel) |
 
 **Hinweis:** Karlchen gemacht und Karlchen gefangen können gleichzeitig auftreten – wenn ein Kreuz-Bube den letzten Stich macht und dabei den gegnerischen Kreuz-Buben übersticht.
 
@@ -452,7 +453,7 @@ Diese Entscheidungen wurden im Dialog ausführlich besprochen und sind die Grund
 - Sheet-Struktur:
   - **AN- UND ABSAGEN:** Re / Kontra / Keine 90 / Keine 60 / Keine 30 / Schwarz (Toggle-Buttons, aktiv = gesetzt)
   - **SONDERSPIEL:** Solo (mit Typ-Auswahl) / Hochzeit (mit Frage wer eingeheiratet hat) / Armut (mit Frage wer Retter:in ist)
-  - **SONDERPUNKTE:** Fuchs gefangen (→ sofort „Von wem?") / Karlchen gemacht (Checkbox) / Karlchen gefangen (Checkbox + „Von wem?") / Doppelkopf (Zähler, mehrfach möglich)
+  - **SONDERPUNKTE:** Fuchs gefangen (→ sofort „Von wem?") / Karlchen gemacht (Checkbox) / Karlchen gefangen (Checkbox + „Von wem?") / Doppelkopf (Zähler, max. 4 pro Spiel)
 - Abgeleitete „verloren"-Events (z.B. Fuchs verloren, Karlchen verloren) werden auf dem Tisch angezeigt, aber nicht im Sheet erfasst – sie ergeben sich automatisch aus dem Eintrag beim Fänger
 
 **Angepinnte Infos am Avatar:**
@@ -745,8 +746,14 @@ Die App soll als PWA funktionieren, damit sie auf dem Homescreen installiert wer
 
 7. Partie starten (Datum, Austragungsort, anwesende Spieler:innen aus Pool wählen, Sitzreihenfolge)
 8. Runden-Logik (automatische Verwaltung, Rotation, Aussetzer-Berechnung, Verlängerung bei Solo)
-9. **Tisch-Ansicht Einzelspiel erfassen** – `TableView` gebaut, noch in Iteration:
-   - Plausichecks & Abhängigkeiten: kein inkonsistenter Zustand erlaubt (erklärende Warnungen statt stiller Auto-Auflösung)
+9. **Tisch-Ansicht Einzelspiel erfassen** – `TableView` gebaut, noch in Iteration. Die Konsistenz-/Konfliktlogik („kein inkonsistenter Zustand erlaubt – erklärende Warnungen statt stiller Auto-Auflösung") wird nach der separaten Spec **`KONSISTENZREGELN.md`** umgesetzt. Diese ist für das Konfliktverhalten verbindlich (Invarianten I1–I13, Prinzipien P1–P8, Wording-Katalog Teil C wörtlich). Umsetzung in 7 abgeschlossenen Teilen (jeder Teil ist ein eigenes Arbeitspaket, dazwischen kann die Session geleert werden):
+   - **Teil 0 – Fundament:** Zentrale Konsistenz-Engine im `GameContext` (P7): Invarianten I1–I13 als reine Funktionen, „würde diese Aktion einen Konflikt auslösen?"-Vorausschau (steuert Ausgrauen *und* Dialog, P5), Dialog-Infrastruktur (Meldung zweiteilig + Optionen-Liste). Basis für alle weiteren Teile.
+   - **Teil 1 – An-/Absagen** (B.2 / C.2.3, C.2.5): zweite gleiche An-/Absage im Team → Korrektur-Dialog. Bewusst zuerst (einfachstes Muster, validiert die Infrastruktur).
+   - **Teil 2 – Partei-Knoten** (B.5 / C.5.6, C.5.7, C.5.9): Drei-Zustands-Toggle, Kaskade (B.5.4), Tausch/Annullieren/Zurückziehen, neutral-Handling, C.5.8-Zeile. Das Herzstück – alle Eingaben laufen hier durch.
+   - **Teil 3 – Sonderspiele** (B.4 / C.5.7): Rollen anpinnen, Partei-Fixierung (B.4.3), feste Rollen-Labels (B.4.4/B.4.6), Unteilbarkeit/Annullieren (B.4.5). Hängt an Teil 2.
+   - **Teil 4 – Sonderpunkte** (B.3 / C.3.2): tischweites Kontingent (I11, **nicht** pro Person – aktueller Code zählt noch pro Person), „von wem"-Nachfassen bei gefangenen Punkten, B.5.8-Ungültigkeit bei Partei-Änderung.
+   - **Teil 5 – Wisch-Geste** (B.5.10 / C.5.10): zwei Spieler per Wisch zu einem Team verbinden – nur eine weitere Eintrittstür in den Partei-Block, neu ist nur die offene Richtung. Hängt an Teil 2. **Gesten-Detailfragen (Trigger-Area, Animation, Abbruch beim Ziehen) vorab mit Jan klären.** (Technische Notiz aus früherer Planung: `elementFromPoint()` am `touchend` für Cross-Element-Detection, Schwellwert ~20px zur Tap-Unterscheidung; benachbarte Avatare sind der Haupt-Use-Case.)
+   - **Teil 6 – Fallback + Logging** (C.Fallback / P8): generischer Block-Dialog + persistente DB-Log-Tabelle `consistency_logs` (verletzte Invariante, versuchte Aktion, betroffene Spieler, Zustand davor, Schreiber-ID, Zeitstempel). Solange kein Login existiert: `writer_id = NULL` (nachzuziehen beim Login-Bau, siehe „Irgendwann"-Liste).
 10. **Spielwert automatisch berechnen** – `scoreCalculation.js` gebaut, gegen 15 Testfälle validiert
 11. **Auswertungs-Screen & Bestätigung** – `EvaluationView` gebaut; Duplikat-Schutz fehlt noch
 12. Korrektur/Löschen von Spielen
@@ -798,6 +805,7 @@ Neue alternative Erfassungs-UI: nüchterner Schreibblock-Stil, alle Infos auf ei
 
 - Öffnung für andere Gruppen (Multi-Tenancy, Regelkonfiguration, Konfigurations-UI)
 - Echtes User-Management für alle Spieler:innen
+  - **Beim Login-Bau nachziehen:** Das Fallback-Log der Konsistenzprüfung (Phase-2-Teil 6, `consistency_logs`) speichert die Schreiber-ID. Solange es keinen Login gibt, wird `writer_id = NULL` geschrieben. Sobald der individuelle Login steht, muss die eingeloggte Schreiber-Identität dort eingesetzt werden.
 - Free/Pay-Modell (Stripe-Integration)
 - Notifications
 - Sichtbarkeitslogik für Austragungsorte (öffentlich/privat)
@@ -806,7 +814,6 @@ Neue alternative Erfassungs-UI: nüchterner Schreibblock-Stil, alle Infos auf ei
 - Fun Stats / Rekorde
 - Ortsspezifische Hintergrundbilder für den Erfassungsscreen
 - Individuelle Drehung der Tischansicht (jede:r sieht sich selbst unten links)
-- **Wischgeste Parteizuordnung (Tisch-Ansicht):** Wischen von Avatar A zu Avatar B verbindet beide als Team. Wenn einer bereits zugeordnet ist → anderer bekommt dieselbe Partei. Wenn keiner → Dialog Re/Ko/Abbrechen. Wenn unterschiedliche Parteien → Hinweis mit Auflösungsoptionen. Technisch: `elementFromPoint()` am `touchend` für Cross-Element-Detection, Schwellwert ~20px zur Tap-Unterscheidung. Benachbarte Avatare (gleiche Seite) sind der Haupt-Use-Case; Diagonale funktioniert, ist aber lange Geste.
 - Weitere alternative Erfassungs-UIs (z.B. Diktat-Ansicht) – Architektur durch Multi-View-System bereits vorbereitet
 - View-Präferenz (Tisch/Block) pro eingeloggtem Schreiber in User-Profil speichern (nach User-Management)
 - Doko-Dating, gruppenübergreifende Statistiken
@@ -844,7 +851,7 @@ Neue alternative Erfassungs-UI: nüchterner Schreibblock-Stil, alle Infos auf ei
 | **Attribut**                | Eine Eigenschaft einer Entität, gespeichert als Spalte in der Tabelle (z.B. Name, Datum). |
 | **BaaS**                    | Backend as a Service – fertiges Backend aus der Cloud (hier: Supabase). Liefert Datenbank, API, Auth und Realtime, ohne dass man einen eigenen Server betreiben muss. |
 | **Beziehung**               | Wie Tabellen zusammenhängen (z.B. „ein Spiel gehört zu einer Runde"). |
-| **Doppelkopf**              | Ein Stich mit 40 oder mehr Augen. Mehrere pro Spiel möglich.             |
+| **Doppelkopf**              | Ein Stich mit 40 oder mehr Augen. Max. 4 pro Spiel (theoretische Obergrenze: 16 hohe Karten). |
 | **Entität**                 | Ein „Ding" das in der Datenbank als eigene Tabelle gespeichert wird (z.B. Spieler:in, Spiel, Partie). |
 | **Fremdschlüssel**          | Ein Feld das auf die ID einer anderen Tabelle zeigt und so die Beziehung herstellt. |
 | **Fuchs gefangen**          | Karo-Ass des Gegners in einem beliebigen Stich gewonnen. Erfasst: wer hat gefangen, wer hat verloren. Bis zu 2 pro Spiel möglich. |
