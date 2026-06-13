@@ -24,22 +24,23 @@ const CORNERS = [
   { isCorner: true, side: 'left',  vertical: 'bottom' }, // [3] unten-links
 ]
 
-// 3 Kanten-Slots – Avatar-Mittelpunkt 60px vom jeweiligen Rand (60px = 16vw bei SE/375px)
+// 3 Kanten-Slots – Avatar-Mittelpunkt 60px vom jeweiligen Rand (60px = 16cqw bei SE/375px).
+// cqw = % der Container-Breite (= <main>, gedeckelte Phone-Spalte) – siehe TableView.
 // posStyle wird direkt als style-Prop auf dem CompactPlayer-Container verwendet
 const EDGES = [
   {
     isCorner: false,
-    posStyle: { left: 'clamp(60px, 16vw, 80px)', top: '50%',  transform: 'translate(-50%, -50%)' },
+    posStyle: { left: 'clamp(60px, 16cqw, 80px)', top: '50%',  transform: 'translate(-50%, -50%)' },
     side: 'left',  vertical: 'middle',
   },
   {
     isCorner: false,
-    posStyle: { left: '50%', top: 'clamp(60px, 16vw, 80px)', transform: 'translate(-50%, -50%)' },
+    posStyle: { left: '50%', top: 'clamp(60px, 16cqw, 80px)', transform: 'translate(-50%, -50%)' },
     side: 'top',   vertical: 'top',
   },
   {
     isCorner: false,
-    posStyle: { right: 'clamp(60px, 16vw, 80px)', top: '50%', transform: 'translate(50%, -50%)' },
+    posStyle: { right: 'clamp(60px, 16cqw, 80px)', top: '50%', transform: 'translate(50%, -50%)' },
     side: 'right', vertical: 'middle',
   },
 ]

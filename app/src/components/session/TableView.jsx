@@ -320,7 +320,7 @@ function CornerPlayer({ participant, layout, gameState, onTap }) {
       style={{
         [isLeft ? 'left' : 'right']: 0,
         [isBottom ? 'bottom' : 'top']: 0,
-        width: '40vw',
+        width: '40cqw',
       }}
     >
       <div
@@ -414,25 +414,30 @@ export default function TableView() {
   return (
     <>
       {/* Filztisch – alle Größen fluid über clamp()-CSS-Variablen.
-          Referenz: iPhone SE = 375px, Backdrop = 40vw = 150px. */}
+          Maßeinheit cqw = % der CONTAINER-Breite (nicht der Fensterbreite):
+          <main> ist via containerType der Container, seine Breite ist die auf
+          500px gedeckelte Phone-Spalte. Dadurch skaliert der Tisch sauber bis
+          500px und wächst auf breiten Desktop-Fenstern nicht weiter.
+          Referenz: iPhone SE = 375px (dort gilt 1cqw == 1vw, Kalibrierung bleibt). */}
       <main
         className="flex-1 relative overflow-hidden"
         style={{
           backgroundColor: '#2d5a27',
+          containerType: 'inline-size',   // macht cqw relativ zur Spaltenbreite
           // Element-Größen
-          '--tisch-av':         'clamp(75px, 20vw,   100px)',
-          '--tisch-av-sm':      'clamp(60px, 16vw,    80px)',
-          '--tisch-badge':      'clamp(28px, 7.47vw,  37px)',
-          '--tisch-geb':        'clamp(48px, 12.8vw,  64px)',
+          '--tisch-av':         'clamp(75px, 20cqw,   100px)',
+          '--tisch-av-sm':      'clamp(60px, 16cqw,    80px)',
+          '--tisch-badge':      'clamp(28px, 7.47cqw,  37px)',
+          '--tisch-geb':        'clamp(48px, 12.8cqw,  64px)',
           // Abstände
-          '--tisch-gap':        'clamp(2px,  0.53vw,   3px)',  // interne Gaps
-          '--tisch-gap-outer':  'clamp(4px,  1.07vw,   6px)',  // Gaps zwischen AnnRow/MainRow/Toggle
-          '--tisch-pad-top':    'clamp(5px,  1.33vw,   7px)',  // Backdrop-Padding zur Tischmitte
+          '--tisch-gap':        'clamp(2px,  0.53cqw,   3px)',  // interne Gaps
+          '--tisch-gap-outer':  'clamp(4px,  1.07cqw,   6px)',  // Gaps zwischen AnnRow/MainRow/Toggle
+          '--tisch-pad-top':    'clamp(5px,  1.33cqw,   7px)',  // Backdrop-Padding zur Tischmitte
           // Radius (nur innere Ecke)
-          '--tisch-radius':     'clamp(12px, 3.2vw,   16px)',
+          '--tisch-radius':     'clamp(12px, 3.2cqw,   16px)',
           // Schriften
-          '--tisch-text-name':  'clamp(10px, 2.67vw,  13px)',
-          '--tisch-text-role':  'clamp(8px,  2.13vw,  11px)',
+          '--tisch-text-name':  'clamp(10px, 2.67cqw,  13px)',
+          '--tisch-text-role':  'clamp(8px,  2.13cqw,  11px)',
         }}
       >
         {(() => {
