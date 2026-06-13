@@ -206,8 +206,87 @@ function EndSessionScreen({ sessionData, roundData, gameNumber, onClose }) {
 //
 // Löscht nur den In-Memory-Zustand von GameContext – keine Datenbankänderung.
 // Das aktuelle Spiel ist noch nicht gespeichert (passiert erst nach Bestätigung im EvaluationView).
+// Zeigt eine Liste der TATSÄCHLICH erfassten Eingaben; ist nichts erfasst, ist der
+// Zurücksetzen-Button ausgegraut.
 
-function ResetGameScreen({ gameNumber, onClose, onConfirm }) {
+// Anzeige-Texte für An-/Absagen und Sonderpunkte (nur für diesen Screen)
+const ANN_TEXT = {
+  re: 'Re', kontra: 'Kontra',
+  keine_90: 'Keine 90', keine_60: 'Keine 60', keine_30: 'Keine 30', schwarz: 'Schwarz',
+}
+const SP_TEXT = {
+  fuchs_gefangen:    'Fuchs gefangen',
+  karlchen_gemacht:  'Karlchen gemacht',
+  karlchen_gefangen: 'Karlchen gefangen',
+  doppelkopf:        'Doppelkopf',
+}
+const SOLO_TEXT = {
+  fleischlos: 'Fleischlos', buben_solo: 'Buben-Solo', damen_solo: 'Damen-Solo',
+  farb_solo: 'Farb-Solo', stilles_solo: 'Stilles Solo',
+}
+const FARB_TEXT = { karo: '♦', herz: '♥', pik: '♠', kreuz: '♣' }
+
+// Baut aus dem gameState die Liste der tatsächlich erfassten Eingaben.
+// Gibt ein Array von Abschnitten { title, lines[] } zurück – nur nicht-leere Abschnitte.
+function describeGameState(gameState, participants) {
+  const active = participants.filter(p => !p.isSitting)
+  const nameOf = id => active.find(p => p.player_id === id)?.players.name ?? '?'
+  const sections = []
+
+  // Parteien (Re/Kontra-Zuordnungen)
+  const parteien = active
+    .filter(p => gameState.parties[p.player_id] === 're' || gameState.parties[p.player_id] === 'kontra')
+    .map(p => `${p.players.name}: ${gameState.parties[p.player_id] === 're' ? 'Re' : 'Kontra'}`)
+  if (parteien.length) sections.push({ title: 'Parteien', lines: parteien })
+
+  // Ansagen (Re/Kontra) und Absagen (Keine 90/60/30, Schwarz) getrennt
+  const ansagen = [], absagen = []
+  for (const p of active) {
+    for (const t of gameState.announcements[p.player_id] ?? []) {
+      const line = `${p.players.name}: ${ANN_TEXT[t]}`
+      if (t === 're' || t === 'kontra') ansagen.push(line)
+      else absagen.push(line)
+    }
+  }
+  if (ansagen.length) sections.push({ title: 'Ansagen', lines: ansagen })
+  if (absagen.length) sections.push({ title: 'Absagen', lines: absagen })
+
+  // Sonderspiel (höchstens eines) – an der auslösenden Person erkennen
+  const soloId     = active.find(p => gameState.specialRoles[p.player_id] === 'solist')?.player_id
+  const hochzeitId = active.find(p => gameState.specialRoles[p.player_id] === 'hochzeit')?.player_id
+  const armId      = active.find(p => gameState.specialRoles[p.player_id] === 'arm')?.player_id
+  if (soloId) {
+    const farb = gameState.soloColor ? ` ${FARB_TEXT[gameState.soloColor] ?? ''}` : ''
+    sections.push({ title: 'Sonderspiel', lines: [`${SOLO_TEXT[gameState.soloType] ?? 'Solo'}${farb} (${nameOf(soloId)})`] })
+  } else if (hochzeitId) {
+    const partnerId = active.find(p => gameState.specialRoles[p.player_id] === 'eingeheiratet')?.player_id
+    const partner   = partnerId ? ` & ${nameOf(partnerId)}` : ''
+    sections.push({ title: 'Sonderspiel', lines: [`Hochzeit (${nameOf(hochzeitId)}${partner})`] })
+  } else if (armId) {
+    const partnerId = active.find(p => gameState.specialRoles[p.player_id] === 'reich')?.player_id
+    const partner   = partnerId ? `, reich: ${nameOf(partnerId)}` : ''
+    sections.push({ title: 'Sonderspiel', lines: [`Armut (arm: ${nameOf(armId)}${partner})`] })
+  }
+
+  // Sonderpunkte
+  const sonderpunkte = gameState.specialPoints.map(sp => {
+    const von = sp.loserId ? ` (von ${nameOf(sp.loserId)})` : ''
+    return `${nameOf(sp.earnerId)}: ${SP_TEXT[sp.type] ?? sp.type}${von}`
+  })
+  if (sonderpunkte.length) sections.push({ title: 'Sonderpunkte', lines: sonderpunkte })
+
+  // Augenzahl
+  if (gameState.eyesInput !== '' && gameState.eyesFor) {
+    sections.push({ title: 'Augen', lines: [`${gameState.eyesInput} für ${gameState.eyesFor === 're' ? 'Re' : 'Kontra'}`] })
+  }
+
+  return sections
+}
+
+function ResetGameScreen({ gameNumber, gameState, participants, onClose, onConfirm }) {
+  const sections   = describeGameState(gameState, participants)
+  const hasContent = sections.length > 0
+
   return (
     <div className="bg-background flex flex-col" style={overlayStyle}>
 
@@ -218,28 +297,54 @@ function ResetGameScreen({ gameNumber, onClose, onConfirm }) {
         <p className="font-semibold text-sm">Spiel {gameNumber} zurücksetzen</p>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
 
-        {/* A: Zurücksetzen */}
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <button onClick={onConfirm} className="w-full text-left font-semibold text-base text-amber-700 mb-2">
+        {/* Liste der tatsächlich erfassten Eingaben – oder Hinweis, dass nichts da ist */}
+        {hasContent ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <p className="text-sm font-semibold text-amber-800 mb-3">
+              Folgende Eingaben werden gelöscht:
+            </p>
+            <div className="space-y-3">
+              {sections.map(sec => (
+                <div key={sec.title}>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-amber-600 mb-1">
+                    {sec.title}
+                  </p>
+                  <ul className="text-sm text-amber-800 space-y-0.5">
+                    {sec.lines.map((line, i) => <li key={i}>{line}</li>)}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-border bg-muted/40 p-4">
+            <p className="text-sm text-muted-foreground">
+              Aktuell noch keine Notizen zum Spiel vorhanden.
+            </p>
+          </div>
+        )}
+
+        {/* Aktions-Buttons */}
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={onConfirm}
+            disabled={!hasContent}
+            className={`w-full h-12 rounded-xl font-semibold text-base ${
+              hasContent
+                ? 'bg-amber-500 text-white active:bg-amber-600'
+                : 'bg-muted text-muted-foreground/50 cursor-not-allowed'
+            }`}
+          >
             Zurücksetzen
           </button>
-          <ul className="text-sm text-amber-700 space-y-1">
-            <li>✗ Partei-Zuordnungen (Re / Kontra)</li>
-            <li>✗ Ansagen und Absagen</li>
-            <li>✗ Sonderspiele (Solo, Hochzeit, Armut)</li>
-            <li>✗ Sonderpunkte</li>
-            <li>✗ Augenzahl</li>
-          </ul>
-        </div>
-
-        {/* B: Weiter eingeben */}
-        <div className="rounded-xl border border-green-200 bg-green-50 p-4">
-          <button onClick={onClose} className="w-full text-left font-semibold text-base text-green-800">
+          <button
+            onClick={onClose}
+            className="w-full h-12 rounded-xl font-semibold text-base bg-primary text-primary-foreground active:opacity-90"
+          >
             Weiter eingeben
           </button>
-          <p className="text-sm text-green-700 mt-1">Zurück zur Erfassung</p>
         </div>
 
       </div>
@@ -408,6 +513,8 @@ function SessionPageInner() {
       {showResetScreen && (
         <ResetGameScreen
           gameNumber={gameNumber}
+          gameState={gameState}
+          participants={participants}
           onClose={() => setShowResetScreen(false)}
           onConfirm={handleResetConfirm}
         />
