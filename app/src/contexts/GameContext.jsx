@@ -3,9 +3,18 @@
 // Lebt nur für ein Spiel: wird nach Bestätigung via resetForNextGame() zurückgesetzt.
 // Alle Mutations-Handler (Parteien, Ansagen, Sonderpunkte etc.) leben hier.
 // Wird innerhalb von SessionProvider gemountet, sobald die Teilnehmer geladen sind.
+//
+// Konsistenz-Engine (Teil 0): Die WIE-ändert-sich-der-Zustand-Logik liegt zentral
+// in lib/consistency.js (applyAction). Die Handler hier rufen sie nur auf – dadurch
+// ist die Simulation für die Vorausschau immer identisch mit der echten Eingabe.
+// Dazu kommt die Dialog-Infrastruktur (dialog/openDialog/closeDialog) und die
+// generische Eintrittstür requestAction(), die Konflikte erkennt und entweder den
+// passenden Auflösungs-Dialog öffnet oder – wenn keiner definiert ist – sicher
+// blockt (Fallback, Prinzip P8).
 
 import { createContext, useContext, useRef, useState, useCallback } from 'react'
 import { deriveGameType } from '@/lib/scoreCalculation'
+import { applyAction, wouldViolate, isComplete } from '@/lib/consistency'
 
 const GameContext = createContext(null)
 
@@ -25,13 +34,11 @@ function initGameState(participants) {
   }
 }
 
-// Gibt true wenn Teams vollständig zugeordnet UND Augen eingegeben sind
+// Gibt true wenn Teams vollständig zugeordnet UND Augen eingegeben sind.
+// Die Team-Vollständigkeit (= Invariante I3) kommt aus isComplete() – eine
+// gemeinsame Quelle für die Regel, statt sie hier zu duplizieren.
 export function isGameValid(gameState, participants) {
-  const active  = participants.filter(p => !p.isSitting)
-  const reCount = active.filter(p => gameState.parties[p.player_id] === 're').length
-  const koCount = active.filter(p => gameState.parties[p.player_id] === 'kontra').length
-  const hasSolo = Object.values(gameState.specialRoles).some(r => r === 'solist')
-  const teamsOk = hasSolo ? reCount === 1 && koCount === 3 : reCount === 2 && koCount === 2
+  const teamsOk = isComplete(gameState, participants)
   const eyesOk  = gameState.eyesInput !== '' && !isNaN(parseInt(gameState.eyesInput)) && gameState.eyesFor !== null
   return teamsOk && eyesOk
 }
@@ -61,6 +68,37 @@ export function buildCalculationInput(gameState, participants) {
   }
 }
 
+// ─── Fallback-Dialog (Prinzip P8) ─────────────────────────────────────────────
+//
+// Sicherheitsnetz, das NIE sichtbar werden sollte (C.Fallback der Spec). Greift,
+// wenn eine Aktion eine Invariante verletzen würde, für die noch kein spezifischer
+// Auflösungs-Dialog existiert. Die Aktion wird geblockt, der letzte stimmige
+// Zustand bleibt.
+function buildFallbackDialog(closeDialog) {
+  return {
+    was:   'Das geht gerade nicht.',
+    warum: 'Diese Eingabe würde zu einem widersprüchlichen Stand führen und wurde nicht '
+         + 'übernommen. Ein Hinweis an die Entwickler wurde gespeichert. Bitte merke dir, '
+         + 'was du gerade gemacht hast, und gib uns Bescheid.',
+    options: [
+      { label: 'Zurück', subtitle: 'Ohne Änderung zurück (der letzte stimmige Stand bleibt).', onSelect: closeDialog },
+    ],
+  }
+}
+
+// Loggt einen Fallback-Vorgang. In Teil 0 nur in die Konsole – die persistente
+// DB-Tabelle consistency_logs ist Teil 6. Die Schreiber-ID bleibt bis zum
+// Login-Bau NULL (CLAUDE.md "Irgendwann"-Liste).
+function logConsistencyFallback({ violations, action, state }) {
+  console.warn('[Konsistenz-Fallback] geblockte Aktion', {
+    violatedInvariants: violations,
+    attemptedAction:    action,
+    stateBefore:        state,
+    writerId:           null,
+    timestamp:          new Date().toISOString(),
+  })
+}
+
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function GameProvider({ children, initialParticipants }) {
@@ -69,100 +107,94 @@ export function GameProvider({ children, initialParticipants }) {
   const participantsRef = useRef(initialParticipants)
   const [gameState, setGameState] = useState(() => initGameState(initialParticipants))
 
+  // Zentraler Auflösungs-Dialog: null = keiner offen. Liegt hier (nicht in einer
+  // Ansicht), damit Tisch- und Block-Ansicht denselben Dialog teilen (P7).
+  const [dialog, setDialog] = useState(null)
+  const openDialog  = useCallback((d) => setDialog(d), [])
+  const closeDialog = useCallback(() => setDialog(null), [])
+
   // Setzt Spielzustand für das nächste Spiel zurück (neuer Geber, neue Aussetzer)
   const resetForNextGame = useCallback((newParticipants) => {
     participantsRef.current = newParticipants
     setGameState(initGameState(newParticipants))
+    setDialog(null)
   }, [])
 
   // Setzt das aktuelle Spiel auf Leerstand zurück – ohne Participants zu ändern
   const resetCurrentGame = useCallback(() => {
     setGameState(initGameState(participantsRef.current))
+    setDialog(null)
   }, [])
+
+  // Führt eine Aktion ungeprüft aus (über den zentralen Reducer). Die einzelnen
+  // Handler unten nutzen das – so läuft jede Zustandsänderung durch dieselbe
+  // Übergangslogik wie die Vorausschau-Simulation.
+  const commitAction = useCallback((action) => {
+    setGameState(prev => applyAction(prev, participantsRef.current, action))
+  }, [])
+
+  // ── Resolver-Dispatch (wird in den Teilen 1–6 gefüllt) ──────────────────────
+  // Bekommt die auslösende Aktion + die verletzten Invarianten und gibt einen
+  // Dialog-Deskriptor zurück – oder null, wenn für diesen Fall (noch) kein
+  // spezifischer Dialog definiert ist. In Teil 0 immer null → alles läuft in den
+  // sicheren Fallback (P8).
+  const resolveConflict = useCallback((/* action, violations, state */) => {
+    return null
+  }, [])
+
+  // Generische Eintrittstür für JEDE potenziell konflikt-behaftete Aktion (P5/P8):
+  //   1. Vorausschau: würde die Aktion eine Invariante verletzen?
+  //   2. Nein  → ausführen.
+  //   3. Ja, mit definiertem Resolver → Auflösungs-Dialog öffnen.
+  //   4. Ja, ohne Resolver → blocken + Fallback-Meldung + loggen (P8).
+  // In Teil 0 noch nicht an die Buttons gehängt – das übernimmt Teil 1 mit dem
+  // ersten echten Konfliktfall.
+  const requestAction = useCallback((action) => {
+    const participants = participantsRef.current
+    const violations   = wouldViolate(gameState, participants, action)
+    if (violations.length === 0) {
+      commitAction(action)
+      return
+    }
+    const resolver = resolveConflict(action, violations, gameState)
+    if (resolver) {
+      openDialog(resolver)
+      return
+    }
+    logConsistencyFallback({ violations, action, state: gameState })
+    openDialog(buildFallbackDialog(closeDialog))
+  }, [gameState, commitAction, resolveConflict, openDialog, closeDialog])
+
+  // ── Konkrete Eingabe-Handler ────────────────────────────────────────────────
+  // Behalten ihre bisherige Signatur (TableView/PlayerSheet rufen sie unverändert
+  // auf), delegieren die Zustandsänderung aber an den zentralen Reducer.
 
   const handlePartyChange = useCallback((playerId, party) => {
-    setGameState(prev => {
-      const newAnns = { ...prev.announcements }
-      if (party === 'kontra' && newAnns[playerId]?.includes('re'))
-        newAnns[playerId] = newAnns[playerId].filter(t => t !== 're')
-      if (party === 're' && newAnns[playerId]?.includes('kontra'))
-        newAnns[playerId] = newAnns[playerId].filter(t => t !== 'kontra')
-      return { ...prev, parties: { ...prev.parties, [playerId]: party }, announcements: newAnns }
-    })
-  }, [])
+    commitAction({ type: 'setParty', playerId, party })
+  }, [commitAction])
 
   const handleAnnouncementToggle = useCallback((playerId, type) => {
-    setGameState(prev => {
-      const current = prev.announcements[playerId] ?? []
-      let updated
-      if (current.includes(type)) {
-        updated = current.filter(t => t !== type)
-      } else {
-        updated = type === 're'     ? [...current.filter(t => t !== 'kontra'), 're']
-                : type === 'kontra' ? [...current.filter(t => t !== 're'), 'kontra']
-                : [...current, type]
-      }
-      return { ...prev, announcements: { ...prev.announcements, [playerId]: updated } }
-    })
-  }, [])
+    commitAction({ type: 'toggleAnnouncement', playerId, announcement: type })
+  }, [commitAction])
 
   const handleSpecialRoleSet = useCallback((playerId, role, extraData) => {
-    setGameState(prev => {
-      const pts        = participantsRef.current
-      const newRoles   = { ...prev.specialRoles, [playerId]: role }
-      const newParties = { ...prev.parties }
-      // Bei Solo: Parteien automatisch setzen (Solist = Re, alle anderen = Kontra)
-      if (role === 'solist') {
-        for (const p of pts) {
-          if (p.isSitting) continue
-          newParties[p.player_id] = p.player_id === playerId ? 're' : 'kontra'
-        }
-      }
-      return {
-        ...prev,
-        specialRoles: newRoles,
-        parties:      newParties,
-        soloType:     extraData?.soloType  ?? prev.soloType,
-        soloColor:    extraData?.soloColor ?? prev.soloColor,
-      }
-    })
-  }, [])
+    commitAction({ type: 'setSpecialRole', playerId, role, extraData })
+  }, [commitAction])
 
   const handleSpecialRoleClear = useCallback((playerId) => {
-    setGameState(prev => {
-      const clearedRole = prev.specialRoles[playerId]
-      const newRoles    = { ...prev.specialRoles }
-      delete newRoles[playerId]
-      // Abhängige Rollen mitlöschen
-      if (clearedRole === 'hochzeit') {
-        for (const [pid, r] of Object.entries(newRoles)) if (r === 'eingeheiratet') delete newRoles[pid]
-      }
-      if (clearedRole === 'arm') {
-        for (const [pid, r] of Object.entries(newRoles)) if (r === 'reich') delete newRoles[pid]
-      }
-      return { ...prev, specialRoles: newRoles, soloType: null, soloColor: null }
-    })
-  }, [])
+    commitAction({ type: 'clearSpecialRole', playerId })
+  }, [commitAction])
 
   const handleSpecialPointAdd = useCallback((earnerId, type, loserId) => {
-    setGameState(prev => ({
-      ...prev,
-      specialPoints: [
-        ...prev.specialPoints,
-        { id: crypto.randomUUID(), type, earnerId, loserId: loserId ?? null },
-      ],
-    }))
-  }, [])
+    commitAction({ type: 'addSpecialPoint', earnerId, spType: type, loserId })
+  }, [commitAction])
 
   const handleSpecialPointRemove = useCallback((pointId) => {
-    setGameState(prev => ({
-      ...prev,
-      specialPoints: prev.specialPoints.filter(sp => sp.id !== pointId),
-    }))
-  }, [])
+    commitAction({ type: 'removeSpecialPoint', pointId })
+  }, [commitAction])
 
-  const updateEyes    = useCallback((val)   => setGameState(prev => ({ ...prev, eyesInput: val })),   [])
-  const updateEyesFor = useCallback((party) => setGameState(prev => ({ ...prev, eyesFor: party })), [])
+  const updateEyes    = useCallback((val)   => commitAction({ type: 'setEyes', value: val }),    [commitAction])
+  const updateEyesFor = useCallback((party) => commitAction({ type: 'setEyesFor', party }),      [commitAction])
 
   return (
     <GameContext.Provider value={{
@@ -177,6 +209,11 @@ export function GameProvider({ children, initialParticipants }) {
       handleSpecialPointRemove,
       updateEyes,
       updateEyesFor,
+      // Konsistenz-Engine (Teil 0)
+      dialog,
+      openDialog,
+      closeDialog,
+      requestAction,
     }}>
       {children}
     </GameContext.Provider>

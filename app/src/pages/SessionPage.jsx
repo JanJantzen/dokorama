@@ -19,6 +19,7 @@ import { supabase } from '@/lib/supabase'
 import TableView from '@/components/session/TableView'
 import BlockView from '@/components/session/BlockView'
 import EvaluationView from '@/components/session/EvaluationView'
+import ConsistencyDialog from '@/components/session/ConsistencyDialog'
 
 function formatDate(dateStr) {
   if (!dateStr) return ''
@@ -519,6 +520,9 @@ function SessionPageInner() {
           onConfirm={handleResetConfirm}
         />
       )}
+
+      {/* Zentraler Auflösungs-Dialog der Konsistenz-Engine (Tisch- wie Block-Ansicht) */}
+      <ConsistencyDialog />
 
     </div>
   )
