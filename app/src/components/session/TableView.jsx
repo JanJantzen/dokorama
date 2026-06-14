@@ -55,6 +55,18 @@ function getRoleLabel(specialRole, soloType, soloColor) {
   }[specialRole] ?? ''
 }
 
+// Abgeleitetes Gegner-Label (B.4.6, P6): Spieler ohne eigene Sonderrolle sind,
+// während ein Sonderspiel läuft, dessen Gegner. Knappe Tisch-Form OHNE Namen
+// (die ausführliche Form mit Namen lebt im Sheet). Rein aus dem Zustand abgeleitet
+// – verschwindet automatisch, sobald das Sonderspiel annulliert ist.
+function getGegnerLabel(gameState) {
+  const roles = Object.values(gameState.specialRoles)
+  if (roles.includes('solist'))   return `gegen ${getRoleLabel('solist', gameState.soloType, gameState.soloColor)}`
+  if (roles.includes('hochzeit')) return 'gegen Hochzeit'
+  if (roles.includes('arm'))      return 'gegen Armut'
+  return ''
+}
+
 // ─── Geteilte UI-Bausteine ─────────────────────────────────────────────────────
 
 const ANN_ICONS = { re: iconAnnRe, kontra: iconAnnKo, keine_90: iconAnnK9, keine_60: iconAnnK6, keine_30: iconAnnK3, schwarz: iconAnnSw }
@@ -180,7 +192,10 @@ function CornerPlayer({ participant, layout, gameState, onTap }) {
   const party     = gameState.parties[playerId] ?? null
   const anns      = gameState.announcements[playerId] ?? []
   const role      = gameState.specialRoles[playerId]
+  // Eigene Rolle, sonst – falls Kontra während eines Sonderspiels – das abgeleitete
+  // Gegner-Label (B.4.6). Source/Partner haben eine Rolle und fallen nicht hierher.
   const roleLabel = getRoleLabel(role, gameState.soloType, gameState.soloColor)
+                 || (party === 'kontra' ? getGegnerLabel(gameState) : '')
   const activeAnns = ANNOUNCEMENT_ORDER.filter(t => anns.includes(t))
   const sp = gameState.specialPoints
 

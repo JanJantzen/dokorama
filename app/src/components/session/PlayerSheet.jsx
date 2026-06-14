@@ -162,6 +162,29 @@ export default function PlayerSheet({
     return null
   }
 
+  // Läuft auf dem Tisch überhaupt ein Sonderspiel (an irgendeiner auslösenden Person)?
+  const someSpecialGameActive = activePlayers.some(p =>
+    ['solist', 'hochzeit', 'arm'].includes(gameState.specialRoles[p.player_id]))
+
+  // Abgeleitetes Gegner-Label fürs Sheet (B.4.6, P6) – ausführliche Form MIT Namen
+  // der auslösenden Person (Wegweiser zur Auflösung). Für Spieler ohne eigene Rolle,
+  // während ein Sonderspiel läuft.
+  function gegnerLabel() {
+    const src = role => activePlayers.find(p => gameState.specialRoles[p.player_id] === role)
+    const solist = src('solist')
+    if (solist) {
+      const typLabel  = SOLO_TYPEN.find(t => t.type === gameState.soloType)?.label ?? 'Solo'
+      const farbEmoji = FARBEN.find(f => f.type === gameState.soloColor)?.emoji
+      const typ = farbEmoji ? `${typLabel} ${farbEmoji}` : typLabel
+      return `gegen ${typ} (${solist.players.name})`
+    }
+    const hochzeit = src('hochzeit')
+    if (hochzeit) return `gegen Hochzeit (${hochzeit.players.name})`
+    const arm = src('arm')
+    if (arm) return `gegen Armut (${arm.players.name})`
+    return null
+  }
+
   // An-/Absage-Klick: läuft jetzt durch die Konsistenz-Engine (Teil 1). Die
   // Partei-Folge bei Re/Kontra und die Doppelungs-Prüfung stecken dort.
   function handleAnnouncement(type) {
@@ -462,6 +485,14 @@ export default function PlayerSheet({
                     <X size={16} />
                   </button>
                 )}
+              </div>
+            ) : someSpecialGameActive ? (
+              // Gegner eines laufenden Sonderspiels: festes, read-only Label statt
+              // der Auswahl-Buttons (B.4.4) – aufgelöst wird an der auslösenden Person.
+              <div className="flex items-center bg-secondary rounded-xl px-3 py-2">
+                <span className="text-sm font-medium text-secondary-foreground">
+                  {gegnerLabel()}
+                </span>
               </div>
             ) : (
               // Buttons gleichmäßig auf volle Breite verteilt
