@@ -1026,6 +1026,21 @@ annullieren" / „Solo annullieren")
 > Deshalb darf die Auflösung auch An-/Absagen **dritter, nicht gewischter** Personen zurückziehen,
 > wenn die Kaskade sie sonst auf eine volle/widersprechende Seite drücken würde.
 
+> **Gesten-Bedienung (mit Jan festgelegt, 14.6.2026):**
+> - **Fläche – Start UND Ziel:** der gesamte Player-Backdrop der **vier aktiven Eck-Spieler**. Aussetzer
+>   (Rand-Avatare) sind weder Start noch Ziel. Das Ziel wird am `touchend` per `elementFromPoint()`
+>   bestimmt (jeder aktive Backdrop trägt eine `data-player-id`).
+> - **Tap vs. Wisch:** Ein kurzer Tap (Finger <20px bewegt, <0,4s) irgendwo auf dem Backdrop öffnet
+>   das Player-Sheet (bisher nur am Avatar – jetzt die ganze Zone). Ein Wisch wird ausgelöst, sobald
+>   **entweder ~0,4s gehalten ODER >20px bewegt** wurde (was zuerst kommt).
+> - **Während des Ziehens:** eine Verbindungslinie vom **Avatar** des Start-Spielers zum Finger; die
+>   drei anderen aktiven Backdrops werden als gültige Ziele hervorgehoben, das gerade überfahrene
+>   stärker.
+> - **Loslassen** über einem gültigen aktiven Mitspieler → die Geste greift (Verhaltensweisen a–e).
+>   Im Leeren, auf sich selbst oder auf einem Aussetzer → folgenlos abbrechen (Fall a).
+> - **Technik:** auf der Gesten-Fläche `-webkit-touch-callout: none`, `user-select: none`,
+>   `touch-action: none`, damit iOS-Bildmenü, Textauswahl und Scroll nicht dazwischenfunken.
+
 **Fünf Verhaltensweisen – nur drei brauchen einen Dialog:**
 
 **(a) Ungültige/unvollständige Geste** (auf sich selbst, im Leeren endend, nicht sauber von A nach B)
@@ -1089,29 +1104,35 @@ Ansage) folgen exakt diesem Schema mit kürzerer Liste; ihre Auflösungs-Mechani
 verwiesenen Blöcken. Ausformuliert werden hier nur die beiden Fälle, die der Wisch als Einziger
 erzeugt – mehrere unabhängige Ursachen auf einmal:
 
-**Fall „zwei Ansagen" (ohne Sonderspiel):** Robert hat Kontra gesagt, Sophia hat Re gesagt; niemand
-spielt ein Sonderspiel. Wisch Robert↔Kathrin.
+**Fall „zwei Ansagen" (ohne Sonderspiel):** Robert hat Re gesagt, Kathrin hat Kontra gesagt – sie sind
+dadurch **verschiedene Parteien**; niemand spielt ein Sonderspiel. Wisch Robert↔Kathrin.
+
+> **Wichtig (Jan-Klarstellung, 15.6.2026):** Ein echter Konflikt liegt nur vor, wenn die **beiden
+> gewischten** Personen sich widersprechen (verschiedene Parteien / feste Verankerung). Ist dagegen
+> **eine der beiden bereits zugeordnet und die andere neutral**, ist die Sache immer eindeutig → sie
+> wird **dialoglos der zugeordneten Partei** zugeschlagen (Fall c), egal welche Ansagen sonst noch am
+> Tisch stehen. Darum ist im folgenden Beispiel Kathrin nicht neutral, sondern selbst Kontra angesagt.
 
 **Meldung:**
 > Robert und Kathrin können aktuell kein Team bilden.
-> Robert hat Kontra gesagt, Sophia hat Re gesagt. Wie soll die Situation aufgelöst werden?
+> Robert hat Re gesagt, Kathrin hat Kontra gesagt. Wie soll die Situation aufgelöst werden?
 
 **Option 1 — Abbrechen**
 - Ohne Änderung zurück.
 
 **Option 2 — Beide Re**
-- Roberts Kontra-Ansage wird zurückgezogen
-- Sophias Re-Ansage wird zurückgezogen
+- Kathrins Kontra-Ansage wird zurückgezogen
 - Robert und Kathrin sind Re
 - Jan und Sophia sind Kontra
 
 **Option 3 — Beide Kontra**
-- Sophias Re-Ansage wird zurückgezogen
+- Roberts Re-Ansage wird zurückgezogen
 - Robert und Kathrin sind Kontra
 - Jan und Sophia sind Re
 
-> Die „Beide Kontra"-Liste ist kürzer (Roberts Kontra passt zur Zielrichtung, bleibt) – das ist die
-> Richtung „mit dem Strom".
+> Hier sind beide Listen gleich lang: jede Richtung zieht genau die eine widersprechende Ansage des
+> gewischten Paares zurück, die andere bleibt. Die **Asymmetrie** „mit dem Strom" wird im nächsten Fall
+> sichtbar, wo zusätzlich ein Sonderspiel aufzulösen ist.
 
 **Fall „Sonderspiel + zwei Ansagen" (volle Tiefe, fünf Zeilen):** Kathrin+Sophia spielen Hochzeit (Re),
 Jan+Robert dadurch Kontra, Robert hat Kontra gesagt, Sophia hat Re gesagt. Wisch Robert↔Kathrin.
@@ -1139,6 +1160,15 @@ Jan+Robert dadurch Kontra, Robert hat Kontra gesagt, Sophia hat Re gesagt. Wisch
 
 > Die „Beide Kontra"-Liste ist kürzer (Roberts Kontra-Ansage passt zur Zielrichtung und bleibt) –
 > Richtung „mit dem Strom".
+
+> **Absage-Doppelung als Folge des Wischs (Jan-Entscheid, 15.6.2026):** Bringt eine Vereinigung zwei
+> Personen mit **derselben Absage** (z.B. beide „Keine 90") ins selbe Team, ist das die verspätete
+> Absage-Doppelung aus B.2.6 → sie wird über den **C.2.6-Dialog als Folge-Schritt** gelöst („wer behält
+> die Absage?", beide Richtungen). Ablauf: Der Wisch setzt zuerst seine Richtung (Fall c dialoglos bzw.
+> d/e per Dialog); entstünde dabei eine Doppelung, erscheint **direkt danach** der C.2.6-Dialog. Die
+> ausführende Option committet Team-Setzung **und** Absage-Rückzug **atomar zusammen** – der
+> inkonsistente Zwischenstand wird nie committet (P8). Mehrere gleichzeitige Doppelungen sind vom
+> Regelwerk nicht erfasst → sicherer Fallback.
 
 ---
 
@@ -1278,3 +1308,22 @@ Jan+Robert dadurch Kontra, Robert hat Kontra gesagt, Sophia hat Re gesagt. Wisch
   eigene Teamkollegen ausgegraut (I12); Klick darauf zeigt einen reinen Hinweis-Dialog mit nur
   „Abbrechen" (Fangen im eigenen Team unmöglich). B.3.4 um die beiden Richtungen (Ersterfassung /
   spätere Partei-Änderung) erweitert. B.5.8 war schon in Teil 2c (automatischer Drop) erledigt.
+- **Session 11 – Umsetzung Teil 5 (Wisch-Geste B.5.10/C.5.10):** Gesten-Bedienung mit Jan festgelegt und
+  in C.5.10 als „Gesten-Bedienung" verankert (ganzer Player-Backdrop als Start- UND Ziel-Fläche der vier
+  Aktiven; Tap <20px/<0,4s → Sheet, Wisch ab ~0,4s Halten ODER >20px Bewegung; Verbindungslinie vom
+  Avatar; Ziel per `elementFromPoint`; iOS-Callout/Scroll via `touch-action`/`user-select`/
+  `-webkit-touch-callout: none` unterdrückt). Engine: neue atomare Aktion `setAllParties` (alle vier
+  Parteien in einem Zug, ein einziger C.5.8-Drop-Durchlauf), `uniteInDirection` (annulliert ein im Weg
+  stehendes Sonderspiel → zieht widersprechende Re/Kontra-Ansagen zurück, auch dritter Personen → setzt
+  alle vier) und `buildSwipeDialog` (Fälle d/e) in `consistencyDialogs.js`; `requestSwipe` im GameContext
+  (a/b/c dialoglos, d/e Dialog, sonst sicherer Fallback). `TableView`: Pointer-basierte Gestenerkennung
+  + Verbindungslinien-Overlay. **Spec-Korrektur (Jan, 15.6.2026):** Das „zwei Ansagen"-Beispiel war
+  fehlerhaft (zeigte einen *neutral + zugeordnet*-Fall als Konflikt-Dialog und zog bei „Beide Kontra"
+  eine Re-Ansage zurück, die gar nicht im Weg stand). Klarstellung verankert: **neutral + bereits
+  zugeordnet ⇒ immer dialoglos zur zugeordneten Partei** (Fall c); das Beispiel auf einen echten Konflikt
+  umgeschrieben (beide Gewischten gegnerisch angesagt: Robert Re, Kathrin Kontra). **Absage-Doppelung
+  durch Wisch (Jan-Entscheid):** bringt eine Vereinigung zwei gleiche Absagen ins Team, wird das über den
+  **C.2.6-Dialog als Folge-Schritt** gelöst (`resolveSwipe` im GameContext, `buildAbsageKeepDialog`); die
+  Option committet Team-Setzung + Rückzug atomar (nie inkonsistenter Commit, P8). `uniteInDirection` lässt
+  I6 darum offen (statt null/Fallback), alle anderen Restverletzungen weiterhin → Fallback. In C.5.10
+  dokumentiert.

@@ -536,6 +536,231 @@ export function buildLateDoublingDialog({ action, state, participants, commit })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// C.5.10 – Wisch-Geste: zwei Spieler zu einem Team verbinden (Teil 5)
+//
+// Die Geste lässt die RICHTUNG offen ("die zwei zusammen", ohne Re/Kontra). Logisch
+// ist sie nur eine weitere Eintrittstür in den Partei-Block und nutzt die bekannten
+// Mechaniken (Voll-Team-Tausch B.5.6 / Sonderspiel annullieren B.5.7 / Ansage
+// zurückziehen B.5.9). Kernprinzip (Jan): die Zuordnung von zweien ist die Zuordnung
+// von vieren – darum darf die Auflösung auch Ansagen DRITTER Personen zurückziehen
+// und ein Sonderspiel annullieren, wenn die Kaskade sie sonst ins Schleudern bringt.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Liefert das aktive Sonderspiel als { type, members[], soloType? } oder null.
+function specialGameInfo(state, active) {
+  const find = role => active.find(p => state.specialRoles[p.player_id] === role)?.player_id ?? null
+  const solist = find('solist')
+  if (solist != null) return { type: 'solo', members: [solist], soloType: state.soloType }
+  const hz = find('hochzeit')
+  if (hz != null) return { type: 'hochzeit', members: [hz, find('eingeheiratet')].filter(x => x != null) }
+  const arm = find('arm')
+  if (arm != null) return { type: 'armut', members: [arm, find('reich')].filter(x => x != null) }
+  return null
+}
+
+// Annul-Zeile für die Konsequenz-Liste (wie C.5.10-Beispiel: "As und Bs Hochzeit …").
+function annulLineForSwipe(state, active, nameOf, seatOf) {
+  const info = specialGameInfo(state, active)
+  if (!info) return null
+  if (info.type === 'solo')
+    return `${nameOf(info.members[0])}s ${SOLO_LABELS[info.soloType] ?? 'Solo'} wird annulliert`
+  const m = [...info.members].sort((x, y) => seatOf(x) - seatOf(y)).map(nameOf)
+  return `${m[0]}s und ${m[1]}s ${info.type === 'hochzeit' ? 'Hochzeit' : 'Armut'} wird annulliert`
+}
+
+// "Warum?"-Satz für den Konflikt-Dialog (e): benennt die im Weg stehenden Ursachen.
+function swipeWarum(state, active, aId, bId, nameOf, seatOf) {
+  const parts = []
+  const info = specialGameInfo(state, active)
+  if (info) {
+    if (info.type === 'solo') {
+      parts.push(`${nameOf(info.members[0])} spielt ein ${SOLO_LABELS[info.soloType] ?? 'Solo'}`)
+    } else {
+      const m = [...info.members].sort((x, y) => seatOf(x) - seatOf(y)).map(nameOf)
+      parts.push(`${m[0]} und ${m[1]} spielen ${info.type === 'hochzeit' ? 'Hochzeit' : 'die Armut'}`)
+    }
+  }
+  for (const p of [...active].sort((x, y) => seatOf(x.player_id) - seatOf(y.player_id))) {
+    const anns = state.announcements[p.player_id] ?? []
+    if (anns.includes('re'))     parts.push(`${p.players.name} hat Re gesagt`)
+    if (anns.includes('kontra')) parts.push(`${p.players.name} hat Kontra gesagt`)
+  }
+  if (parts.length === 0)
+    parts.push(`${nameOf(aId)} und ${nameOf(bId)} sind aktuell verschiedene Parteien`)
+  return parts.join(', ') + '. Wie soll die Situation aufgelöst werden?'
+}
+
+// Plant die Aktionsfolge, um a UND b in Partei `direction` zu bringen (die anderen
+// beiden Aktiven fallen auf die Gegenseite – bei vier Aktiven IST die Zuordnung von
+// zweien die ganze Tafel). Vorgehen in Spec-Reihenfolge: (1) ein im Weg stehendes
+// Sonderspiel annullieren, (2) widersprechende Re/Kontra-Ansagen zurückziehen (auch
+// dritter Personen), (3) alle vier in EINEM Zug setzen (setAllParties). Endet das
+// nicht widerspruchsfrei (z.B. doppelte Absage durch die Vereinigung, von der Spec
+// nicht erfasst) → null → der Aufrufer blockt sicher (Fallback, P8).
+export function uniteInDirection(state, participants, aId, bId, direction) {
+  const opp      = direction === 're' ? 'kontra' : 're'
+  const active   = participants.filter(p => !p.isSitting)
+  const targetOf = id => (id === aId || id === bId) ? direction : opp
+
+  let s = state
+  const actions = []
+  const doAct = a => { actions.push(a); s = applyAction(s, participants, a) }
+
+  // 1. Sonderspiel annullieren, falls seine fixierte Re-Seite NICHT der Ziel-Re-Seite
+  //    entspricht (B.4.3/B.5.7). Trifft die Zielverteilung das Sonderspiel exakt, bleibt
+  //    es (dann wäre die Geste ohnehin ein No-op und käme nicht hierher).
+  const roleHolders = active.filter(p => RE_SIDE_ROLES.includes(state.specialRoles[p.player_id]))
+  if (roleHolders.length > 0) {
+    const targetReSet  = new Set(active.filter(p => targetOf(p.player_id) === 're').map(p => p.player_id))
+    const sameAsSpecial = roleHolders.length === targetReSet.size
+      && roleHolders.every(p => targetReSet.has(p.player_id))
+    if (!sameAsSpecial) doAct({ type: 'clearSpecialGame' })
+  }
+
+  // 2. Widersprechende Re/Kontra-Ansagen zurückziehen – für ALLE Aktiven gegen ihre
+  //    Zielpartei (auch dritte, nicht gewischte Personen).
+  for (const p of active) {
+    const id = p.player_id
+    const wrong = targetOf(id) === 're' ? 'kontra' : 're'
+    if ((s.announcements[id] ?? []).includes(wrong))
+      doAct({ type: 'toggleAnnouncement', playerId: id, announcement: wrong })
+  }
+
+  // 3. Alle vier Aktiven in einem Zug auf ihre Zielpartei setzen.
+  const partyMap = {}
+  for (const p of active) partyMap[p.player_id] = targetOf(p.player_id)
+  doAct({ type: 'setAllParties', parties: partyMap })
+
+  // I6 (Absage-Doppelung, zwei gleiche Absagen im selben Team) wird NICHT hier gelöst,
+  // sondern als C.2.6-Folge-Dialog ("wer behält die Absage?", resolveSwipe im
+  // GameContext). Jede ANDERE Restverletzung ist eine echte Regel-Lücke → null →
+  // sicherer Fallback (P8). Die finalState trägt die evtl. offene I6-Doppelung; sie
+  // wird vor dem Commit über den Folge-Dialog aufgelöst, nie inkonsistent committet.
+  if (checkInvariants(s, participants).some(v => v !== 'I6')) return null
+  return { actions, finalState: s }
+}
+
+// Findet Absage-Doppelungen in einem Zustand: dieselbe Absage-Stufe (K90/K60/K30/
+// Schwarz) bei zwei Personen DESSELBEN Teams (I6). Reihenfolge der Träger = Sitzfolge.
+export function absageDoublings(state, participants) {
+  const active = participants.filter(p => !p.isSitting)
+  const stages = ['keine_90', 'keine_60', 'keine_30', 'schwarz']
+  const out = []
+  for (const stage of stages) {
+    for (const party of ['re', 'kontra']) {
+      const holders = active
+        .filter(p => state.parties[p.player_id] === party && (state.announcements[p.player_id] ?? []).includes(stage))
+        .map(p => p.player_id)
+      if (holders.length >= 2) out.push({ party, stage, holders })
+    }
+  }
+  return out
+}
+
+// C.2.6-Folge-Dialog nach einem Wisch: die Vereinigung hat zwei gleiche Absagen ins
+// selbe Team gebracht (I6). Wie C.2.6 sind beide Ansagen "gleich alt" → beide
+// Richtungen ("wer behält") werden angeboten. Jede Option committet die Team-Setzung
+// (swipeActions) UND den Absage-Rückzug ATOMAR zusammen – so wird der inkonsistente
+// Zwischenzustand nie committet (P8). Lösen die Optionen den Rest nicht sauber auf
+// (mehrere Doppelungen) → null → Fallback.
+export function buildAbsageKeepDialog({ state, participants, swipeActions, doubling, commit }) {
+  const active = participants.filter(p => !p.isSitting)
+  const nameOf = id => active.find(p => p.player_id === id)?.players.name ?? '?'
+  const { stage, holders: [h1, h2] } = doubling
+  const label = ANN_LABELS[stage]
+
+  const optionFor = (keepId, dropId) => {
+    const acts = [...swipeActions, { type: 'toggleAnnouncement', playerId: dropId, announcement: stage }]
+    if (!resolvesCleanly(state, participants, acts)) return null
+    return {
+      label: `${nameOf(keepId)} behält „${label}"`,
+      subtitle: [`${nameOf(dropId)}s „${label}" Ansage wird zurückgezogen`],
+      onSelect: () => acts.forEach(commit),
+    }
+  }
+  const o1 = optionFor(h1, h2)
+  const o2 = optionFor(h2, h1)
+  if (!o1 || !o2) return null
+
+  return {
+    was:   `${nameOf(h1)} und ${nameOf(h2)} können nicht beide „${label}" sagen.`,
+    warum: `${nameOf(h1)} und ${nameOf(h2)} sind jetzt im selben Team – „${label}" gilt pro Team nur einmal. Wer behält die Ansage?`,
+    options: [
+      { label: 'Abbrechen', subtitle: 'Ohne Änderung zurück.' },
+      o1,
+      o2,
+    ],
+  }
+}
+
+// Baut den Wisch-Dialog (Verhaltensweisen d/e aus C.5.10). Die dialoglosen Fälle
+// (a/b/c) erledigt der Aufrufer (GameContext) vorab. Gibt null zurück, wenn eine
+// Richtung nicht sauber auflösbar ist → Fallback (P8).
+export function buildSwipeDialog({ state, participants, aId, bId, resolve }) {
+  const active = participants.filter(p => !p.isSitting)
+  const nameOf = id => active.find(p => p.player_id === id)?.players.name ?? '?'
+  const seatOf = id => active.find(p => p.player_id === id)?.seat_position ?? 0
+
+  const reRes = uniteInDirection(state, participants, aId, bId, 're')
+  const koRes = uniteInDirection(state, participants, aId, bId, 'kontra')
+  if (!reRes || !koRes) return null
+
+  const otherTwo = active
+    .filter(p => p.player_id !== aId && p.player_id !== bId)
+    .sort((x, y) => seatOf(x.player_id) - seatOf(y.player_id))
+  const pairNames  = `${nameOf(aId)} und ${nameOf(bId)}`
+  const otherNames = otherTwo.map(p => p.players.name).join(' und ')
+
+  // Konsequenz-Liste je Richtung: erst entfernte Ursachen (Annul, Rückzüge in
+  // Aktionsreihenfolge), dann das Ergebnis, dann ggf. die C.5.8-Zeile(n).
+  const consequenceLines = (res, D) => {
+    const out = []
+    for (const a of res.actions) {
+      if (a.type === 'clearSpecialGame') out.push(annulLineForSwipe(state, active, nameOf, seatOf))
+      if (a.type === 'toggleAnnouncement')
+        out.push(`${nameOf(a.playerId)}s ${PARTY_LABELS[a.announcement]}-Ansage wird zurückgezogen`)
+    }
+    out.push(`${pairNames} sind ${PARTY_LABELS[D]}`)
+    out.push(`${otherNames} sind ${PARTY_LABELS[D === 're' ? 'kontra' : 're']}`)
+    out.push(...c58Lines(state, res.finalState, nameOf))
+    return out.filter(Boolean)
+  }
+
+  const isParty    = v => v === 're' || v === 'kontra'
+  const bothNeutral = !isParty(state.parties[aId]) && !isParty(state.parties[bId])
+  // (d) reine Richtungswahl: beide gewischten neutral UND keine Richtung braucht eine
+  //     Ursachen-Auflösung (beide Aktionslisten nur setAllParties). Sonst (e) Konflikt.
+  const pureChoice = bothNeutral
+    && [...reRes.actions, ...koRes.actions].every(a => a.type === 'setAllParties')
+
+  if (pureChoice) {
+    // (d) – kein Konflikt → Abbrechen UNTEN (Richtungswahl-Konvention).
+    return {
+      was:   `${pairNames} bilden ein Team.`,
+      warum: 'Sind die beiden Re oder Kontra?',
+      options: [
+        // keepOpen: resolve() entscheidet, ob committet (dann schließt es selbst) oder
+        // ob noch der C.2.6-Absage-Folgedialog geöffnet wird – darum nicht auto-schließen.
+        { label: 'Re',     subtitle: [`${pairNames} sind Re`,     `${otherNames} sind Kontra`], keepOpen: true, onSelect: () => resolve(reRes.actions) },
+        { label: 'Kontra', subtitle: [`${pairNames} sind Kontra`, `${otherNames} sind Re`],     keepOpen: true, onSelect: () => resolve(koRes.actions) },
+        { label: 'Abbrechen', subtitle: 'Ohne Änderung zurück.' },
+      ],
+    }
+  }
+
+  // (e) – Konflikt → Abbrechen ZUERST, volle Konsequenz-Listen je Richtung.
+  return {
+    was:   `${pairNames} können aktuell kein Team bilden.`,
+    warum: swipeWarum(state, active, aId, bId, nameOf, seatOf),
+    options: [
+      { label: 'Abbrechen', subtitle: 'Ohne Änderung zurück.' },
+      { label: 'Beide Re',     subtitle: consequenceLines(reRes, 're'),     keepOpen: true, onSelect: () => resolve(reRes.actions) },
+      { label: 'Beide Kontra', subtitle: consequenceLines(koRes, 'kontra'), keepOpen: true, onSelect: () => resolve(koRes.actions) },
+    ],
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // C.3.2 – Sonderpunkt-Obergrenze erreicht (Spiel-Kontingent erschöpft, Teil 4)
 //
 // Die Sonderpunkt-Kontingente sind TISCHWEIT (Invariante I11, B.3.1): Fuchs ≤ 2,

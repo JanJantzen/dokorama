@@ -102,6 +102,16 @@ export function applyAction(state, participants, action) {
       return { ...state, parties, specialPoints: dropInvalidCaughtPoints(parties, state.specialPoints) }
     }
 
+    // Mehrere Parteien in EINEM Zug setzen (Teil 5, Wisch-Geste). Die übergebene
+    // Map deckt alle vier aktiven Spieler ab (vollständige 2+2-Zielverteilung), darum
+    // KEINE Kaskade nötig – und der Drop ungültig gewordener gefangener Sonderpunkte
+    // (B.5.8/I12) läuft nur EINMAL auf dem Endzustand. So entsteht kein Zwischenstand,
+    // der einen eigentlich gültigen Fuchs/Karlchen fälschlich fallen ließe.
+    case 'setAllParties': {
+      const parties = { ...state.parties, ...action.parties }
+      return { ...state, parties, specialPoints: dropInvalidCaughtPoints(parties, state.specialPoints) }
+    }
+
     // Eine An-/Absage über den Sheet-Button machen. Das ist der vollständige Klick
     // wie ihn der Schreiber auslöst: Bei Re/Kontra zieht die Ansage zuerst die
     // passende Partei nach sich (B.2.2), dann wird die An-/Absage getoggelt.

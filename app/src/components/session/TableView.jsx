@@ -184,11 +184,15 @@ function CompactGebChip({ side }) {
 
 // ─── Spieler-Cluster (aktive Ecke) ────────────────────────────────────────────
 
-function CornerPlayer({ participant, layout, gameState, onTap }) {
+function CornerPlayer({ participant, layout, gameState, onGestureStart, drag }) {
   const { side, vertical } = layout
   const isLeft    = side === 'left'
   const isBottom  = vertical === 'bottom'
   const playerId  = participant.player_id
+  // Wisch-Geste (Teil 5): Hervorhebung, wenn dieser Backdrop gültiges Ziel ist bzw.
+  // gerade überfahren wird. drag.fromId = Start-Spieler; jeder andere Aktive ist Ziel.
+  const isDragTarget = !!drag && drag.fromId !== playerId
+  const isDragOver   = drag?.overId === playerId
   const party     = gameState.parties[playerId] ?? null
   const anns      = gameState.announcements[playerId] ?? []
   const role      = gameState.specialRoles[playerId]
@@ -283,10 +287,10 @@ function CornerPlayer({ participant, layout, gameState, onTap }) {
     <div className="flex flex-col items-center min-w-0" style={{ gap: 'var(--tisch-gap)', flex: 1 }}>
       {isBottom ? (
         <>
-          <button onClick={() => onTap(playerId)} className="rounded-full active:opacity-70 shrink-0">
+          <div data-avatar className="rounded-full shrink-0">
             <PlayerAvatar player={participant.players} size="md"
               style={{ width: 'var(--tisch-av)', height: 'var(--tisch-av)' }} />
-          </button>
+          </div>
           <ShrinkText text={participant.players.name} />
           <span
             className="block w-full whitespace-nowrap overflow-hidden text-white/70 leading-tight text-center"
@@ -304,10 +308,10 @@ function CornerPlayer({ participant, layout, gameState, onTap }) {
             {roleLabel}
           </span>
           <ShrinkText text={participant.players.name} />
-          <button onClick={() => onTap(playerId)} className="rounded-full active:opacity-70 shrink-0">
+          <div data-avatar className="rounded-full shrink-0">
             <PlayerAvatar player={participant.players} size="md"
               style={{ width: 'var(--tisch-av)', height: 'var(--tisch-av)' }} />
-          </button>
+          </div>
         </>
       )}
     </div>
@@ -339,15 +343,25 @@ function CornerPlayer({ participant, layout, gameState, onTap }) {
       }}
     >
       <div
-        className={`relative bg-white/15 flex flex-col w-full ring-2 ${
-          party === 're'     ? 'ring-green-300/50' :
-          party === 'kontra' ? 'ring-red-300/50'   :
-                               'ring-white/20'
+        data-player-id={playerId}
+        onPointerDown={(e) => onGestureStart(e, playerId)}
+        onDragStart={(e) => e.preventDefault()}
+        className={`relative bg-white/15 flex flex-col w-full transition-[filter] ${
+          isDragOver        ? 'ring-4 ring-white brightness-110' :
+          isDragTarget      ? 'ring-2 ring-white/50' :
+          party === 're'     ? 'ring-2 ring-green-300/50' :
+          party === 'kontra' ? 'ring-2 ring-red-300/50'   :
+                               'ring-2 ring-white/20'
         }`}
         style={{
           ...paddingStyle,
           gap: 'var(--tisch-gap-outer)',
           [innerCornerProp]: 'var(--tisch-radius)',
+          // Gesten-Fläche: iOS-Bildmenü, Textauswahl und Scroll/Pinch unterdrücken (C.5.10)
+          touchAction: 'none',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none',
         }}
       >
         {participant.isDealer && <CornerGebChip side={side} vertical={vertical} />}
@@ -415,10 +429,68 @@ export default function TableView() {
     handleSpecialPointAdd, handleSpecialPointRemove, previewSpecialPoint,
     pendingLoserSelection, clearPendingLoserSelection,
     updateEyes, updateEyesFor,
+    requestSwipe,
   } = useGame()
   const { participants, showEvaluation } = useSession()
 
   const [openSheetId, setOpenSheetId] = useState(null)
+
+  // ── Wisch-Geste (Teil 5, B.5.10/C.5.10) ────────────────────────────────────
+  // drag = laufende Geste { fromId, fromX/Y (Avatar-Anker), x/y (Finger), overId }.
+  const [drag, setDrag] = useState(null)
+  const gestureRef = useRef(null)
+
+  // Welcher aktive Spieler liegt unter diesem Punkt? (nur Eck-Backdrops tragen
+  // data-player-id → Aussetzer/Leere ergeben null). Das Overlay ist pointer-events:none.
+  function playerAtPoint(x, y) {
+    const el = document.elementFromPoint(x, y)
+    return el?.closest('[data-player-id]')?.getAttribute('data-player-id') ?? null
+  }
+
+  // Start auf einem Eck-Backdrop. Tap (kurz, <20px, <0,4s) → Sheet; Wisch ab ~0,4s
+  // Halten ODER >20px Bewegung → Team verbinden (requestSwipe). Pointer-Events decken
+  // Touch UND Maus ab; Touch hat implizites Pointer-Capture → window-Listener genügen.
+  function startGesture(e, playerId) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    const startX = e.clientX, startY = e.clientY
+    const avatar = e.currentTarget.querySelector('[data-avatar]') ?? e.currentTarget
+    const r = avatar.getBoundingClientRect()
+    const fromX = r.left + r.width / 2, fromY = r.top + r.height / 2
+    const g = { fromId: playerId, armed: false, lastX: startX, lastY: startY, timer: null }
+    gestureRef.current = g
+
+    const arm = () => {
+      if (gestureRef.current !== g || g.armed) return
+      g.armed = true
+      setDrag({ fromId: playerId, fromX, fromY, x: g.lastX, y: g.lastY, overId: null })
+    }
+    g.timer = setTimeout(arm, 400)  // Long-press-Pfad
+
+    const onMove = (ev) => {
+      g.lastX = ev.clientX; g.lastY = ev.clientY
+      if (!g.armed) {
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) > 20) { clearTimeout(g.timer); arm() }
+        else return
+      }
+      const over = playerAtPoint(ev.clientX, ev.clientY)
+      setDrag({ fromId: playerId, fromX, fromY, x: ev.clientX, y: ev.clientY, overId: over !== playerId ? over : null })
+    }
+    const onUp = (ev) => {
+      clearTimeout(g.timer)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+      const armed = g.armed
+      gestureRef.current = null
+      setDrag(null)
+      if (!armed) { setOpenSheetId(playerId); return }   // Tap → Sheet öffnen
+      const target = playerAtPoint(ev.clientX, ev.clientY)
+      if (target && target !== playerId) requestSwipe(playerId, target)  // gültiges Ziel → verbinden
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+  }
 
   const activePlayers   = participants.filter(p => !p.isSitting)
   const openSheetPlayer = openSheetId ? participants.find(p => p.player_id === openSheetId) : null
@@ -469,7 +541,8 @@ export default function TableView() {
                   participant={p}
                   layout={layout}
                   gameState={gameState}
-                  onTap={setOpenSheetId}
+                  onGestureStart={startGesture}
+                  drag={drag}
                 />
               )
             }
@@ -484,6 +557,18 @@ export default function TableView() {
           })
         })()}
       </main>
+
+      {/* Wisch-Geste: Verbindungslinie vom Avatar des Start-Spielers zum Finger.
+          pointer-events:none, damit elementFromPoint den Backdrop darunter trifft. */}
+      {drag && (
+        <svg className="fixed inset-0 pointer-events-none" style={{ zIndex: 45, width: '100%', height: '100%' }}>
+          <line
+            x1={drag.fromX} y1={drag.fromY} x2={drag.x} y2={drag.y}
+            stroke="white" strokeOpacity="0.85" strokeWidth="4" strokeLinecap="round"
+          />
+          <circle cx={drag.x} cy={drag.y} r="7" fill="white" fillOpacity="0.85" />
+        </svg>
+      )}
 
       <EyesBar
         eyesInput={gameState.eyesInput}

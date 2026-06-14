@@ -24,6 +24,10 @@ import {
   buildLateDoublingDialog,
   buildSpecialPointQuotaDialog,
   buildSameTeamCatchDialog,
+  buildSwipeDialog,
+  uniteInDirection,
+  buildAbsageKeepDialog,
+  absageDoublings,
 } from '@/lib/consistencyDialogs'
 
 const GameContext = createContext(null)
@@ -284,6 +288,69 @@ export function GameProvider({ children, initialParticipants }) {
     openDialog(buildFallbackDialog(closeDialog))
   }, [gameState, commitAction, resolveConflict, openDialog, closeDialog])
 
+  // Wisch-Geste (Teil 5, B.5.10/C.5.10): zwei Spieler zu einem Team verbinden, mit
+  // OFFENER Richtung. Nur eine weitere Eintrittstür in den Partei-Block. Die fünf
+  // Verhaltensweisen:
+  //   (a) ungültig (gleicher Spieler / nicht aktiv) → nichts (die View filtert schon
+  //       Geste-im-Leeren/auf-Aussetzer).
+  //   (b) beide schon gleiche Partei → No-op.
+  //   (c) eine Seite gesetzt, andere neutral, sauber → dialoglos zuordnen.
+  //   (d)/(e) → Richtungswahl-Dialog (buildSwipeDialog).
+  // Führt eine gewählte Wisch-Richtung aus. Berechnet den Endzustand der Team-Setzung
+  // (ohne zu committen) und prüft, ob dabei eine Absage-Doppelung entstünde (I6):
+  //   • keine → die Team-Setzung committen, Dialog (falls offen) schließen.
+  //   • genau eine → C.2.6-Folge-Dialog "wer behält die Absage?" öffnen; dessen
+  //     Optionen committen Team-Setzung + Rückzug ATOMAR (nie inkonsistenter Commit, P8).
+  //   • mehrere/unlösbar → sicherer Fallback.
+  const resolveSwipe = useCallback((actions) => {
+    const participants = participantsRef.current
+    let finalState = gameState
+    for (const a of actions) finalState = applyAction(finalState, participants, a)
+    const doublings = absageDoublings(finalState, participants)
+    if (doublings.length === 0) { actions.forEach(commitAction); closeDialog(); return }
+    if (doublings.length === 1) {
+      const dlg = buildAbsageKeepDialog({
+        state: gameState, participants, swipeActions: actions, doubling: doublings[0], commit: commitAction,
+      })
+      if (dlg) { openDialog(dlg); return }
+    }
+    logConsistencyFallback({ violations: ['I6'], action: { type: 'swipe-absage', actions }, state: gameState })
+    openDialog(buildFallbackDialog(closeDialog))
+  }, [gameState, commitAction, openDialog, closeDialog])
+
+  const requestSwipe = useCallback((aId, bId) => {
+    const participants = participantsRef.current
+    const active = participants.filter(p => !p.isSitting)
+    // (a) ungültig: gleicher Spieler oder einer ist nicht aktiv.
+    if (aId === bId) return
+    if (!active.some(p => p.player_id === aId) || !active.some(p => p.player_id === bId)) return
+
+    const isParty = v => v === 're' || v === 'kontra'
+    const pa = gameState.parties[aId]
+    const pb = gameState.parties[bId]
+
+    // (b) beide schon dieselbe Partei → nichts zu tun.
+    if (isParty(pa) && pa === pb) return
+
+    // (c) genau eine Seite gesetzt, andere neutral → in die gesetzte Richtung vereinen
+    //     (immer eindeutig, Jan-Regel). uniteInDirection ist dabei stets "pure"
+    //     (nur setAllParties); eine evtl. Absage-Doppelung klärt resolveSwipe.
+    if (isParty(pa) !== isParty(pb)) {
+      const D = isParty(pa) ? pa : pb
+      const res = uniteInDirection(gameState, participants, aId, bId, D)
+      if (res && res.actions.every(a => a.type === 'setAllParties')) {
+        resolveSwipe(res.actions)
+        return
+      }
+    }
+
+    // (d)/(e) → Richtungswahl-Dialog; nicht auflösbar (Spec-Lücke) → sicherer Fallback (P8).
+    const dlg = buildSwipeDialog({ state: gameState, participants, aId, bId, resolve: resolveSwipe })
+    if (dlg) { openDialog(dlg); return }
+    logConsistencyFallback({ violations: ['swipe'], action: { type: 'swipe', aId, bId }, state: gameState })
+    openDialog(buildFallbackDialog(closeDialog))
+  }, [gameState, commitAction, openDialog, closeDialog, resolveSwipe])
+
   // ── Konkrete Eingabe-Handler ────────────────────────────────────────────────
   // Behalten ihre bisherige Signatur (TableView/PlayerSheet rufen sie unverändert
   // auf), delegieren die Zustandsänderung aber an den zentralen Reducer.
@@ -407,6 +474,7 @@ export function GameProvider({ children, initialParticipants }) {
       openDialog,
       closeDialog,
       requestAction,
+      requestSwipe,
       // „von wem"-Nachfassen (Teil 4)
       pendingLoserSelection,
       clearPendingLoserSelection,
