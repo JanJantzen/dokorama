@@ -61,12 +61,16 @@ export default function PlayerSheet({
   gameState,
   activePlayers,
   teamsComplete,
-  onPartyChange,
   onChangeParty,
   previewParty,
   onAnnouncement,
   previewAnnouncement,
-  onSpecialRoleSet,
+  onSetSolo,
+  onSetHochzeit,
+  onSetArmut,
+  previewSolo,
+  previewHochzeit,
+  previewArmut,
   onSpecialRoleClear,
   onSpecialPointAdd,
   onSpecialPointRemove,
@@ -164,35 +168,32 @@ export default function PlayerSheet({
     onAnnouncement(playerId, type)
   }
 
+  // Sonderspiel-Setzen läuft jetzt über die geprüften, zusammengesetzten Aktionen
+  // (Teil 2b): Rollen + Parteien in einem Zug durch die Konsistenz-Engine. Ein
+  // Konflikt (z.B. die benannte Person hat Kontra gesagt) öffnet den Auflösungs-
+  // Dialog; bei Abbruch passiert nichts. Das Sub-Sheet schließen wir trotzdem,
+  // damit der Dialog frei liegt.
   function handleSoloTyp(type) {
     if (type === 'farb_solo') {
       setSubFlow('farbSolo')
     } else {
-      onSpecialRoleSet(playerId, 'solist', { soloType: type, soloColor: null })
-      onPartyChange(playerId, 're')
+      onSetSolo(playerId, type, null)
       setSubFlow(null)
     }
   }
 
   function handleFarbSolo(color) {
-    onSpecialRoleSet(playerId, 'solist', { soloType: 'farb_solo', soloColor: color })
-    onPartyChange(playerId, 're')
+    onSetSolo(playerId, 'farb_solo', color)
     setSubFlow(null)
   }
 
   function handleHochzeitPartner(partnerId) {
-    onSpecialRoleSet(playerId,  'hochzeit',      null)
-    onSpecialRoleSet(partnerId, 'eingeheiratet', null)
-    onPartyChange(playerId,  're')
-    onPartyChange(partnerId, 're')
+    onSetHochzeit(playerId, partnerId)
     setSubFlow(null)
   }
 
   function handleArmutReich(partnerId) {
-    onSpecialRoleSet(playerId,  'arm',   null)
-    onSpecialRoleSet(partnerId, 'reich', null)
-    onPartyChange(playerId,  're')
-    onPartyChange(partnerId, 're')
+    onSetArmut(playerId, partnerId)
     setSubFlow(null)
   }
 
@@ -220,24 +221,30 @@ export default function PlayerSheet({
     return ownSpecialPoints.filter(sp => sp.type === type).length
   }
 
-  // Personen-Auswahl: runde Avatare + Name, keine Kacheln
-  function PlayerPicker({ title, onPick }) {
+  // Personen-Auswahl: runde Avatare + Name, keine Kacheln.
+  // conflictFor (optional): liefert true, wenn dieser Pick einen Konflikt auslösen
+  // würde → Avatar optisch ausgegraut, aber klickbar (P5); der Klick öffnet dann
+  // den Auflösungs-Dialog.
+  function PlayerPicker({ title, onPick, conflictFor }) {
     return (
       <>
         <p className="text-sm font-semibold text-foreground mb-4">{title}</p>
         <div className="flex flex-wrap justify-center gap-4">
           {activePlayers
             .filter(p => p.player_id !== playerId)
-            .map(p => (
-              <button
-                key={p.player_id}
-                onClick={() => onPick(p.player_id)}
-                className="flex flex-col items-center gap-1.5 active:opacity-60"
-              >
-                <PlayerAvatar player={p.players} size="md" />
-                <span className="text-xs font-medium text-foreground">{p.players.name}</span>
-              </button>
-            ))}
+            .map(p => {
+              const conflict = conflictFor?.(p.player_id)
+              return (
+                <button
+                  key={p.player_id}
+                  onClick={() => onPick(p.player_id)}
+                  className={`flex flex-col items-center gap-1.5 active:opacity-60 ${conflict ? 'opacity-40' : ''}`}
+                >
+                  <PlayerAvatar player={p.players} size="md" />
+                  <span className="text-xs font-medium text-foreground">{p.players.name}</span>
+                </button>
+              )
+            })}
         </div>
       </>
     )
@@ -279,11 +286,19 @@ export default function PlayerSheet({
     )
 
     if (subFlow === 'hochzeitPartner') return (
-      <PlayerPicker title="Wen hast Du geheiratet?" onPick={handleHochzeitPartner} />
+      <PlayerPicker
+        title="Wen hast Du geheiratet?"
+        onPick={handleHochzeitPartner}
+        conflictFor={id => previewHochzeit?.(playerId, id)}
+      />
     )
 
     if (subFlow === 'armutReich') return (
-      <PlayerPicker title="Who is the rich bitch? 💸" onPick={handleArmutReich} />
+      <PlayerPicker
+        title="Who is the rich bitch? 💸"
+        onPick={handleArmutReich}
+        conflictFor={id => previewArmut?.(playerId, id)}
+      />
     )
 
     if (subFlow === 'fuchsVonWem') return (
@@ -455,15 +470,23 @@ export default function PlayerSheet({
                   { key: 'solo',     label: 'Solo',     flow: 'soloTyp'          },
                   { key: 'hochzeit', label: 'Hochzeit', flow: 'hochzeitPartner'  },
                   { key: 'armut',    label: 'Armut',    flow: 'armutReich'       },
-                ].map(btn => (
-                  <button
-                    key={btn.key}
-                    onClick={() => setSubFlow(btn.flow)}
-                    className="flex-1 py-2 rounded-full text-sm font-medium border border-border bg-background active:bg-muted"
-                  >
-                    {btn.label}
-                  </button>
-                ))}
+                ].map(btn => {
+                  // P5: Solo hängt nicht vom Typ ab → der Konflikt (eigene
+                  // Gegen-Ansage) lässt sich schon am Eingang ausgrauen. Hochzeit/
+                  // Armut hängen vom Partner ab – dort wird erst im Picker grau.
+                  const conflict = btn.key === 'solo' && previewSolo?.(playerId, 'fleischlos', null)
+                  return (
+                    <button
+                      key={btn.key}
+                      onClick={() => setSubFlow(btn.flow)}
+                      className={`flex-1 py-2 rounded-full text-sm font-medium border border-border bg-background active:bg-muted ${
+                        conflict ? 'opacity-40' : ''
+                      }`}
+                    >
+                      {btn.label}
+                    </button>
+                  )
+                })}
               </div>
             )}
           </section>

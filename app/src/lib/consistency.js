@@ -148,6 +148,81 @@ export function applyAction(state, participants, action) {
       return { ...state, specialRoles: newRoles, soloType: null, soloColor: null }
     }
 
+    // ── Zusammengesetzte Sonderspiel-Aktionen (Teil 2b) ───────────────────────
+    // Ein Sonderspiel ist ein "massiver Partei-Setzakt" (B.4.7): es legt Rollen UND
+    // die GESAMTE Partei-Verteilung in EINEM Zug fest (B.4.3). Das muss eine einzige
+    // Aktion sein, damit die Vorausschau (wouldViolate) die volle Wirkung eines
+    // Picks durchrechnen kann – sonst ließe sich der Partner-Avatar im Picker nicht
+    // korrekt ausgrauen (P5).
+
+    // Solo: Solist = Re, alle anderen aktiven Spieler = Kontra. Solo hat keine
+    // Partner-Rolle (der Solist spielt allein).
+    case 'setSolo': {
+      const { playerId, soloType, soloColor } = action
+      const newParties = { ...state.parties }
+      for (const p of participants) {
+        if (p.isSitting) continue
+        newParties[p.player_id] = p.player_id === playerId ? 're' : 'kontra'
+      }
+      return {
+        ...state,
+        specialRoles: { ...state.specialRoles, [playerId]: 'solist' },
+        parties: newParties,
+        soloType, soloColor: soloColor ?? null,
+      }
+    }
+
+    // Hochzeit: Hochzeit + Eingeheiratet = Re, die anderen beiden = Kontra.
+    case 'setHochzeit': {
+      const { playerId, partnerId } = action
+      const newParties = { ...state.parties }
+      for (const p of participants) {
+        if (p.isSitting) continue
+        newParties[p.player_id] = (p.player_id === playerId || p.player_id === partnerId) ? 're' : 'kontra'
+      }
+      return {
+        ...state,
+        specialRoles: { ...state.specialRoles, [playerId]: 'hochzeit', [partnerId]: 'eingeheiratet' },
+        parties: newParties,
+        soloType: null, soloColor: null,
+      }
+    }
+
+    // Armut: arm + reich = Re, die anderen beiden = Kontra.
+    case 'setArmut': {
+      const { playerId, partnerId } = action
+      const newParties = { ...state.parties }
+      for (const p of participants) {
+        if (p.isSitting) continue
+        newParties[p.player_id] = (p.player_id === playerId || p.player_id === partnerId) ? 're' : 'kontra'
+      }
+      return {
+        ...state,
+        specialRoles: { ...state.specialRoles, [playerId]: 'arm', [partnerId]: 'reich' },
+        parties: newParties,
+        soloType: null, soloColor: null,
+      }
+    }
+
+    // Sonderspiel komplett annullieren (C.5.7, interner Ablauf Schritte 1–3):
+    //   1. alle Sonderrollen weg (Unteilbarkeit, B.4.5),
+    //   2. alle aktiven Parteien auf neutral zurücksetzen,
+    //   3. bestehende An-/Absagen ziehen ihre Partei wieder nach (B.2.2) – sie
+    //      bleiben erhalten (P6), wer Re/Kontra gesagt hat, ist wieder Re/Kontra.
+    // Die vom Schreiber gewünschte Folge-Aktion (Schritt 4) und die Kaskade
+    // (Schritt 5) macht der Aufrufer mit einer anschließenden setParty-Aktion.
+    case 'clearSpecialGame': {
+      const newParties = {}
+      for (const p of participants) {
+        if (p.isSitting) { newParties[p.player_id] = 'ausgesetzt'; continue }
+        const anns = state.announcements[p.player_id] ?? []
+        newParties[p.player_id] = anns.includes('re') ? 're'
+                                : anns.includes('kontra') ? 'kontra'
+                                : null
+      }
+      return { ...state, specialRoles: {}, soloType: null, soloColor: null, parties: newParties }
+    }
+
     // Einen Sonderpunkt hinzufügen (Fuchs/Karlchen/Doppelkopf). loserId nur bei
     // "gefangen"-Punkten. id wird hier erzeugt – bei reiner Simulation egal.
     case 'addSpecialPoint': {

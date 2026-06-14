@@ -392,9 +392,11 @@ function CompactPlayer({ participant, layout, onTap }) {
 export default function TableView() {
   const {
     gameState,
-    handlePartyChange, changeParty, previewParty,
+    changeParty, previewParty,
     makeAnnouncement, previewAnnouncement,
-    handleSpecialRoleSet, handleSpecialRoleClear,
+    setSolo, setHochzeit, setArmut,
+    previewSolo, previewHochzeit, previewArmut,
+    handleSpecialRoleClear,
     handleSpecialPointAdd, handleSpecialPointRemove,
     updateEyes, updateEyesFor,
   } = useGame()
@@ -482,12 +484,16 @@ export default function TableView() {
           gameState={gameState}
           activePlayers={activePlayers}
           teamsComplete={isComplete(gameState, participants)}
-          onPartyChange={handlePartyChange}
           onChangeParty={changeParty}
           previewParty={previewParty}
           onAnnouncement={makeAnnouncement}
           previewAnnouncement={previewAnnouncement}
-          onSpecialRoleSet={handleSpecialRoleSet}
+          onSetSolo={setSolo}
+          onSetHochzeit={setHochzeit}
+          onSetArmut={setArmut}
+          previewSolo={previewSolo}
+          previewHochzeit={previewHochzeit}
+          previewArmut={previewArmut}
           onSpecialRoleClear={handleSpecialRoleClear}
           onSpecialPointAdd={handleSpecialPointAdd}
           onSpecialPointRemove={handleSpecialPointRemove}

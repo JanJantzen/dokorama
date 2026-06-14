@@ -19,6 +19,8 @@ import {
   buildAnnouncementConflictDialog,
   buildFullTeamDialog,
   buildPartyAnnouncementConflictDialog,
+  buildSpecialGameConflictDialog,
+  buildSpecialGameSetConflictDialog,
 } from '@/lib/consistencyDialogs'
 
 const GameContext = createContext(null)
@@ -156,19 +158,33 @@ export function GameProvider({ children, initialParticipants }) {
       })
     }
 
-    // Teil 2a – reiner Partei-Toggle (setParty). Zwei Konfliktarten werden hier
-    // aufgelöst; alles andere (Sonderspiel-Bindung I10, Mehrursachen, verspätete
-    // Dritt-Konflikte) folgt in Teil 2b/2c und läuft bis dahin in den Fallback.
+    // Teil 2 – Partei-Knoten (setParty). Reihenfolge der Prüfung folgt P1: zuerst
+    // die bindende Ursache "Sonderspiel" (fixiert beide Seiten, B.4.3), dann die
+    // eigene Ansage, zuletzt der reine Voll-Tisch ohne bindende Ursache.
     if (action.type === 'setParty') {
       const anns = state.announcements[action.playerId] ?? []
       const ownAnnouncementConflict =
         (action.party === 're'     && anns.includes('kontra')) ||
         (action.party === 'kontra' && anns.includes('re'))
+      // Liegt überhaupt ein Sonderspiel auf dem Tisch? (P6: zur Laufzeit erkannt.)
+      const specialActive = participantsRef.current.some(p =>
+        !p.isSitting &&
+        ['solist', 'hochzeit', 'eingeheiratet', 'arm', 'reich'].includes(state.specialRoles[p.player_id]))
 
-      // C.5.9 – die klickende Person ist durch ihre EIGENE Ansage gebunden
-      // (Vorrang vor "Team voll", weil die Ansage die bindende Ursache ist, P1).
-      // Solange keine Sonderspiel-Bindung (I10) dazukommt – das ist Teil 2b.
-      if (ownAnnouncementConflict && !violations.includes('I10')) {
+      // C.5.7 – ein Sonderspiel fixiert beide Seiten. Jede Partei-Änderung am
+      // (durch das Sonderspiel) vollen Tisch läuft übers Annullieren, nicht über
+      // den Voll-Team-Tausch C.5.6. ownAnnouncementConflict steuert die
+      // Mehrursachen-Variante (I10 + I7 → "Ursachen annullieren", P2).
+      if (specialActive && (violations.includes('I10') || violations.includes('I2'))) {
+        return buildSpecialGameConflictDialog({
+          action, state, participants: participantsRef.current,
+          commit: commitAction, ownAnnouncement: ownAnnouncementConflict,
+        })
+      }
+
+      // C.5.9 – die klickende Person ist durch ihre EIGENE Ansage gebunden (ohne
+      // Sonderspiel). Vorrang vor "Team voll", weil die Ansage die Ursache ist (P1).
+      if (ownAnnouncementConflict) {
         return buildPartyAnnouncementConflictDialog({
           action, state, participants: participantsRef.current,
           commit: commitAction,
@@ -176,14 +192,24 @@ export function GameProvider({ children, initialParticipants }) {
       }
 
       // C.5.6 – Ziel-Team voll / Teams stehen fest (I2), ohne bindende Ursache.
-      if (violations.includes('I2')
-          && !violations.includes('I10')
-          && !ownAnnouncementConflict) {
+      if (violations.includes('I2')) {
         return buildFullTeamDialog({
           action, state, participants: participantsRef.current,
           commit: commitAction,
         })
       }
+    }
+
+    // Teil 2b – Sonderspiel als Eintrittstür (B.4.7). Das Setzen erbt die Konflikte
+    // eines Partei-Setzakts. Behandelt wird der direkte Fall: die benannte Person
+    // (Solist / Hochzeits-Partner / Reiche/r) hat selbst Kontra gesagt → C.5.9
+    // aktionsnah. Andere Lagen (Gegner-Ansage per Kaskade, Doppelungen) deckt der
+    // Bauer per resolvesCleanly NICHT ab → null → Fallback (Teil 2c).
+    if (action.type === 'setSolo' || action.type === 'setHochzeit' || action.type === 'setArmut') {
+      return buildSpecialGameSetConflictDialog({
+        action, state, participants: participantsRef.current,
+        commit: commitAction,
+      })
     }
 
     return null
@@ -216,13 +242,6 @@ export function GameProvider({ children, initialParticipants }) {
   // Behalten ihre bisherige Signatur (TableView/PlayerSheet rufen sie unverändert
   // auf), delegieren die Zustandsänderung aber an den zentralen Reducer.
 
-  // Direktes (ungeprüftes) Partei-Setzen. Wird noch von den Sonderspiel-Flows im
-  // PlayerSheet benutzt – die werden erst in Teil 2b über die Konsistenzprüfung
-  // geführt. Läuft trotzdem schon durch applyAction (inkl. Kaskade B.5.4).
-  const handlePartyChange = useCallback((playerId, party) => {
-    commitAction({ type: 'setParty', playerId, party })
-  }, [commitAction])
-
   // Geprüfter Partei-Toggle (Teil 2a): läuft durch die Konsistenz-Engine.
   // Sauber → wird ausgeführt; Team voll → C.5.6, eigene widersprechende Ansage
   // → C.5.9; alles andere bis Teil 2b/2c → sicherer Fallback (P8).
@@ -254,9 +273,38 @@ export function GameProvider({ children, initialParticipants }) {
       { type: 'makeAnnouncement', playerId, announcement: type }).length > 0
   }, [gameState])
 
-  const handleSpecialRoleSet = useCallback((playerId, role, extraData) => {
-    commitAction({ type: 'setSpecialRole', playerId, role, extraData })
-  }, [commitAction])
+  // Geprüftes Sonderspiel-Setzen (Teil 2b): Solo / Hochzeit / Armut laufen als EINE
+  // zusammengesetzte Aktion durch die Konsistenz-Engine (Rollen + Parteien in einem
+  // Zug, B.4.3/B.4.7). Sauber → ausgeführt; eigene Gegen-Ansage der benannten Person
+  // → C.5.9 aktionsnah; alles Weitere bis Teil 2c → sicherer Fallback (P8).
+  const setSolo = useCallback((playerId, soloType, soloColor) => {
+    requestAction({ type: 'setSolo', playerId, soloType, soloColor })
+  }, [requestAction])
+
+  const setHochzeit = useCallback((playerId, partnerId) => {
+    requestAction({ type: 'setHochzeit', playerId, partnerId })
+  }, [requestAction])
+
+  const setArmut = useCallback((playerId, partnerId) => {
+    requestAction({ type: 'setArmut', playerId, partnerId })
+  }, [requestAction])
+
+  // Vorausschau fürs Ausgrauen im Picker (P5): Würde dieser Pick gerade einen
+  // Konflikt auslösen? Solo hat keinen Partner – geprüft wird der Solist selbst.
+  const previewSolo = useCallback((playerId, soloType, soloColor) => {
+    return wouldViolate(gameState, participantsRef.current,
+      { type: 'setSolo', playerId, soloType, soloColor }).length > 0
+  }, [gameState])
+
+  const previewHochzeit = useCallback((playerId, partnerId) => {
+    return wouldViolate(gameState, participantsRef.current,
+      { type: 'setHochzeit', playerId, partnerId }).length > 0
+  }, [gameState])
+
+  const previewArmut = useCallback((playerId, partnerId) => {
+    return wouldViolate(gameState, participantsRef.current,
+      { type: 'setArmut', playerId, partnerId }).length > 0
+  }, [gameState])
 
   const handleSpecialRoleClear = useCallback((playerId) => {
     commitAction({ type: 'clearSpecialRole', playerId })
@@ -278,13 +326,17 @@ export function GameProvider({ children, initialParticipants }) {
       gameState,
       resetForNextGame,
       resetCurrentGame,
-      handlePartyChange,
       changeParty,
       previewParty,
       handleAnnouncementToggle,
       makeAnnouncement,
       previewAnnouncement,
-      handleSpecialRoleSet,
+      setSolo,
+      setHochzeit,
+      setArmut,
+      previewSolo,
+      previewHochzeit,
+      previewArmut,
       handleSpecialRoleClear,
       handleSpecialPointAdd,
       handleSpecialPointRemove,

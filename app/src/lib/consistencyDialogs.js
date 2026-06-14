@@ -11,6 +11,8 @@
 //
 // Über die Teile 1–6 wächst diese Datei um je einen Bauer pro Konfliktfall.
 
+import { applyAction, checkInvariants } from './consistency.js'
+
 // Anzeige-Texte der An-/Absagen (Teil 1).
 const ANN_LABELS = {
   re: 'Re', kontra: 'Kontra',
@@ -20,6 +22,26 @@ const ANN_LABELS = {
 // Anzeige-Texte der Parteien (Teil 2).
 const PARTY_LABELS = { re: 'Re', kontra: 'Kontra' }
 const otherParty = party => (party === 're' ? 'kontra' : 're')
+
+// Anzeige-Texte der Solo-Typen (Teil 2b). Wird in den Sonderspiel-Dialogen
+// konkret genannt ("Buben-Solo", "Damen-Solo" …), wie es C.5.7 verlangt.
+const SOLO_LABELS = {
+  fleischlos: 'Fleischlos', buben_solo: 'Buben-Solo', damen_solo: 'Damen-Solo',
+  farb_solo: 'Farb-Solo', stilles_solo: 'Stilles Solo',
+}
+
+// Sonderrollen, die auf der Re-Seite eines Sonderspiels liegen (B.4.3).
+const RE_SIDE_ROLES = ['solist', 'hochzeit', 'eingeheiratet', 'arm', 'reich']
+
+// Prüft, ob eine gedachte Auflösungs-Sequenz wirklich in einem widerspruchsfreien
+// Zustand endet. Liefert sie false, greift der Dialog NICHT (→ null → sicherer
+// Fallback, P8) – so verschleppt kein Resolver einen Rest-Konflikt, den Teil 2b
+// noch nicht abdeckt (z.B. ein zusätzlich betroffener dritter Spieler → Teil 2c).
+function resolvesCleanly(state, participants, actions) {
+  let next = state
+  for (const a of actions) next = applyAction(next, participants, a)
+  return checkInvariants(next, participants).length === 0
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // C.2.3 / C.2.5 – Zweite Person im Team will dieselbe An-/Absage machen
@@ -183,6 +205,197 @@ export function buildPartyAnnouncementConflictDialog({ action, state, participan
           commit({ type: 'toggleAnnouncement', playerId, announcement: conflicting })
           commit({ type: 'setParty', playerId, party })
         },
+      },
+    ],
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C.5.7 – Partei-Wechsel gegen ein Sonderspiel: "Sonderspiel annullieren" (Teil 2b)
+//
+// Eine Person gehört wegen eines Sonderspiels zu einer Partei (I10 fixiert alle
+// Rollenträger auf Re) und soll auf die Gegenseite. Aufgelöst wird nicht die
+// Zuordnung, sondern die URSACHE: das ganze Sonderspiel wird annulliert (B.4.5,
+// unteilbar), danach wird die gewünschte Aktion AUSGEFÜHRT (nicht nur freigeräumt).
+// Der Konflikt kommt aus zwei Richtungen (Sonderspiel-Seite → Kontra / Gegner →
+// Re); beide löst dasselbe Annullieren.
+//
+// Mehrursachen (P2): Ist die Person ZUSÄTZLICH durch ihre eigene Re/Kontra-Ansage
+// gebunden (I10 + I7), entfernt EINE Option beide auf einmal ("Ursachen
+// annullieren") – halbes Auflösen wäre nutzlos.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function buildSpecialGameConflictDialog({ action, state, participants, commit, ownAnnouncement }) {
+  const { playerId, party } = action
+  const active = participants.filter(p => !p.isSitting)
+  const nameOf = id => active.find(p => p.player_id === id)?.players.name ?? '?'
+  const roleOf = id => state.specialRoles[id]
+
+  // Welches Sonderspiel liegt vor + wer sind die Beteiligten? (P6: zur Laufzeit
+  // aus dem Zustand gelesen, nicht mitgeschrieben.)
+  const sourceOf = role => active.find(p => roleOf(p.player_id) === role)?.player_id ?? null
+  let spType, sourceId, partnerId
+  if      (sourceOf('solist')   != null) { spType = 'solo';     sourceId = sourceOf('solist')   }
+  else if (sourceOf('hochzeit') != null) { spType = 'hochzeit'; sourceId = sourceOf('hochzeit'); partnerId = sourceOf('eingeheiratet') }
+  else if (sourceOf('arm')      != null) { spType = 'armut';    sourceId = sourceOf('arm');      partnerId = sourceOf('reich') }
+  else return null                       // kein Sonderspiel → falscher Resolver
+
+  const clicker     = nameOf(playerId)
+  const targetLabel = PARTY_LABELS[party]
+  const onSpecialSide = RE_SIDE_ROLES.includes(roleOf(playerId))   // Rollenträger → soll Kontra
+  const soloLabel   = SOLO_LABELS[state.soloType] ?? 'Solo'
+
+  // Begründung in zwei Formen, weil die deutsche Verbstellung sich unterscheidet:
+  //   warumSingle      – ganzer Satz (Nebensatz, Verb am Ende: "… Hochzeit spielt.")
+  //   warumMultiClause – Hauptsatz-Klausel nach "… und " (Verb vorn: "spielt … Hochzeit")
+  let warumSingle, warumMultiClause
+  if (spType === 'solo') {
+    if (onSpecialSide) {
+      warumSingle      = `${clicker} spielt ein ${soloLabel} und ist deshalb die Re-Partei.`
+      warumMultiClause = `spielt ein ${soloLabel}`
+    } else {
+      warumSingle      = `${clicker} ist in der Kontra-Partei, weil ${clicker} gegen ${nameOf(sourceId)}s ${soloLabel} spielt.`
+      warumMultiClause = `spielt gegen ${nameOf(sourceId)}s ${soloLabel}`
+    }
+  } else {
+    const other     = playerId === sourceId ? partnerId : sourceId
+    const verbNoun  = spType === 'hochzeit' ? 'Hochzeit'     : 'die Armut'      // "… Hochzeit spielt" / "… die Armut spielt"
+    const gegenNoun = spType === 'hochzeit' ? 'die Hochzeit' : 'die Armut'      // "gegen die Hochzeit/Armut von …"
+    if (onSpecialSide) {
+      warumSingle      = `${clicker} ist in der Re-Partei, weil ${clicker} mit ${nameOf(other)} zusammen ${verbNoun} spielt.`
+      warumMultiClause = `spielt mit ${nameOf(other)} zusammen ${verbNoun}`
+    } else {
+      warumSingle      = `${clicker} ist in der Kontra-Partei, weil ${clicker} gegen ${gegenNoun} von ${nameOf(sourceId)} und ${nameOf(partnerId)} spielt.`
+      warumMultiClause = `spielt gegen ${gegenNoun} von ${nameOf(sourceId)} und ${nameOf(partnerId)}`
+    }
+  }
+
+  // Annullieren-Texte je Spieltyp.
+  const annulLabel = spType === 'hochzeit' ? 'Hochzeit annullieren'
+                   : spType === 'armut'    ? 'Armut annullieren'
+                   : 'Solo annullieren'
+  const annulLine  = spType === 'hochzeit' ? `Die Hochzeit zwischen ${nameOf(sourceId)} und ${nameOf(partnerId)} wird annulliert`
+                   : spType === 'armut'    ? `Die Armut von ${nameOf(sourceId)} und ${nameOf(partnerId)} wird annulliert`
+                   : `${nameOf(sourceId)}s ${soloLabel} wird annulliert`
+
+  const resultLine  = `${clicker} ist ${targetLabel}`
+  const cascadeLine = 'Die übrigen Partei-Zuordnungen werden, soweit möglich, neu bestimmt'
+
+  // Mehrursachen: liegt zusätzlich eine eigene, der Zielpartei widersprechende
+  // Ansage an? (Die der Resolver via ownAnnouncement angekündigt hat.)
+  const anns = state.announcements[playerId] ?? []
+  const conflictingAnn = party === 're'     && anns.includes('kontra') ? 'kontra'
+                       : party === 'kontra' && anns.includes('re')     ? 're'
+                       : null
+  const multiCause = ownAnnouncement && conflictingAnn
+
+  // Auflösung gedanklich durchrechnen: führt sie zu einem sauberen Zustand?
+  // Wenn nicht (z.B. ein dritter Spieler bleibt im Konflikt), greift dieser Dialog
+  // nicht → Fallback (Teil 2c schließt die Lücke).
+  const resolveActions = [
+    ...(multiCause ? [{ type: 'toggleAnnouncement', playerId, announcement: conflictingAnn }] : []),
+    { type: 'clearSpecialGame' },
+    { type: 'setParty', playerId, party },
+  ]
+  if (!resolvesCleanly(state, participants, resolveActions)) return null
+
+  if (multiCause) {
+    const annLabel = PARTY_LABELS[conflictingAnn]
+    return {
+      was:   `${clicker} kann nicht ${targetLabel} sein.`,
+      warum: `${clicker} hat ${annLabel} gesagt und ${warumMultiClause}.`,
+      options: [
+        { label: 'Abbrechen', subtitle: 'Ohne Änderung zurück.' },
+        {
+          label: 'Ursachen annullieren',
+          subtitle: [
+            `${clicker}s ${annLabel}-Ansage wird zurückgezogen`,
+            annulLine,
+            resultLine,
+            cascadeLine,
+          ],
+          onSelect: () => resolveActions.forEach(commit),
+        },
+      ],
+    }
+  }
+
+  return {
+    was:   `${clicker} kann nicht ${targetLabel} sein.`,
+    warum: warumSingle,
+    options: [
+      { label: 'Abbrechen', subtitle: 'Ohne Änderung zurück.' },
+      {
+        label: annulLabel,
+        subtitle: [annulLine, resultLine, cascadeLine],
+        onSelect: () => resolveActions.forEach(commit),
+      },
+    ],
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C.5.9 (aus der Sonderspiel-Tür) – Sonderspiel-Setzen scheitert an der eigenen
+// Ansage der direkt benannten Person (Teil 2b)
+//
+// Ein Sonderspiel zwingt die benannte Re-Seiten-Person auf Re (Solist / Partner
+// einer Hochzeit / Reiche/r einer Armut). Hat genau diese Person zuvor Kontra
+// gesagt, widerspricht das (I7). Aufgelöst wird die ANSAGE (zurückziehen), danach
+// wird das Sonderspiel gesetzt. Die Meldung ist AKTIONSNAH (C.Konventionen): der
+// "Was?"-Satz benennt die Handlung (einheiraten / Armut übernehmen / Solo spielen).
+//
+// Bewusst eng gehalten: Nur dieser direkte Fall (die benannte Person selbst hat
+// Kontra gesagt). Kollidiert stattdessen ein dritter, per Kaskade auf Kontra
+// gedrückter Gegner mit seiner Re-Ansage, ist das der kaskaden-induzierte
+// Dritt-Konflikt (Teil 2c) → resolvesCleanly schlägt fehl → null → Fallback.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function buildSpecialGameSetConflictDialog({ action, state, participants, commit }) {
+  const active = participants.filter(p => !p.isSitting)
+  const nameOf = id => active.find(p => p.player_id === id)?.players.name ?? '?'
+
+  // Die direkt benannte Re-Seiten-Person + die aktionsnahen Texte.
+  let conflictId, wasText, doneText
+  if (action.type === 'setSolo') {
+    conflictId = action.playerId
+    const typLabel = SOLO_LABELS[action.soloType] ?? 'Solo'
+    wasText  = `${nameOf(conflictId)} kann nicht das ${typLabel} spielen.`
+    doneText = `${nameOf(conflictId)} spielt das ${typLabel} (Re)`
+  } else if (action.type === 'setHochzeit') {
+    conflictId = action.partnerId
+    wasText  = `${nameOf(conflictId)} kann nicht bei ${nameOf(action.playerId)} einheiraten.`
+    doneText = `${nameOf(conflictId)} heiratet bei ${nameOf(action.playerId)} ein (Re)`
+  } else { // setArmut
+    conflictId = action.partnerId
+    wasText  = `${nameOf(conflictId)} kann nicht ${nameOf(action.playerId)}s Armut übernehmen.`
+    doneText = `${nameOf(conflictId)} übernimmt ${nameOf(action.playerId)}s Armut (Re)`
+  }
+
+  // Behandelt wird ausschließlich: die benannte Person hat Kontra gesagt.
+  const anns = state.announcements[conflictId] ?? []
+  if (!anns.includes('kontra')) return null
+
+  // Zurückziehen + Sonderspiel setzen – nur anbieten, wenn das sauber endet.
+  const resolveActions = [
+    { type: 'toggleAnnouncement', playerId: conflictId, announcement: 'kontra' },
+    action,
+  ]
+  if (!resolvesCleanly(state, participants, resolveActions)) return null
+
+  const name = nameOf(conflictId)
+  return {
+    was:   wasText,
+    warum: `${name} hat Kontra gesagt und gehört damit zur Kontra-Partei.`,
+    options: [
+      { label: 'Abbrechen', subtitle: 'Ohne Änderung zurück.' },
+      {
+        label: 'Kontra zurückziehen',
+        subtitle: [
+          `${name}s Kontra-Ansage wird zurückgezogen`,
+          doneText,
+          'Die übrigen Partei-Zuordnungen werden, soweit möglich, neu bestimmt',
+        ],
+        onSelect: () => resolveActions.forEach(commit),
       },
     ],
   }
