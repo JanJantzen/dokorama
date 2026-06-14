@@ -21,6 +21,7 @@ import {
   buildPartyAnnouncementConflictDialog,
   buildSpecialGameConflictDialog,
   buildSpecialGameSetConflictDialog,
+  buildLateDoublingDialog,
 } from '@/lib/consistencyDialogs'
 
 const GameContext = createContext(null)
@@ -194,6 +195,16 @@ export function GameProvider({ children, initialParticipants }) {
       // C.5.6 – Ziel-Team voll / Teams stehen fest (I2), ohne bindende Ursache.
       if (violations.includes('I2')) {
         return buildFullTeamDialog({
+          action, state, participants: participantsRef.current,
+          commit: commitAction,
+        })
+      }
+
+      // C.2.5 verspätet (B.2.6, Teil 2c) – die Zuordnung vereint zwei Spieler mit
+      // derselben An-/Absage im Team (I6 / bei Re/Kontra I5). Auflösung: einer
+      // behält sie (beide Richtungen angeboten).
+      if (violations.includes('I6') || violations.includes('I5')) {
+        return buildLateDoublingDialog({
           action, state, participants: participantsRef.current,
           commit: commitAction,
         })

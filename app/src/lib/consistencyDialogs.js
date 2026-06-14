@@ -43,6 +43,31 @@ function resolvesCleanly(state, participants, actions) {
   return checkInvariants(next, participants).length === 0
 }
 
+// Wendet eine Aktions-Sequenz an und gibt den Endzustand zurück (für die Vorschau,
+// welche Folgen eine ausführende Option hat).
+function afterActions(state, participants, actions) {
+  let next = state
+  for (const a of actions) next = applyAction(next, participants, a)
+  return next
+}
+
+// C.5.8 – Zusatz-Subtitle-Zeile(n): Welche gefangenen Fuchs/Karlchen werden durch
+// die Auflösung ungültig (Fänger + Bestohlene/r landen im selben Team)? Vergleicht
+// die Sonderpunkte vor/nach der Auflösung; pro weggefallenem Fang eine Zeile.
+// (Kein eigener Dialog – die Zeile hängt an die AUSFÜHRENDE Option von C.5.6/C.5.7.)
+function c58Lines(beforeState, afterState, nameOf) {
+  const surviving = new Set(afterState.specialPoints.map(s => s.id))
+  return beforeState.specialPoints
+    .filter(sp => !surviving.has(sp.id) &&
+      (sp.type === 'fuchs_gefangen' || sp.type === 'karlchen_gefangen') && sp.loserId)
+    .map(sp => {
+      const tier = sp.type === 'fuchs_gefangen' ? 'Fuchs' : 'Karlchen'
+      const pron = sp.type === 'fuchs_gefangen' ? 'ihn' : 'es'
+      return `${nameOf(sp.earnerId)} hat ${nameOf(sp.loserId)}s ${tier} damit nicht gefangen `
+           + `(und ${nameOf(sp.loserId)} ${pron} nicht verloren)`
+    })
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // C.2.3 / C.2.5 – Zweite Person im Team will dieselbe An-/Absage machen
 //
@@ -140,19 +165,26 @@ export function buildFullTeamDialog({ action, state, participants, commit }) {
     warum: `Die Teams stehen schon fest – ${members.map(m => m.players.name).join(' und ')} sind ${targetLabel}.`,
     options: [
       { label: 'Abbrechen', subtitle: 'Ohne Änderung zurück.' },
-      ...members.map(m => ({
-        label: `Statt ${m.players.name}`,
-        subtitle: [
-          `${clicker} ist ${targetLabel}`,
-          `${m.players.name} ist ${otherLabel}`,
-        ],
+      ...members.map(m => {
         // Tausch: den Verdrängten auf die Gegenseite, dann den Klickenden ins
         // Ziel-Team. Reihenfolge egal – der Endzustand ist konsistent (2+2).
-        onSelect: () => {
-          commit({ type: 'setParty', playerId: m.player_id, party: otherParty(party) })
-          commit({ type: 'setParty', playerId, party })
-        },
-      })),
+        const swap = [
+          { type: 'setParty', playerId: m.player_id, party: otherParty(party) },
+          { type: 'setParty', playerId, party },
+        ]
+        // C.5.8: bringt der Tausch einen gefangenen Fuchs/Karlchen ins selbe Team,
+        // hängt die entsprechende Zeile als letzte Konsequenz an.
+        const after = afterActions(state, participants, swap)
+        return {
+          label: `Statt ${m.players.name}`,
+          subtitle: [
+            `${clicker} ist ${targetLabel}`,
+            `${m.players.name} ist ${otherLabel}`,
+            ...c58Lines(state, after, nameOf),
+          ],
+          onSelect: () => swap.forEach(commit),
+        }
+      }),
     ],
   }
 }
@@ -299,6 +331,10 @@ export function buildSpecialGameConflictDialog({ action, state, participants, co
   ]
   if (!resolvesCleanly(state, participants, resolveActions)) return null
 
+  // C.5.8: durch die Auflösung ungültig werdende gefangene Sonderpunkte als letzte
+  // Konsequenz-Zeile(n).
+  const c58 = c58Lines(state, afterActions(state, participants, resolveActions), nameOf)
+
   if (multiCause) {
     const annLabel = PARTY_LABELS[conflictingAnn]
     return {
@@ -313,6 +349,7 @@ export function buildSpecialGameConflictDialog({ action, state, participants, co
             annulLine,
             resultLine,
             cascadeLine,
+            ...c58,
           ],
           onSelect: () => resolveActions.forEach(commit),
         },
@@ -327,7 +364,7 @@ export function buildSpecialGameConflictDialog({ action, state, participants, co
       { label: 'Abbrechen', subtitle: 'Ohne Änderung zurück.' },
       {
         label: annulLabel,
-        subtitle: [annulLine, resultLine, cascadeLine],
+        subtitle: [annulLine, resultLine, cascadeLine, ...c58],
         onSelect: () => resolveActions.forEach(commit),
       },
     ],
@@ -335,67 +372,164 @@ export function buildSpecialGameConflictDialog({ action, state, participants, co
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// C.5.9 (aus der Sonderspiel-Tür) – Sonderspiel-Setzen scheitert an der eigenen
-// Ansage der direkt benannten Person (Teil 2b)
+// C.5.9 (aus der Sonderspiel-Tür) – Sonderspiel-Setzen scheitert an bestehenden
+// Ansagen (Teil 2b: direkt benannte Person; Teil 2c: + kaskaden-induzierte Dritte)
 //
-// Ein Sonderspiel zwingt die benannte Re-Seiten-Person auf Re (Solist / Partner
-// einer Hochzeit / Reiche/r einer Armut). Hat genau diese Person zuvor Kontra
-// gesagt, widerspricht das (I7). Aufgelöst wird die ANSAGE (zurückziehen), danach
-// wird das Sonderspiel gesetzt. Die Meldung ist AKTIONSNAH (C.Konventionen): der
-// "Was?"-Satz benennt die Handlung (einheiraten / Armut übernehmen / Solo spielen).
+// Ein Sonderspiel ist ein massiver Partei-Setzakt (B.4.7): es zwingt jedem Spieler
+// eine Partei auf. Widerspricht das einer bestehenden Re/Kontra-Ansage (I7), wird
+// die ANSAGE zurückgezogen, danach das Sonderspiel gesetzt. Zwei Quellen:
+//   - die direkt benannte Re-Seiten-Person (Solist / Hochzeits-Partner / Reiche/r)
+//     hat Kontra gesagt – aktionsnahe Meldung (Teil 2b),
+//   - ein per Kaskade auf die Gegenseite gedrückter DRITTER (Gegner) hat die andere
+//     Ansage gesagt – B.5.9 "vorausschauend" im selben Dialog (Teil 2c).
+// Es können tischweit höchstens zwei solche Ansagen zugleich anliegen (I5).
 //
-// Bewusst eng gehalten: Nur dieser direkte Fall (die benannte Person selbst hat
-// Kontra gesagt). Kollidiert stattdessen ein dritter, per Kaskade auf Kontra
-// gedrückter Gegner mit seiner Re-Ansage, ist das der kaskaden-induzierte
-// Dritt-Konflikt (Teil 2c) → resolvesCleanly schlägt fehl → null → Fallback.
+// Meldung AKTIONSNAH (C.Konventionen): "Was?" benennt die Handlung. Für Solo wie im
+// Katalog ("… kann nicht das Solo spielen"); für Hochzeit/Armut bei reinem
+// Partner-Konflikt die Katalogform ("… kann nicht bei … einheiraten"), bei
+// Dritt-Beteiligung die hergeleitete Team-Form ("… und … können nicht zusammen …").
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function buildSpecialGameSetConflictDialog({ action, state, participants, commit }) {
   const active = participants.filter(p => !p.isSitting)
   const nameOf = id => active.find(p => p.player_id === id)?.players.name ?? '?'
 
-  // Die direkt benannte Re-Seiten-Person + die aktionsnahen Texte.
-  let conflictId, wasText, doneText
-  if (action.type === 'setSolo') {
-    conflictId = action.playerId
-    const typLabel = SOLO_LABELS[action.soloType] ?? 'Solo'
-    wasText  = `${nameOf(conflictId)} kann nicht das ${typLabel} spielen.`
-    doneText = `${nameOf(conflictId)} spielt das ${typLabel} (Re)`
-  } else if (action.type === 'setHochzeit') {
-    conflictId = action.partnerId
-    wasText  = `${nameOf(conflictId)} kann nicht bei ${nameOf(action.playerId)} einheiraten.`
-    doneText = `${nameOf(conflictId)} heiratet bei ${nameOf(action.playerId)} ein (Re)`
-  } else { // setArmut
-    conflictId = action.partnerId
-    wasText  = `${nameOf(conflictId)} kann nicht ${nameOf(action.playerId)}s Armut übernehmen.`
-    doneText = `${nameOf(conflictId)} übernimmt ${nameOf(action.playerId)}s Armut (Re)`
-  }
+  // Welche Partei zwingt die Aktion jedem auf? → Konflikte = wessen Ansage dem
+  // widerspricht (genau die I7-Verletzer im gedachten Zustand).
+  const after = applyAction(state, participants, action)
+  const conflicts = active
+    .filter(p => {
+      const anns  = state.announcements[p.player_id] ?? []
+      const party = after.parties[p.player_id]
+      return (anns.includes('re') && party === 'kontra') || (anns.includes('kontra') && party === 're')
+    })
+    .map(p => {
+      const anns = state.announcements[p.player_id] ?? []
+      return { id: p.player_id, ann: anns.includes('re') ? 're' : 'kontra' }
+    })
+  if (conflicts.length === 0) return null
 
-  // Behandelt wird ausschließlich: die benannte Person hat Kontra gesagt.
-  const anns = state.announcements[conflictId] ?? []
-  if (!anns.includes('kontra')) return null
-
-  // Zurückziehen + Sonderspiel setzen – nur anbieten, wenn das sauber endet.
+  // Auflösung: alle widersprechenden Ansagen zurückziehen, dann das Sonderspiel
+  // setzen. Nur anbieten, wenn das sauber endet (sonst Fallback, P8).
   const resolveActions = [
-    { type: 'toggleAnnouncement', playerId: conflictId, announcement: 'kontra' },
+    ...conflicts.map(c => ({ type: 'toggleAnnouncement', playerId: c.id, announcement: c.ann })),
     action,
   ]
   if (!resolvesCleanly(state, participants, resolveActions)) return null
 
-  const name = nameOf(conflictId)
+  // "Was?" + Ergebnis-Zeile je Spieltyp.
+  const partnerOnly = conflicts.length === 1 &&
+    (action.type === 'setHochzeit' || action.type === 'setArmut') &&
+    conflicts[0].id === action.partnerId
+  let wasText, doneText
+  if (action.type === 'setSolo') {
+    const typLabel = SOLO_LABELS[action.soloType] ?? 'Solo'
+    wasText  = `${nameOf(action.playerId)} kann nicht das ${typLabel} spielen.`
+    doneText = `${nameOf(action.playerId)} spielt das ${typLabel} (Re)`
+  } else if (action.type === 'setHochzeit') {
+    wasText  = partnerOnly
+      ? `${nameOf(action.partnerId)} kann nicht bei ${nameOf(action.playerId)} einheiraten.`
+      : `${nameOf(action.playerId)} und ${nameOf(action.partnerId)} können nicht zusammen Hochzeit spielen.`
+    doneText = partnerOnly
+      ? `${nameOf(action.partnerId)} heiratet bei ${nameOf(action.playerId)} ein (Re)`
+      : `${nameOf(action.playerId)} und ${nameOf(action.partnerId)} spielen zusammen Hochzeit (Re)`
+  } else { // setArmut
+    wasText  = partnerOnly
+      ? `${nameOf(action.partnerId)} kann nicht ${nameOf(action.playerId)}s Armut übernehmen.`
+      : `${nameOf(action.playerId)} und ${nameOf(action.partnerId)} können nicht zusammen die Armut spielen.`
+    doneText = partnerOnly
+      ? `${nameOf(action.partnerId)} übernimmt ${nameOf(action.playerId)}s Armut (Re)`
+      : `${nameOf(action.playerId)} und ${nameOf(action.partnerId)} spielen zusammen die Armut (Re)`
+  }
+
+  // "Warum?" – die widersprechende(n) Ansage(n).
+  const sagt = c => `${nameOf(c.id)} hat ${PARTY_LABELS[c.ann]} gesagt`
+  const warum = conflicts.length === 1
+    ? `${sagt(conflicts[0])} und gehört damit zur ${PARTY_LABELS[conflicts[0].ann]}-Partei.`
+    : conflicts.map(sagt).join(' und ') + '.'
+
+  const label = conflicts.length === 1
+    ? `${PARTY_LABELS[conflicts[0].ann]} zurückziehen`
+    : 'Ansagen zurückziehen'
+  const retractLines = conflicts.map(c => `${nameOf(c.id)}s ${PARTY_LABELS[c.ann]}-Ansage wird zurückgezogen`)
+  const c58 = c58Lines(state, afterActions(state, participants, resolveActions), nameOf)
+
   return {
     was:   wasText,
-    warum: `${name} hat Kontra gesagt und gehört damit zur Kontra-Partei.`,
+    warum,
     options: [
       { label: 'Abbrechen', subtitle: 'Ohne Änderung zurück.' },
       {
-        label: 'Kontra zurückziehen',
+        label,
         subtitle: [
-          `${name}s Kontra-Ansage wird zurückgezogen`,
+          ...retractLines,
           doneText,
           'Die übrigen Partei-Zuordnungen werden, soweit möglich, neu bestimmt',
+          ...c58,
         ],
         onSelect: () => resolveActions.forEach(commit),
+      },
+    ],
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C.2.5 (verspätet, B.2.6) – Partei-Zuordnung verdoppelt eine Absage im Team
+//
+// Zwei Spieler hatten (neutral) dieselbe Absage gesagt – erlaubt, weil sie auf
+// verschiedenen Teams landen könnten. Eine Partei-Zuordnung vereint sie nun im
+// selben Team → die Absage wäre doppelt (I6; bei Re/Kontra I5). Aufgelöst wie der
+// Zweite-gleiche-Absage-Fall (C.2.5): einer behält sie, beim anderen wird sie
+// zurückgezogen. Da beide Ansagen gleich alt sind, bietet der Dialog BEIDE
+// Richtungen an (Jan-Entscheid 14.6.) – keine willkürliche Vorauswahl.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function buildLateDoublingDialog({ action, state, participants, commit }) {
+  const { playerId: movedId, party } = action
+  const active = participants.filter(p => !p.isSitting)
+  const nameOf = id => active.find(p => p.player_id === id)?.players.name ?? '?'
+
+  // Welche An-/Absage ist im Zielteam nach dem Zug doppelt – und wer ist der zweite
+  // Träger neben dem bewegten Spieler?
+  const after  = applyAction(state, participants, action)
+  const stages = ['re', 'kontra', 'keine_90', 'keine_60', 'keine_30', 'schwarz']
+  let dup = null
+  for (const ann of stages) {
+    const holders = active.filter(p =>
+      after.parties[p.player_id] === party && (state.announcements[p.player_id] ?? []).includes(ann))
+    if (holders.length >= 2 && holders.some(h => h.player_id === movedId)) {
+      dup = { ann, otherId: holders.find(h => h.player_id !== movedId).player_id }
+      break
+    }
+  }
+  if (!dup) return null
+
+  const isReKo      = dup.ann === 're' || dup.ann === 'kontra'
+  const label       = ANN_LABELS[dup.ann]
+  const phrase      = isReKo ? label : `„${label}"`
+  const retractWord = isReKo ? `${label}-Ansage` : `„${label}" Ansage`
+  const movedName   = nameOf(movedId)
+  const otherName   = nameOf(dup.otherId)
+  const targetLabel = PARTY_LABELS[party]
+
+  // Beide Richtungen müssen sauber enden (sollten sie hier immer).
+  const keep = (loserId) => [action, { type: 'toggleAnnouncement', playerId: loserId, announcement: dup.ann }]
+  if (!resolvesCleanly(state, participants, keep(dup.otherId))) return null
+
+  return {
+    was:   `${movedName} und ${otherName} können nicht beide ${phrase} sagen.`,
+    warum: `${movedName} und ${otherName} sind beide ${targetLabel} – ${phrase} gilt pro Team nur einmal.`,
+    options: [
+      { label: 'Abbrechen', subtitle: 'Ohne Änderung zurück.' },
+      {
+        label: `${movedName} behält ${phrase}`,
+        subtitle: [`${otherName}s ${retractWord} wird zurückgezogen`, `${movedName} ist ${targetLabel}`],
+        onSelect: () => keep(dup.otherId).forEach(commit),
+      },
+      {
+        label: `${otherName} behält ${phrase}`,
+        subtitle: [`${movedName}s ${retractWord} wird zurückgezogen`, `${movedName} ist ${targetLabel}`],
+        onSelect: () => keep(movedId).forEach(commit),
       },
     ],
   }

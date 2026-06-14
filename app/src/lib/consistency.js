@@ -40,6 +40,28 @@
 // Wichtig: NUR bei EXAKT erreichter Soll-Größe wird gefüllt. Eine Überfüllung
 // (dritte Person ins volle Team) ist KEIN Kaskaden-Fall, sondern bleibt als
 // I2-Verletzung stehen und läuft als Auflösungs-Dialog C.5.6.
+// Lässt gefangene Sonderpunkte (Fuchs/Karlchen) fallen, deren Fänger und
+// Bestohlene/r durch die aktuelle Parteilage im SELBEN Team gelandet sind: aus dem
+// eigenen Team kann man nichts fangen (B.3.4 / Invariante I12). Tischrealität
+// (B.5.8): "weggesteckt = vergessen" – der Punkt verschwindet stillschweigend und
+// lebt nicht automatisch wieder auf, wenn die Teams später erneut gegnerisch werden
+// (P6: keine Herkunfts-Buchhaltung). Wiedereintragen ist Sache des Schreibers (P3).
+// Wird in jeder partei-ändernden Aktion am Ende angewandt, damit nie ein ungültiger
+// gefangener Punkt im Zustand stehen bleibt.
+function dropInvalidCaughtPoints(parties, specialPoints) {
+  const partyOfRaw = id => {
+    const p = parties[id]
+    return p === 're' || p === 'kontra' ? p : null
+  }
+  return specialPoints.filter(sp => {
+    if (sp.type !== 'fuchs_gefangen' && sp.type !== 'karlchen_gefangen') return true
+    if (!sp.loserId) return true
+    const ep = partyOfRaw(sp.earnerId)
+    const lp = partyOfRaw(sp.loserId)
+    return !(ep && lp && ep === lp)   // beide gesetzt und gleiches Team → fallen lassen
+  })
+}
+
 function cascadeParties(parties, specialRoles, participants) {
   const active   = participants.filter(p => !p.isSitting)
   const hasSolo  = Object.values(specialRoles).some(r => r === 'solist')
@@ -77,7 +99,7 @@ export function applyAction(state, participants, action) {
         state.specialRoles,
         participants,
       )
-      return { ...state, parties }
+      return { ...state, parties, specialPoints: dropInvalidCaughtPoints(parties, state.specialPoints) }
     }
 
     // Eine An-/Absage über den Sheet-Button machen. Das ist der vollständige Klick
@@ -168,6 +190,7 @@ export function applyAction(state, participants, action) {
         ...state,
         specialRoles: { ...state.specialRoles, [playerId]: 'solist' },
         parties: newParties,
+        specialPoints: dropInvalidCaughtPoints(newParties, state.specialPoints),
         soloType, soloColor: soloColor ?? null,
       }
     }
@@ -184,6 +207,7 @@ export function applyAction(state, participants, action) {
         ...state,
         specialRoles: { ...state.specialRoles, [playerId]: 'hochzeit', [partnerId]: 'eingeheiratet' },
         parties: newParties,
+        specialPoints: dropInvalidCaughtPoints(newParties, state.specialPoints),
         soloType: null, soloColor: null,
       }
     }
@@ -200,6 +224,7 @@ export function applyAction(state, participants, action) {
         ...state,
         specialRoles: { ...state.specialRoles, [playerId]: 'arm', [partnerId]: 'reich' },
         parties: newParties,
+        specialPoints: dropInvalidCaughtPoints(newParties, state.specialPoints),
         soloType: null, soloColor: null,
       }
     }
@@ -220,7 +245,12 @@ export function applyAction(state, participants, action) {
                                 : anns.includes('kontra') ? 'kontra'
                                 : null
       }
-      return { ...state, specialRoles: {}, soloType: null, soloColor: null, parties: newParties }
+      return {
+        ...state,
+        specialRoles: {}, soloType: null, soloColor: null,
+        parties: newParties,
+        specialPoints: dropInvalidCaughtPoints(newParties, state.specialPoints),
+      }
     }
 
     // Einen Sonderpunkt hinzufügen (Fuchs/Karlchen/Doppelkopf). loserId nur bei

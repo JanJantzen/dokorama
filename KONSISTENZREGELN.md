@@ -235,6 +235,9 @@ Wer eine Ansage ohne zugeordnete Partei macht, erzeugt zunächst keinen Konflikt
 **später**, wenn eine Partei-Zuordnung zeigt, dass die Person mit jemandem zusammenspielt, der
 dieselbe An-/Absage schon hat. Konsequenz (P4): Dieselbe Regel wird an **beiden** Eingabepunkten
 ausgewertet (An-/Absage-Klick UND Partei-Zuordnung). Fließt in den Partei-Block ein (B.5-Übersicht).
+Wird der Konflikt durch eine **Partei-Zuordnung** ausgelöst, sind beide Ansagen gleich alt (keine
+„klickende" Ansagerin) → der Dialog bietet **beide Richtungen** zum Behalten an. Wording siehe Katalog
+(Teil C, **C.2.6**).
 
 ---
 
@@ -640,6 +643,41 @@ wohlgeformt und widerspruchsfrei"; Auswertung (`scoreCalculation.js`) = „was b
 
 ---
 
+### C.2.6 — Verspätete An-/Absage-Doppelung durch Partei-Zuordnung (B.2.6)
+
+> Der verspätete Fall aus B.2.6: Zwei Spieler hatten – neutral und damit erlaubt – dieselbe An-/Absage
+> gesagt (z.B. beide „Keine 90"); eine **Partei-Zuordnung** vereint sie nun im selben Team, wodurch die
+> Absage doppelt wäre (I6; bei Re/Kontra I5). Anders als C.2.5 (Ansage-Klick, klare neue Ansagerin →
+> eine „Korrektur") sind hier **beide Ansagen gleich alt** – es gibt keine „klickende" Ansagerin.
+> Darum bietet der Dialog **beide Richtungen** an: jede:r der beiden kann sie behalten (Jan-Entscheid,
+> Session 9). Die Partei-Zuordnung selbst wird in jeder Option mit ausgeführt.
+>
+> Praktisch betrifft das nur **Absagen**: Eine Re/Kontra-**Ansage** zieht ihre Partei sofort nach
+> (B.2.2), zwei gleiche Ansager wären also schon beim Ansage-Klick im selben Team (C.2.3) – eine
+> Partei-Zuordnung kann eine Re/Kontra-Doppelung nicht erst nachträglich erzeugen.
+
+**Meldung** (Beispiel: Kathrin wird Re, Robert ist schon Re, beide haben „Keine 90"):
+> Kathrin und Robert können nicht beide „Keine 90" sagen.
+> Kathrin und Robert sind beide Re – „Keine 90" gilt pro Team nur einmal.
+
+**Option 1 — Abbrechen**
+- Ohne Änderung zurück.
+
+**Option 2 — Kathrin behält „Keine 90"**
+- Roberts „Keine 90" Ansage wird zurückgezogen
+- Kathrin ist Re
+
+**Option 3 — Robert behält „Keine 90"**
+- Kathrins „Keine 90" Ansage wird zurückgezogen
+- Kathrin ist Re
+
+> **Claude Code:** Ausgelöst aus dem `setParty`-Resolver, wenn der Zug I6 (oder I5) erzeugt und keine
+> vorrangige Ursache (Sonderspiel/eigene Ansage/Team-voll) greift. Implementiert in
+> `buildLateDoublingDialog`. Wording-Konvention wie C.2.5: Re/Kontra als „…-Ansage", Absagen in
+> Anführungszeichen mit „Ansage" dahinter.
+
+---
+
 ### C.3.2 — Sonderpunkt-Obergrenze erreicht (Spiel-Kontingent erschöpft)
 
 > Vier Sonderpunkt-Typen, dasselbe Grundmuster (Kontingent voll → Abbrechen + „Statt"-Optionen), aber
@@ -796,10 +834,13 @@ Solo-Typ immer konkret nennen (Buben-Solo, Damen-Solo …).
 **Option 1 — Abbrechen**
 - Ohne Änderung zurück.
 
-**Option 2 — [Sonderspiel] annullieren** (z.B. „Hochzeit annullieren", „Armut annullieren", „Solo
-annullieren")
-- Das Sonderspiel wird annulliert (Beispiel Hochzeit: „Die Hochzeit zwischen Kathrin und Robert wird
-  annulliert")
+**Option 2 — [Sonderspiel] annullieren** (Label je Spieltyp: „Hochzeit annullieren" / „Armut
+annullieren" / „Solo annullieren")
+- Annullieren-Zeile je Spieltyp:
+  - Hochzeit: „Die Hochzeit zwischen [A] und [B] wird annulliert"
+  - Armut: „Die Armut von [A] und [B] wird annulliert"
+  - Solo: „[Solist]s [Solo-Typ] wird annulliert" (Solo-Typ konkret, z.B. „Roberts Buben-Solo wird
+    annulliert")
 - Robert ist Kontra *(bzw. Re, je nach gewünschter Aktion)*
 - Die übrigen Partei-Zuordnungen werden, soweit möglich, neu bestimmt
 
@@ -845,6 +886,14 @@ annullieren")
 > **Claude Code:** Bedingung = Fänger und Bestohlene/r landen durch die Partei-Änderung im selben Team.
 > Pro betroffenem Sonderpunkt eine Zeile. Der Sonderpunkt wird beim Bestätigen der Option gelöscht
 > (Fang-Plus beim Fänger UND Verlust-Notiz bei der bestohlenen Person).
+>
+> **Umsetzung (Teil 2c):** Das Löschen ist als **automatischer Drop in jeder partei-ändernden Aktion**
+> realisiert (`dropInvalidCaughtPoints` in `consistency.js`, angewandt in `setParty`/`setSolo`/
+> `setHochzeit`/`setArmut`/`clearSpecialGame`). Dadurch gilt es einheitlich für **beide** B.5.8-Fälle:
+> beim **lautlosen** Umhängen (Teams beim Fangen noch unbekannt → Zug ist konfliktfrei, der Punkt
+> verschwindet ohne Dialog) **und** beim Dialog-Fall (C.5.6/C.5.7 → die ausführende Option zeigt die
+> obige Zeile, weil sie den Drop antizipiert). „Weggesteckt = vergessen": der Punkt lebt nicht
+> automatisch wieder auf, wenn die Teams später erneut gegnerisch werden (P6).
 
 ---
 
@@ -882,6 +931,59 @@ annullieren")
 > überall, wo eine Auswahl zu einem Konflikt führen würde, nicht nur bei Schaltern. Der zweite Subtitle
 > beschreibt die jeweils auslösende Aktion (einheiraten / Armut übernehmen / Solo spielen / Ansage /
 > Partei).
+
+**Ergebnis-Zeile (zweite Subtitle) je Aktion** – beschreibt, was nach dem Rückzug ausgeführt wird:
+
+| Auslösende Aktion | Ergebnis-Zeile |
+|---|---|
+| Hochzeitspartner anpinnen | „Robert heiratet bei Kathrin ein (Re)" |
+| Armuts-Retter anpinnen | „Robert übernimmt Kathrins Armut (Re)" |
+| Solist setzen | „Robert spielt das [Solo-Typ] (Re)" |
+| Re/Kontra sagen · Toggle | „Robert ist Re" |
+
+### C.5.9 (Sonderspiel-Tür) — benannte Person vs. dritter Gegner; bis zu zwei Ansagen
+
+> Ein Sonderspiel-Setzen ist ein Partei-Setzakt für **alle vier** (B.4.7) und kann darum eine Ansage
+> verletzen, die **nicht** der direkt benannten Person gehört, sondern einem per Kaskade auf die
+> Gegenseite gedrückten **dritten** Gegner (B.5.9 „vorausschauend": der Folgekonflikt gehört in
+> **denselben** Dialog, nicht in einen zweiten). Tischweit können höchstens **zwei** solche Ansagen
+> zugleich anliegen (I5: je eine Re- und eine Kontra-Ansage). Alle werden in **einer** Option
+> zurückgezogen.
+
+**„Was geht nicht?" je Spieltyp und Konflikt-Lage:**
+
+| Spieltyp | nur die benannte Person (Partner/Solist) kollidiert | ein dritter Gegner (ggf. zusätzlich) kollidiert |
+|---|---|---|
+| Solo | „Robert kann nicht das [Solo-Typ] spielen." | „Robert kann nicht das [Solo-Typ] spielen." |
+| Hochzeit | „Robert kann nicht bei Kathrin einheiraten." (Katalogform) | „Kathrin und Robert können nicht zusammen Hochzeit spielen." |
+| Armut | „Robert kann nicht Kathrins Armut übernehmen." (Katalogform) | „Kathrin und Robert können nicht zusammen die Armut spielen." |
+
+> Solo nutzt **immer** die Solist-Form (das Solo ist die Aktion, egal wer blockiert). Bei Hochzeit/
+> Armut bleibt die Katalogform nur, wenn **ausschließlich** der angepinnte Partner kollidiert; sobald
+> ein Dritter beteiligt ist, gilt die **hergeleitete** Team-Form („… können nicht zusammen … spielen").
+
+**„Warum nicht?"**
+- Eine Ansage: „Sophia hat Re gesagt und gehört damit zur Re-Partei." (wie Hauptblock)
+- Zwei Ansagen: „Robert hat Kontra gesagt und Sophia hat Re gesagt."
+
+**Optionen:**
+
+**Option 1 — Abbrechen** · Ohne Änderung zurück.
+
+**Option 2 — [Ansage] zurückziehen** (eine Ansage) bzw. **Ansagen zurückziehen** (zwei)
+- je zurückgezogener Ansage eine Zeile: „Sophias Re-Ansage wird zurückgezogen"
+- Ergebnis-Zeile je Spieltyp:
+  - Solo: „Robert spielt das [Solo-Typ] (Re)"
+  - Hochzeit (Partnerform): „Robert heiratet bei Kathrin ein (Re)"; (Teamform): „Kathrin und Robert
+    spielen zusammen Hochzeit (Re)"
+  - Armut (Partnerform): „Robert übernimmt Kathrins Armut (Re)"; (Teamform): „Kathrin und Robert
+    spielen zusammen die Armut (Re)"
+- „Die übrigen Partei-Zuordnungen werden, soweit möglich, neu bestimmt"
+- ggf. C.5.8-Zeile(n), falls das Setzen einen gefangenen Fuchs/Karlchen ins selbe Team bringt
+
+> **Claude Code:** Implementiert in `buildSpecialGameSetConflictDialog` – sammelt alle I7-Verletzer im
+> gedachten Endzustand, zieht ihre Ansagen zurück, prüft per `resolvesCleanly`. Bleibt danach ein
+> Rest-Konflikt (vom Regelwerk nicht erfasst), → `null` → sicherer Fallback (P8).
 
 ---
 
@@ -1116,3 +1218,26 @@ Jan+Robert dadurch Kontra, Robert hat Kontra gesagt, Sophia hat Re gesagt. Wisch
   Zuordnung von vieren* – daher darf die Auflösung auch An-/Absagen dritter, nicht gewischter Personen
   zurückziehen. Tiefen-Beispiel (fünfzeilige Konsequenz-Liste, asymmetrische Richtungen) im Katalog
   dokumentiert. Damit Teil C vollständig (9/9), kein offener Katalog-Block mehr.
+- **Session 9 – Umsetzung Teil 2b/2c & Schließen der Wording-Lücken:** Bei der Implementierung der
+  Partei-Knoten-Teile traten Stellen zutage, an denen Teil C nur ein Beispiel statt aller Varianten
+  ausformuliert hatte; diese wurden nachgetragen, damit Spec und Code deckungsgleich sind.
+  **C.5.7:** Annullieren-Zeile je Spieltyp ausformuliert (bisher nur Hochzeit-Beispiel): Hochzeit „Die
+  Hochzeit zwischen A und B …", Armut „Die Armut von A und B …", Solo „[Solist]s [Solo-Typ] …".
+  **C.5.9:** Ergebnis-Zeile (zweite Subtitle) je Aktion tabelliert; neuer Unterblock **„Sonderspiel-Tür"**
+  für den **kaskaden-induzierten Dritt-Konflikt** (B.5.9 vorausschauend): ein per Kaskade auf die
+  Gegenseite gedrückter dritter Gegner verletzt seine eigene Ansage. Entscheidung Jan: das **Wording
+  herleiten** statt im Fallback zu lassen – Solo nutzt weiter die Katalogform („… kann nicht das Solo
+  spielen"), Hochzeit/Armut bei Dritt-Beteiligung die hergeleitete **Team-Form** („A und B können nicht
+  zusammen Hochzeit/die Armut spielen"). Bis zu zwei Ansagen zugleich (I5) werden in einer Option
+  zurückgezogen.
+  **C.2.6 (neu):** Die verspätete An-/Absage-Doppelung durch Partei-Zuordnung (B.2.6) bekam einen
+  eigenen Katalog-Block. Entscheidung Jan: da beide Ansagen gleich alt sind (keine „klickende"
+  Ansagerin wie in C.2.5), bietet der Dialog **beide Richtungen** zum Behalten an statt einer einzigen
+  Korrektur. B.2.6-Regeltext entsprechend ergänzt.
+  **C.5.8:** Umsetzungsnotiz ergänzt – das Löschen ungültig gewordener gefangener Sonderpunkte ist als
+  **automatischer Drop in jeder partei-ändernden Aktion** realisiert und deckt damit beide B.5.8-Fälle
+  (stiller Drop ohne Dialog beim lautlosen Umhängen + Konsequenz-Zeile im Dialog) einheitlich ab.
+  Engine-seitig dazugekommen: zusammengesetzte Aktionen `setSolo`/`setHochzeit`/`setArmut` (Rollen +
+  alle vier Parteien in einem Zug, B.4.7 – Voraussetzung für die P5-Vorausschau beim Partner-Picker)
+  und `clearSpecialGame` (Annullieren-Ablauf C.5.7). Inhaltlich keine neuen Regeln, nur Wording-Lücken
+  geschlossen.
