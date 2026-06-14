@@ -19,9 +19,6 @@ import iconDoppelkopf      from '@/assets/icons/icon-doppelkopf.png'
 import iconKarlchenGemacht  from '@/assets/icons/icon-karlchen-gemacht.png'
 import iconKarlchenGefangen from '@/assets/icons/icon-karlchen-gefangen.png'
 
-// Maximale Doppelköpfe: 16 Karten mit Punktwert ≥10 → max. 4 Stiche mit ≥40 Augen möglich
-const DOPPELKOPF_MAX = 4
-
 const SOLO_TYPEN = [
   { type: 'fleischlos',   label: 'Fleischlos'   },
   { type: 'buben_solo',   label: 'Buben-Solo'   },
@@ -38,12 +35,13 @@ const FARBEN = [
   { type: 'karo',  emoji: '♦' },
 ]
 
-// Viererreihe: Fuchs / Doko / Karl / gefangen
+// Viererreihe: Fuchs / Doko / Karl / gefangen. Die Obergrenzen (I11) sind tischweit
+// und werden zentral geprüft (previewSpecialPoint / C.3.2) – hier kein max mehr.
 const SONDERPUNKT_TYPEN = [
-  { type: 'fuchs_gefangen',    label: 'Fuchs',    icon: iconFuchsGemacht,   needsLoser: true,  max: 2            },
-  { type: 'doppelkopf',        label: 'Doko',     icon: iconDoppelkopf,     needsLoser: false, max: DOPPELKOPF_MAX },
-  { type: 'karlchen_gemacht',  label: 'Karl',     icon: iconKarlchenGemacht, needsLoser: false, max: 1            },
-  { type: 'karlchen_gefangen', label: 'gefangen', icon: iconKarlchenGefangen, needsLoser: true, max: 1            },
+  { type: 'fuchs_gefangen',    label: 'Fuchs',    icon: iconFuchsGemacht,    needsLoser: true  },
+  { type: 'doppelkopf',        label: 'Doko',     icon: iconDoppelkopf,      needsLoser: false },
+  { type: 'karlchen_gemacht',  label: 'Karl',     icon: iconKarlchenGemacht, needsLoser: false },
+  { type: 'karlchen_gefangen', label: 'gefangen', icon: iconKarlchenGefangen, needsLoser: true },
 ]
 
 // size='full' → füllt den Eltern-Button (Viererreihe), size='sm' → kleines Icon in der Liste
@@ -74,12 +72,25 @@ export default function PlayerSheet({
   onSpecialRoleClear,
   onSpecialPointAdd,
   onSpecialPointRemove,
+  previewSpecialPoint,
+  pendingLoserSelection,
+  clearPendingLoserSelection,
   onClose,
 }) {
   const playerId   = player.player_id
   const playerData = player.players
 
   const [subFlow, setSubFlow] = useState(null)
+
+  // „von wem"-Nachfassen (Teil 4): Hat eine C.3.2-Auflösung diesen Spieler als neue
+  // Fängerin gesetzt (pendingLoserSelection), gehört der passende Bestohlenen-Picker
+  // geöffnet. ABGELEITET statt per Effekt in den lokalen State kopiert: das effektive
+  // Sub-Sheet ist entweder lokal gesetzt (Solo-Typ, Partner, „von wem" bei freiem
+  // Kontingent) oder der zentrale „von wem"-Auftrag.
+  const pendingFlow = pendingLoserSelection?.earnerId === playerId
+    ? (pendingLoserSelection.type === 'fuchs_gefangen' ? 'fuchsVonWem' : 'karlchenVonWem')
+    : null
+  const activeSubFlow = subFlow ?? pendingFlow
 
   // Drag-to-close für das Player Sheet
   const [dragY,      setDragY]      = useState(0)
@@ -225,10 +236,22 @@ export default function PlayerSheet({
     setSubFlow(null)
   }
 
-  function closeSubFlow() { setSubFlow(null) }
+  // Schließt das Sub-Sheet aus BEIDEN Quellen: lokal gesetztes subFlow UND einen
+  // evtl. offenen zentralen „von wem"-Auftrag (sonst bliebe der Picker hergeleitet offen).
+  function closeSubFlow() {
+    setSubFlow(null)
+    clearPendingLoserSelection?.()
+  }
 
+  // Sonderpunkt-Klick (Teil 4): läuft jetzt durch die Konsistenz-Engine.
+  //  • Kein Bestohlener (Doko / Karlchen gemacht): direkt – Engine committet oder
+  //    öffnet bei vollem Kontingent C.3.2.
+  //  • Gefangener Punkt (Fuchs / Karlchen gefangen): ist im Kontingent noch Platz,
+  //    erst den „von wem?"-Picker öffnen (dort wird der Bestohlene gewählt, dann
+  //    committet). Ist das Kontingent voll, gleich durch die Engine → C.3.2; das
+  //    „von wem" kommt dann nach der Auflösung über pendingLoserSelection.
   function handleSonderpunktAdd(type, needsLoser) {
-    if (needsLoser) {
+    if (needsLoser && !previewSpecialPoint(playerId, type, null)) {
       setSubFlow(type === 'fuchs_gefangen' ? 'fuchsVonWem' : 'karlchenVonWem')
     } else {
       onSpecialPointAdd(playerId, type, null)
@@ -236,12 +259,13 @@ export default function PlayerSheet({
   }
 
   function handleLoserSelect(loserId, type) {
+    // Würde diese/r Bestohlene einen Konflikt auslösen (gleiches Team, I12)? Dann
+    // öffnet onSpecialPointAdd den Hinweis-Dialog C.3.4 – den Picker offen lassen,
+    // damit nach „Abbrechen" eine andere Person gewählt werden kann (B.3.4). Sonst
+    // (sauber) committen und den Picker schließen.
+    const conflict = previewSpecialPoint(playerId, type, loserId)
     onSpecialPointAdd(playerId, type, loserId)
-    setSubFlow(null)
-  }
-
-  function countOwn(type) {
-    return ownSpecialPoints.filter(sp => sp.type === type).length
+    if (!conflict) closeSubFlow()
   }
 
   // Personen-Auswahl: runde Avatare + Name, keine Kacheln.
@@ -274,7 +298,7 @@ export default function PlayerSheet({
   }
 
   function renderSubFlowContent() {
-    if (subFlow === 'soloTyp') return (
+    if (activeSubFlow === 'soloTyp') return (
       <>
         <p className="text-sm font-semibold text-foreground mb-3">Welches Solo?</p>
         <div className="grid grid-cols-2 gap-2">
@@ -291,7 +315,7 @@ export default function PlayerSheet({
       </>
     )
 
-    if (subFlow === 'farbSolo') return (
+    if (activeSubFlow === 'farbSolo') return (
       <>
         <p className="text-sm font-semibold text-foreground mb-3">Welche Farbe?</p>
         <div className="grid grid-cols-2 gap-3">
@@ -308,7 +332,7 @@ export default function PlayerSheet({
       </>
     )
 
-    if (subFlow === 'hochzeitPartner') return (
+    if (activeSubFlow === 'hochzeitPartner') return (
       <PlayerPicker
         title="Wen hast Du geheiratet?"
         onPick={handleHochzeitPartner}
@@ -316,7 +340,7 @@ export default function PlayerSheet({
       />
     )
 
-    if (subFlow === 'armutReich') return (
+    if (activeSubFlow === 'armutReich') return (
       <PlayerPicker
         title="Who is the rich bitch? 💸"
         onPick={handleArmutReich}
@@ -324,17 +348,19 @@ export default function PlayerSheet({
       />
     )
 
-    if (subFlow === 'fuchsVonWem') return (
+    if (activeSubFlow === 'fuchsVonWem') return (
       <PlayerPicker
         title="Fuchs gefangen – von wem?"
         onPick={id => handleLoserSelect(id, 'fuchs_gefangen')}
+        conflictFor={id => previewSpecialPoint(playerId, 'fuchs_gefangen', id)}
       />
     )
 
-    if (subFlow === 'karlchenVonWem') return (
+    if (activeSubFlow === 'karlchenVonWem') return (
       <PlayerPicker
         title="Karlchen gefangen – von wem?"
         onPick={id => handleLoserSelect(id, 'karlchen_gefangen')}
+        conflictFor={id => previewSpecialPoint(playerId, 'karlchen_gefangen', id)}
       />
     )
 
@@ -414,7 +440,7 @@ export default function PlayerSheet({
         <div className="overflow-y-auto flex-1 px-4 py-4 space-y-5 relative">
 
           {/* Overlay wenn Sub-Flow aktiv: Tippen auf Player Sheet schließt Sub-Flow */}
-          {subFlow && (
+          {activeSubFlow && (
             <div className="absolute inset-0 z-10" onClick={closeSubFlow} />
           )}
 
@@ -531,20 +557,18 @@ export default function PlayerSheet({
             {/* Viererreihe: Fuchs / Doko / Karl / gefangen */}
             <div className="flex gap-2 mb-3">
               {SONDERPUNKT_TYPEN.map(def => {
-                const count    = countOwn(def.type)
-                const disabled = count >= def.max
+                // P5: tischweites Kontingent erschöpft (I11)? → optisch ausgegraut,
+                // aber klickbar; der Klick öffnet den Auflösungs-Dialog C.3.2.
+                const conflict = previewSpecialPoint(playerId, def.type, null)
                 return (
                   <button
                     key={def.type}
-                    onClick={() => !disabled && handleSonderpunktAdd(def.type, def.needsLoser)}
-                    disabled={disabled}
-                    className={`flex-1 rounded-xl border overflow-hidden transition-colors ${
-                      disabled
-                        ? 'border-border bg-muted opacity-40 cursor-not-allowed'
-                        : 'border-border bg-background active:opacity-70'
+                    onClick={() => handleSonderpunktAdd(def.type, def.needsLoser)}
+                    className={`flex-1 rounded-xl border overflow-hidden transition-colors border-border bg-background active:opacity-70 ${
+                      conflict ? 'opacity-40' : ''
                     }`}
                   >
-                    <SpIcon icon={def.icon} disabled={disabled} />
+                    <SpIcon icon={def.icon} disabled={conflict} />
                   </button>
                 )
               })}
@@ -585,7 +609,7 @@ export default function PlayerSheet({
       </div>
 
       {/* Sub-Flow Sheet */}
-      {subFlow && (
+      {activeSubFlow && (
         <>
           {/* Backdrop oben (Tisch-Bereich): tippen schließt ALLES */}
           <div

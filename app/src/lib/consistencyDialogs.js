@@ -534,3 +534,170 @@ export function buildLateDoublingDialog({ action, state, participants, commit })
     ],
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C.3.2 – Sonderpunkt-Obergrenze erreicht (Spiel-Kontingent erschöpft, Teil 4)
+//
+// Die Sonderpunkt-Kontingente sind TISCHWEIT (Invariante I11, B.3.1): Fuchs ≤ 2,
+// Karlchen gemacht ≤ 1, Karlchen gefangen ≤ 1, Doppelkopf ≤ 4. Ist das Kontingent
+// voll und jemand will denselben Typ noch eintragen, greift dieser Dialog (P5).
+// Vier Fälle, ein Grundmuster (Abbrechen + Verdrängungs-Optionen), aber verschieden
+// in Optionenzahl und Identifikation:
+//   • Fuchs             – je gefangenem Fuchs eine „Statt"-Option (Fänger + Bestohlene/r)
+//   • Karlchen gemacht  – „Korrektur" (kein Bestohlener)
+//   • Karlchen gefangen – „Korrektur" + „von wem"-Nachfassen
+//   • Doppelkopf        – je Spieler mit ≥1 eine „Statt"-Option (Person + Anzahl)
+//
+// Gefangene Punkte (Fuchs / Karlchen gefangen): die gewählte Option LÖSCHT den alten
+// Fang komplett und stößt danach – wie bei der Ersterfassung – die Bestohlenen-
+// Auswahl für die neue Fängerin an (requestLoserSelection). Der eigentliche Add
+// passiert erst nach dieser Auswahl (dann ist im Kontingent wieder Platz). Reihen-
+// folge mehrerer „Statt"-Optionen: Tischposition (seat_position).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function buildSpecialPointQuotaDialog({ action, state, participants, commit, requestLoserSelection }) {
+  const { earnerId, spType } = action
+  const active  = participants.filter(p => !p.isSitting)
+  const nameOf  = id => active.find(p => p.player_id === id)?.players.name ?? '?'
+  const seatOf  = id => active.find(p => p.player_id === id)?.seat_position ?? 0
+  const clicker = nameOf(earnerId)
+  const cancel  = { label: 'Abbrechen', subtitle: 'Ohne Änderung zurück.' }
+
+  // ── Fuchs (max. 2) – je Fang eine „Statt"-Option, identifiziert über Fänger +
+  //    Bestohlene/r (funktioniert auch, wenn eine Person beide gefangen hat). ──
+  if (spType === 'fuchs_gefangen') {
+    const caught = state.specialPoints
+      .filter(sp => sp.type === 'fuchs_gefangen')
+      .sort((a, b) => seatOf(a.earnerId) - seatOf(b.earnerId))
+    const list = caught.map(sp => `${nameOf(sp.earnerId)} von ${nameOf(sp.loserId)}`).join(', ')
+    return {
+      was:   `${clicker} kann keinen Fuchs fangen.`,
+      warum: `Beide Füchse sind schon gefangen (${list}).`,
+      options: [
+        cancel,
+        ...caught.map(sp => ({
+          label: `Statt ${nameOf(sp.earnerId)}s Fuchs von ${nameOf(sp.loserId)}`,
+          subtitle: [
+            `${nameOf(sp.earnerId)} hat den Fuchs von ${nameOf(sp.loserId)} nicht gefangen`,
+            `${clicker} hat einen Fuchs gefangen (von wem, wird gleich ausgewählt)`,
+          ],
+          onSelect: () => {
+            commit({ type: 'removeSpecialPoint', pointId: sp.id })
+            requestLoserSelection(earnerId, 'fuchs_gefangen')
+          },
+        })),
+      ],
+    }
+  }
+
+  // ── Karlchen gemacht (max. 1) – „Korrektur" (kein Bestohlener). ──────────────
+  if (spType === 'karlchen_gemacht') {
+    const old = state.specialPoints.find(sp => sp.type === 'karlchen_gemacht')
+    if (!old) return null
+    return {
+      was:   `${clicker} kann kein Karlchen machen.`,
+      warum: `${nameOf(old.earnerId)} hat das Karlchen bereits gemacht.`,
+      options: [
+        cancel,
+        {
+          label: 'Korrektur',
+          subtitle: [
+            `${nameOf(old.earnerId)} hat kein Karlchen gemacht`,
+            `${clicker} hat das Karlchen gemacht`,
+          ],
+          onSelect: () => {
+            commit({ type: 'removeSpecialPoint', pointId: old.id })
+            commit({ type: 'addSpecialPoint', earnerId, spType: 'karlchen_gemacht', loserId: null })
+          },
+        },
+      ],
+    }
+  }
+
+  // ── Karlchen gefangen (max. 1) – „Korrektur" + „von wem"-Nachfassen. ─────────
+  if (spType === 'karlchen_gefangen') {
+    const old = state.specialPoints.find(sp => sp.type === 'karlchen_gefangen')
+    if (!old) return null
+    return {
+      was:   `${clicker} kann kein Karlchen fangen.`,
+      warum: `${nameOf(old.earnerId)} hat das Karlchen bereits gefangen.`,
+      options: [
+        cancel,
+        {
+          label: 'Korrektur',
+          subtitle: [
+            `${nameOf(old.earnerId)} hat das Karlchen nicht gefangen`,
+            `${clicker} hat das Karlchen gefangen (von wem, wird gleich ausgewählt)`,
+          ],
+          onSelect: () => {
+            commit({ type: 'removeSpecialPoint', pointId: old.id })
+            requestLoserSelection(earnerId, 'karlchen_gefangen')
+          },
+        },
+      ],
+    }
+  }
+
+  // ── Doppelkopf (max. 4) – je Spieler mit ≥1 eine „Statt"-Option (Person +
+  //    Anzahl; Doppelköpfe sind ununterscheidbar, daher kein Bestohlener). ──────
+  if (spType === 'doppelkopf') {
+    const byEarner = []
+    for (const sp of state.specialPoints) {
+      if (sp.type !== 'doppelkopf') continue
+      let e = byEarner.find(x => x.earnerId === sp.earnerId)
+      if (!e) { e = { earnerId: sp.earnerId, count: 0, firstId: sp.id }; byEarner.push(e) }
+      e.count++
+    }
+    byEarner.sort((a, b) => seatOf(a.earnerId) - seatOf(b.earnerId))
+    const list = byEarner.map(e => `${nameOf(e.earnerId)} (${e.count})`).join(', ')
+    return {
+      was:   `${clicker} kann keinen Doppelkopf eintragen.`,
+      warum: `Es sind schon vier Doppelköpfe eingetragen: ${list}.`,
+      options: [
+        cancel,
+        ...byEarner.map(e => ({
+          label: `Statt ${nameOf(e.earnerId)}`,
+          subtitle: [
+            `${clicker} macht einen Doppelkopf`,
+            // Mengen-Fallunterscheidung (C.3.2 Fall D): N>1 → „(statt N)", N=1 → „keinen mehr".
+            e.count > 1
+              ? `${nameOf(e.earnerId)} hat dann einen Doppelkopf (statt ${e.count})`
+              : `${nameOf(e.earnerId)} hat dann keinen Doppelkopf mehr`,
+          ],
+          onSelect: () => {
+            commit({ type: 'removeSpecialPoint', pointId: e.firstId })
+            commit({ type: 'addSpecialPoint', earnerId, spType: 'doppelkopf', loserId: null })
+          },
+        })),
+      ],
+    }
+  }
+
+  return null
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C.3.4 – Gefangener Sonderpunkt im eigenen Team (Bestohlenen-Auswahl, Teil 4)
+//
+// Reiner HINWEIS-Dialog, kein Auflösungsweg (B.3.4 / Invariante I12): im „von wem?"-
+// Picker wurde eine Person aus dem eigenen Team angetippt – aus dem eigenen Team kann
+// man niemandem etwas abnehmen. Nur „Abbrechen"; danach steht der Picker wieder offen,
+// der Schreiber wählt eine andere Person. (Bei noch neutralen Teams erscheint der
+// Dialog gar nicht – dann ist niemand ausgegraut, B.5.8.)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function buildSameTeamCatchDialog({ action, participants }) {
+  const { earnerId, spType, loserId } = action
+  const active = participants.filter(p => !p.isSitting)
+  const nameOf = id => active.find(p => p.player_id === id)?.players.name ?? '?'
+  // „der Fuchs" (maskulin) → „keinen", „das Karlchen" (neutrum) → „kein".
+  const tier   = spType === 'fuchs_gefangen' ? 'Fuchs' : 'Karlchen'
+  const negArt = spType === 'fuchs_gefangen' ? 'keinen' : 'kein'
+  return {
+    was:   `${nameOf(earnerId)} kann von ${nameOf(loserId)} ${negArt} ${tier} fangen.`,
+    warum: `${nameOf(loserId)} ist im selben Team wie ${nameOf(earnerId)}.`,
+    options: [
+      { label: 'Abbrechen', subtitle: 'Ohne Änderung zurück.' },
+    ],
+  }
+}

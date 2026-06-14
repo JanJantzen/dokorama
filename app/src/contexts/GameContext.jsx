@@ -14,7 +14,7 @@
 
 import { createContext, useContext, useRef, useState, useCallback } from 'react'
 import { deriveGameType } from '@/lib/scoreCalculation'
-import { applyAction, wouldViolate, isComplete } from '@/lib/consistency'
+import { applyAction, wouldViolate, isComplete, checkInvariants } from '@/lib/consistency'
 import {
   buildAnnouncementConflictDialog,
   buildFullTeamDialog,
@@ -22,6 +22,8 @@ import {
   buildSpecialGameConflictDialog,
   buildSpecialGameSetConflictDialog,
   buildLateDoublingDialog,
+  buildSpecialPointQuotaDialog,
+  buildSameTeamCatchDialog,
 } from '@/lib/consistencyDialogs'
 
 const GameContext = createContext(null)
@@ -48,7 +50,12 @@ function initGameState(participants) {
 export function isGameValid(gameState, participants) {
   const teamsOk = isComplete(gameState, participants)
   const eyesOk  = gameState.eyesInput !== '' && !isNaN(parseInt(gameState.eyesInput)) && gameState.eyesFor !== null
-  return teamsOk && eyesOk
+  // Finaler Gate-Check vor dem Speichern (Spec A.4 / B.6.1): der Zustand muss ALLE
+  // laufenden Invarianten erfüllen. Im Normalfall ist er das ohnehin (jede Eingabe
+  // läuft über requestAction, P8) – fängt aber Eingaben ab, die NICHT durch die
+  // Engine laufen, v.a. die Augenzahl außerhalb 0–240 (I13, updateEyes committet direkt).
+  const consistent = checkInvariants(gameState, participants).length === 0
+  return teamsOk && eyesOk && consistent
 }
 
 // Baut das Eingabe-Objekt für calculateGameResult() auf
@@ -121,17 +128,27 @@ export function GameProvider({ children, initialParticipants }) {
   const openDialog  = useCallback((d) => setDialog(d), [])
   const closeDialog = useCallback(() => setDialog(null), [])
 
+  // „von wem"-Nachfassen (Teil 4): Nach einer C.3.2-Auflösung bei gefangenen Punkten
+  // muss die neue Fängerin noch die/den Bestohlene/n wählen. Der zentrale Dialog kann
+  // den Picker im PlayerSheet nicht direkt öffnen (P7: Logik zentral, Anzeige in der
+  // Sicht), darum dieser geteilte „Auftrag" { earnerId, type }. Das Sheet der Fängerin
+  // reagiert darauf und öffnet den passenden Bestohlenen-Picker.
+  const [pendingLoserSelection, setPendingLoserSelection] = useState(null)
+  const clearPendingLoserSelection = useCallback(() => setPendingLoserSelection(null), [])
+
   // Setzt Spielzustand für das nächste Spiel zurück (neuer Geber, neue Aussetzer)
   const resetForNextGame = useCallback((newParticipants) => {
     participantsRef.current = newParticipants
     setGameState(initGameState(newParticipants))
     setDialog(null)
+    setPendingLoserSelection(null)
   }, [])
 
   // Setzt das aktuelle Spiel auf Leerstand zurück – ohne Participants zu ändern
   const resetCurrentGame = useCallback(() => {
     setGameState(initGameState(participantsRef.current))
     setDialog(null)
+    setPendingLoserSelection(null)
   }, [])
 
   // Führt eine Aktion ungeprüft aus (über den zentralen Reducer). Die einzelnen
@@ -221,6 +238,24 @@ export function GameProvider({ children, initialParticipants }) {
         action, state, participants: participantsRef.current,
         commit: commitAction,
       })
+    }
+
+    // Teil 4 – Sonderpunkte (B.3 / C.3.2, C.3.4). Das Hinzufügen läuft jetzt durch
+    // die Engine. Zwei Konfliktarten, je nach verletzter Invariante:
+    //   • Kontingent erschöpft (I11, tischweit) → C.3.2: „Statt"/„Korrektur", bei
+    //     gefangenen Punkten mit „von wem"-Nachfassen (requestLoserSelection).
+    //   • gefangener Punkt im eigenen Team (I12) → C.3.4: reiner Hinweis-Dialog.
+    if (action.type === 'addSpecialPoint') {
+      if (violations.every(v => v === 'I11')) {
+        return buildSpecialPointQuotaDialog({
+          action, state, participants: participantsRef.current,
+          commit: commitAction,
+          requestLoserSelection: (earnerId, type) => setPendingLoserSelection({ earnerId, type }),
+        })
+      }
+      if (violations.every(v => v === 'I12')) {
+        return buildSameTeamCatchDialog({ action, participants: participantsRef.current })
+      }
     }
 
     return null
@@ -321,13 +356,26 @@ export function GameProvider({ children, initialParticipants }) {
     commitAction({ type: 'clearSpecialRole', playerId })
   }, [commitAction])
 
+  // Geprüftes Sonderpunkt-Hinzufügen (Teil 4): läuft jetzt durch die Konsistenz-
+  // Engine. Sauber → committet; Kontingent voll (I11) → C.3.2; gefangener Punkt im
+  // eigenen Team (I12) → C.3.4. (Entfernen kann nie eine Invariante verletzen und
+  // bleibt direkt.)
   const handleSpecialPointAdd = useCallback((earnerId, type, loserId) => {
-    commitAction({ type: 'addSpecialPoint', earnerId, spType: type, loserId })
-  }, [commitAction])
+    requestAction({ type: 'addSpecialPoint', earnerId, spType: type, loserId })
+  }, [requestAction])
 
   const handleSpecialPointRemove = useCallback((pointId) => {
     commitAction({ type: 'removeSpecialPoint', pointId })
   }, [commitAction])
+
+  // Vorausschau fürs Ausgrauen (P5): Würde dieser Sonderpunkt gerade einen Konflikt
+  // auslösen? Ohne Bestohlene/n (loserId=null) ist es die reine Kontingent-Prüfung
+  // (I11, tischweit) für die Viererreihe; mit loserId zusätzlich die Team-Prüfung
+  // (I12) für den „von wem?"-Picker.
+  const previewSpecialPoint = useCallback((earnerId, type, loserId = null) => {
+    return wouldViolate(gameState, participantsRef.current,
+      { type: 'addSpecialPoint', earnerId, spType: type, loserId }).length > 0
+  }, [gameState])
 
   const updateEyes    = useCallback((val)   => commitAction({ type: 'setEyes', value: val }),    [commitAction])
   const updateEyesFor = useCallback((party) => commitAction({ type: 'setEyesFor', party }),      [commitAction])
@@ -351,6 +399,7 @@ export function GameProvider({ children, initialParticipants }) {
       handleSpecialRoleClear,
       handleSpecialPointAdd,
       handleSpecialPointRemove,
+      previewSpecialPoint,
       updateEyes,
       updateEyesFor,
       // Konsistenz-Engine (Teil 0)
@@ -358,6 +407,9 @@ export function GameProvider({ children, initialParticipants }) {
       openDialog,
       closeDialog,
       requestAction,
+      // „von wem"-Nachfassen (Teil 4)
+      pendingLoserSelection,
+      clearPendingLoserSelection,
     }}>
       {children}
     </GameContext.Provider>

@@ -279,9 +279,18 @@ Alles rund um Karlchen passiert nur im **letzten Stich**.
   Ausschlussregel einbauen.)
 
 ### B.3.4 Partei-Voraussetzung der „gefangen"-Sonderpunkte
-„Fuchs gefangen" und „Karlchen gefangen" setzen voraus, dass Fänger und Bestohlener in
-**gegnerischen** Parteien sind. Geraten beide durch eine Partei-Änderung ins selbe Team, werden die
-Einträge ungültig → Detailbehandlung im Partei-Block (B.5.8).
+„Fuchs gefangen" und „Karlchen gefangen" setzen voraus, dass Fänger und Bestohlene/r in
+**gegnerischen** Parteien sind (Invariante I12). Der Widerspruch kann aus zwei Richtungen entstehen:
+- **Bei der Erfassung (Bestohlenen-Auswahl):** Im „von wem?"-Picker sind Personen aus dem **eigenen
+  Team** des Fängers optisch ausgegraut, aber klickbar (P5) – aus dem eigenen Team kann man niemandem
+  etwas abnehmen. Klickt man eine/n trotzdem an, erscheint ein kurzer Hinweis-Dialog mit **nur
+  „Abbrechen"** (kein Auflösungsweg, weil die einzige Korrektur „jemand anderen wählen" ist); nach dem
+  Schließen steht der Picker wieder offen. Solange die Teams beim Fangen noch **neutral** sind, ist
+  niemand ausgegraut – jede Auswahl ist erlaubt (B.5.8, „Teams beim Fangen noch unbekannt"). Wording
+  siehe Katalog (Teil C, **C.3.4**).
+- **Durch eine spätere Partei-Änderung:** Geraten ein bereits erfasster Fänger und seine Bestohlene/r
+  nachträglich ins selbe Team, werden die Einträge ungültig → Detailbehandlung im Partei-Block
+  (B.5.8); umgesetzt als automatischer Drop in jeder partei-ändernden Aktion (C.5.8).
 
 ---
 
@@ -769,6 +778,24 @@ wohlgeformt und widerspruchsfrei"; Auswertung (`scoreCalculation.js`) = „was b
 
 ---
 
+### C.3.4 — Gefangener Sonderpunkt im eigenen Team (Bestohlenen-Auswahl, B.3.4 / I12)
+
+> Reiner **Hinweis-Dialog**, kein Auflösungsweg. Greift, wenn im „von wem?"-Picker eines gefangenen
+> Fuchses/Karlchens eine Person aus dem **eigenen Team** des Fängers angetippt wird (beide bereits einer
+> Partei zugeordnet, gleiches Team → I12). Da die einzig sinnvolle „Korrektur" das Wählen einer anderen
+> Person ist, gibt es **nur „Abbrechen"** – nach dem Schließen steht der Picker wieder offen. Sind die
+> Teams beim Fangen noch neutral, erscheint dieser Dialog nicht (jede Auswahl erlaubt, B.5.8).
+> Beispiel mit Fuchs; analog für „Karlchen" (… kein Karlchen fangen).
+
+**Meldung:**
+> Dani kann von Robert keinen Fuchs fangen.
+> Robert ist im selben Team wie Dani.
+
+**Option 1 — Abbrechen**
+- Ohne Änderung zurück.
+
+---
+
 ### C.5.6 — Partei-Zuordnung: Tisch voll / Teams stehen fest
 
 > Tritt nur bei vollständig zugeordnetem Tisch auf (die Kaskade B.5.4 lässt keinen Zwischenzustand
@@ -1241,3 +1268,13 @@ Jan+Robert dadurch Kontra, Robert hat Kontra gesagt, Sophia hat Re gesagt. Wisch
   alle vier Parteien in einem Zug, B.4.7 – Voraussetzung für die P5-Vorausschau beim Partner-Picker)
   und `clearSpecialGame` (Annullieren-Ablauf C.5.7). Inhaltlich keine neuen Regeln, nur Wording-Lücken
   geschlossen.
+- **Session 10 – Umsetzung Teil 4 (Sonderpunkte) & C.3.4 (neu):** Die Sonderpunkt-Erfassung an die
+  zentrale Engine angeschlossen (bisher direkt committet, ohne Prüfung). Das Kontingent wird jetzt
+  **tischweit** ausgewertet (I11, vorher zählte der UI-Code pro Person), die Viererreihe nach P5
+  ausgegraut-aber-klickbar statt hart deaktiviert, und C.3.2 (Kontingent erschöpft) als Auflösungs-
+  Dialog gebaut (Fuchs/Doppelkopf „Statt"-Optionen, Karlchen „Korrektur"; bei gefangenen Punkten
+  schließt das „von wem"-Nachfassen an, technisch über einen geteilten `pendingLoserSelection`-Auftrag
+  vom zentralen Dialog ans Sheet). **C.3.4 (neu):** Entscheidung Jan – im „von wem?"-Picker werden
+  eigene Teamkollegen ausgegraut (I12); Klick darauf zeigt einen reinen Hinweis-Dialog mit nur
+  „Abbrechen" (Fangen im eigenen Team unmöglich). B.3.4 um die beiden Richtungen (Ersterfassung /
+  spätere Partei-Änderung) erweitert. B.5.8 war schon in Teil 2c (automatischer Drop) erledigt.

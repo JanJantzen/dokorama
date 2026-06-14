@@ -412,7 +412,8 @@ export default function TableView() {
     setSolo, setHochzeit, setArmut,
     previewSolo, previewHochzeit, previewArmut,
     handleSpecialRoleClear,
-    handleSpecialPointAdd, handleSpecialPointRemove,
+    handleSpecialPointAdd, handleSpecialPointRemove, previewSpecialPoint,
+    pendingLoserSelection, clearPendingLoserSelection,
     updateEyes, updateEyesFor,
   } = useGame()
   const { participants, showEvaluation } = useSession()
@@ -512,6 +513,9 @@ export default function TableView() {
           onSpecialRoleClear={handleSpecialRoleClear}
           onSpecialPointAdd={handleSpecialPointAdd}
           onSpecialPointRemove={handleSpecialPointRemove}
+          previewSpecialPoint={previewSpecialPoint}
+          pendingLoserSelection={pendingLoserSelection}
+          clearPendingLoserSelection={clearPendingLoserSelection}
           onClose={() => setOpenSheetId(null)}
         />
       )}
