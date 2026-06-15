@@ -13,6 +13,7 @@
 // blockt (Fallback, Prinzip P8).
 
 import { createContext, useContext, useRef, useState, useCallback } from 'react'
+import { supabase } from '@/lib/supabase'
 import { deriveGameType } from '@/lib/scoreCalculation'
 import { applyAction, wouldViolate, isComplete, checkInvariants } from '@/lib/consistency'
 import {
@@ -105,9 +106,21 @@ function buildFallbackDialog(closeDialog) {
   }
 }
 
-// Loggt einen Fallback-Vorgang. In Teil 0 nur in die Konsole – die persistente
-// DB-Tabelle consistency_logs ist Teil 6. Die Schreiber-ID bleibt bis zum
-// Login-Bau NULL (CLAUDE.md "Irgendwann"-Liste).
+// Loggt einen Fallback-Vorgang (Teil 6, C.Fallback der Spec).
+//
+// Zwei Wege gleichzeitig:
+//  1. console.warn – sofort sichtbar in der Entwickler-Konsole, hilft beim
+//     Debuggen direkt im Browser.
+//  2. Persistente Zeile in der DB-Tabelle consistency_logs – damit der Vorfall
+//     nicht mit dem Browser-Tab verschwindet, sondern später auffindbar bleibt.
+//
+// Bewusst "fire-and-forget": der DB-Schreibvorgang wird NICHT abgewartet und sein
+// Fehler NIE nach oben geworfen. Das Logging darf die Eingabe nie blockieren oder
+// abstürzen lassen – sonst würde das Sicherheitsnetz selbst zum Problem. Schlägt
+// das Schreiben fehl (z.B. offline), bleibt wenigstens die Konsolen-Ausgabe.
+//
+// writer_id bleibt NULL, bis es einen Login gibt (CLAUDE.md "Irgendwann"-Liste:
+// dann wird hier die eingeloggte Schreiber-Identität eingesetzt).
 function logConsistencyFallback({ violations, action, state }) {
   console.warn('[Konsistenz-Fallback] geblockte Aktion', {
     violatedInvariants: violations,
@@ -116,6 +129,18 @@ function logConsistencyFallback({ violations, action, state }) {
     writerId:           null,
     timestamp:          new Date().toISOString(),
   })
+
+  supabase
+    .from('consistency_logs')
+    .insert({
+      violated_invariants: violations,
+      attempted_action:    action,
+      state_before:        state,
+      writer_id:           null,
+    })
+    .then(({ error }) => {
+      if (error) console.error('[Konsistenz-Fallback] DB-Log fehlgeschlagen', error)
+    })
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
