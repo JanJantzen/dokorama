@@ -439,6 +439,7 @@ export default function TableView() {
   // drag = laufende Geste { fromId, fromX/Y (Avatar-Anker), x/y (Finger), overId }.
   const [drag, setDrag] = useState(null)
   const gestureRef = useRef(null)
+  const mainRef = useRef(null)   // für main-relative Gesten-Koordinaten (Overlay liegt IN main)
 
   // Welcher aktive Spieler liegt unter diesem Punkt? (nur Eck-Backdrops tragen
   // data-player-id → Aussetzer/Leere ergeben null). Das Overlay ist pointer-events:none.
@@ -452,17 +453,25 @@ export default function TableView() {
   // Touch UND Maus ab; Touch hat implizites Pointer-Capture → window-Listener genügen.
   function startGesture(e, playerId) {
     if (e.pointerType === 'mouse' && e.button !== 0) return
+    // Desktop: natives Bild-Drag/Textauswahl unterdrücken und den Pointer einfangen,
+    // damit pointermove zuverlässig fließt (Touch hat implizites Capture, Maus nicht).
+    e.preventDefault()
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* nicht kritisch */ }
     const startX = e.clientX, startY = e.clientY
+    // Alle Overlay-Koordinaten relativ zu <main> (dort liegt das Overlay). Sonst
+    // läge die fixe Linie auf dem Desktop um den Zentrier-Offset der Phone-Spalte
+    // daneben (deren container-type ist der Bezugsrahmen für position:fixed).
+    const mrect = mainRef.current?.getBoundingClientRect() ?? { left: 0, top: 0 }
     const avatar = e.currentTarget.querySelector('[data-avatar]') ?? e.currentTarget
     const r = avatar.getBoundingClientRect()
-    const fromX = r.left + r.width / 2, fromY = r.top + r.height / 2
+    const fromX = r.left + r.width / 2 - mrect.left, fromY = r.top + r.height / 2 - mrect.top
     const g = { fromId: playerId, armed: false, lastX: startX, lastY: startY, timer: null }
     gestureRef.current = g
 
     const arm = () => {
       if (gestureRef.current !== g || g.armed) return
       g.armed = true
-      setDrag({ fromId: playerId, fromX, fromY, x: g.lastX, y: g.lastY, overId: null })
+      setDrag({ fromId: playerId, fromX, fromY, x: g.lastX - mrect.left, y: g.lastY - mrect.top, overId: null })
     }
     g.timer = setTimeout(arm, 400)  // Long-press-Pfad
 
@@ -472,8 +481,8 @@ export default function TableView() {
         if (Math.hypot(ev.clientX - startX, ev.clientY - startY) > 20) { clearTimeout(g.timer); arm() }
         else return
       }
-      const over = playerAtPoint(ev.clientX, ev.clientY)
-      setDrag({ fromId: playerId, fromX, fromY, x: ev.clientX, y: ev.clientY, overId: over !== playerId ? over : null })
+      const over = playerAtPoint(ev.clientX, ev.clientY)   // elementFromPoint bleibt viewport-basiert
+      setDrag({ fromId: playerId, fromX, fromY, x: ev.clientX - mrect.left, y: ev.clientY - mrect.top, overId: over !== playerId ? over : null })
     }
     const onUp = (ev) => {
       clearTimeout(g.timer)
@@ -510,6 +519,7 @@ export default function TableView() {
           500px und wächst auf breiten Desktop-Fenstern nicht weiter.
           Referenz: iPhone SE = 375px (dort gilt 1cqw == 1vw, Kalibrierung bleibt). */}
       <main
+        ref={mainRef}
         className="flex-1 relative overflow-hidden"
         style={{
           backgroundColor: '#2d5a27',
@@ -556,19 +566,36 @@ export default function TableView() {
             )
           })
         })()}
-      </main>
 
-      {/* Wisch-Geste: Verbindungslinie vom Avatar des Start-Spielers zum Finger.
-          pointer-events:none, damit elementFromPoint den Backdrop darunter trifft. */}
-      {drag && (
-        <svg className="fixed inset-0 pointer-events-none" style={{ zIndex: 45, width: '100%', height: '100%' }}>
-          <line
-            x1={drag.fromX} y1={drag.fromY} x2={drag.x} y2={drag.y}
-            stroke="white" strokeOpacity="0.85" strokeWidth="4" strokeLinecap="round"
-          />
-          <circle cx={drag.x} cy={drag.y} r="7" fill="white" fillOpacity="0.85" />
-        </svg>
-      )}
+        {/* Wisch-Geste: Verbindungslinie vom Avatar des Start-Spielers zum Finger.
+            Liegt IN <main> (absolut, main-relative Koordinaten) – sonst läge sie auf
+            dem Desktop neben dem Tisch. Gedrehtes <div> statt SVG (Chrome-robust),
+            pointer-events:none, damit elementFromPoint den Backdrop darunter trifft. */}
+        {drag && (() => {
+          const dx = drag.x - drag.fromX, dy = drag.y - drag.fromY
+          const len = Math.hypot(dx, dy)
+          const ang = Math.atan2(dy, dx) * 180 / Math.PI
+          return (
+            <>
+              <div
+                className="absolute pointer-events-none"
+                style={{
+                  zIndex: 30, left: drag.fromX, top: drag.fromY - 2, width: len, height: 4,
+                  background: 'rgba(255,255,255,0.85)', borderRadius: 2,
+                  transformOrigin: '0 50%', transform: `rotate(${ang}deg)`,
+                }}
+              />
+              <div
+                className="absolute pointer-events-none"
+                style={{
+                  zIndex: 30, left: drag.x - 7, top: drag.y - 7, width: 14, height: 14,
+                  background: 'rgba(255,255,255,0.85)', borderRadius: '50%',
+                }}
+              />
+            </>
+          )
+        })()}
+      </main>
 
       <EyesBar
         eyesInput={gameState.eyesInput}
