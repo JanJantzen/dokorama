@@ -779,6 +779,7 @@ Neue alternative Erfassungs-UI: nüchterner Schreibblock-Stil, alle Infos auf ei
 ### Phase 4: Statistiken (Basis)
 
 21. Gesamtscore / Rangliste
+    - **Partie-Spielstand (Jan, 15.6.2026):** Innerhalb einer laufenden Partie die Punktetabelle aus den gespeicherten Spielen (DB) summieren – V1 nur Gesamtstand der Partie. Perspektivisch: **Zwischenstand je Rundenende** (Tabelle pro Runde) und **Verlaufskurve pro Spieler:in** über den Abend (Chart, wie sich die Punkte Spiel für Spiel verändern).
 22. Leistung (Siegquoten, Durchschnitte, Streaks – auf allen drei Ebenen)
 23. Ausdauer / Engagement (Teilnahme, Anwesenheitsquote)
 24. Zeitraum-Filter (Total, Kalenderjahr)

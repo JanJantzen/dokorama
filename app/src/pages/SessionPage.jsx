@@ -19,6 +19,7 @@ import { supabase } from '@/lib/supabase'
 import TableView from '@/components/session/TableView'
 import BlockView from '@/components/session/BlockView'
 import EvaluationView from '@/components/session/EvaluationView'
+import Scoreboard from '@/components/session/Scoreboard'
 import ConsistencyDialog from '@/components/session/ConsistencyDialog'
 
 function formatDate(dateStr) {
@@ -369,6 +370,7 @@ function SessionPageInner() {
 
   const [showEndScreen,   setShowEndScreen]   = useState(false)
   const [showResetScreen, setShowResetScreen] = useState(false)
+  const [showScoreboard,  setShowScoreboard]  = useState(false)
 
   // Spiel in DB speichern, GameState zurücksetzen, nächstes Spiel starten
   async function handleConfirm() {
@@ -467,7 +469,11 @@ function SessionPageInner() {
           >
             <ViewSwitchIcon size={18} />
           </button>
-          <button className="p-1.5 text-muted-foreground" title="Spielstand kommt später">
+          <button
+            className="p-1.5 text-muted-foreground"
+            title="Spielstand"
+            onClick={() => setShowScoreboard(true)}
+          >
             <Trophy size={18} />
           </button>
           <button className="p-1.5 text-muted-foreground" onClick={() => setShowMenu(true)}>
@@ -489,6 +495,18 @@ function SessionPageInner() {
           onConfirm={handleConfirm}
           onBack={backToErfassung}
           saving={saving}
+        />
+      )}
+
+      {/* ─── Spielstand-Overlay (Trophy) ─────────────────────────────────── */}
+      {showScoreboard && (
+        <Scoreboard
+          sessionId={sessionData?.id}
+          roundNumber={roundData?.number}
+          gameNumber={gameNumber}
+          date={dateStr}
+          venue={venueName}
+          onClose={() => setShowScoreboard(false)}
         />
       )}
 
