@@ -22,10 +22,11 @@ export function getAvatarColor(name) {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
 }
 
-// size: 'sm' | 'md' | 'lg' | 'xl'
+// size: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 // style: optionales Inline-Style-Objekt um die Größe zu überschreiben (für fluid scaling)
 export default function PlayerAvatar({ player, size = 'md', style }) {
   const sizeClass = {
+    xs: 'w-7 h-7 text-xs',
     sm: 'w-10 h-10 text-base',
     md: 'w-14 h-14 text-xl',
     lg: 'w-16 h-16 text-2xl',

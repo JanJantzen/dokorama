@@ -113,25 +113,25 @@ export function calculateGameResult({ reEyes, gameType, announcements, specialPo
 
     // Erreichte Absagen des Gewinners (+1 pro Stufe)
     for (const type of winnerAchieved) {
-      breakdown.push({ label: `${ABSAGE_LABELS[type]} geschafft`, points: 1 })
+      breakdown.push({ label: `${ABSAGE_LABELS[type]}`, points: 1 })
       basePoints += 1
     }
 
     // Angesagte UND erreichte Absagen des Gewinners (Bonus +1)
     for (const type of winnerAnnouncedAchieved) {
-      breakdown.push({ label: `${ABSAGE_LABELS[type]} angesagt und geschafft`, points: 1 })
+      breakdown.push({ label: `${ABSAGE_LABELS[type]} angesagt`, points: 1 })
       basePoints += 1
     }
 
     // Erreichte Absagen des Verlierers zählen ebenfalls für den Gewinner
     for (const type of loserAchieved) {
-      breakdown.push({ label: `${ABSAGE_LABELS[type]} geschafft (Gegner)`, points: 1 })
+      breakdown.push({ label: `${ABSAGE_LABELS[type]} (Gegner)`, points: 1 })
       basePoints += 1
     }
 
     // Angesagte UND erreichte Absagen des Verlierers
     for (const type of loserAnnouncedAchieved) {
-      breakdown.push({ label: `${ABSAGE_LABELS[type]} angesagt und geschafft (Gegner)`, points: 1 })
+      breakdown.push({ label: `${ABSAGE_LABELS[type]} angesagt (Gegner)`, points: 1 })
       basePoints += 1
     }
 
@@ -166,8 +166,10 @@ export function calculateGameResult({ reEyes, gameType, announcements, specialPo
     const ownSpecialNet = isRe ? reSpecialNet : -reSpecialNet
 
     if (solo && p.specialRole === 'solist') {
-      // Solist:in bekommt dreifachen Spielwert, jeder Gegner einfachen
-      perPlayer[p.playerId] = (isWinner ? 1 : -1) * spielwert * 3 + ownSpecialNet
+      // Solist:in bekommt das Dreifache, jeder Gegner das Einfache. Das ×3 wirkt
+      // ganz am Ende auf den GESAMTWERT inkl. Sonderpunkte (nicht nur auf die
+      // Grundpunkte×Ansage) – nur so heben sich Solist und drei Gegner zu 0 auf.
+      perPlayer[p.playerId] = ((isWinner ? 1 : -1) * spielwert + ownSpecialNet) * 3
     } else {
       perPlayer[p.playerId] = (isWinner ? 1 : -1) * spielwert + ownSpecialNet
     }
