@@ -8,23 +8,38 @@ import { Button } from '@/components/ui/button'
 import { PlayCircle } from 'lucide-react'
 import { loadSessions, formatSessionDate } from '@/lib/sessions'
 
-// Eine Partie-Zeile: Datum · Ort, Spielernamen, (bei laufenden) Runde/Spiel
+function plural(n, sg, pl) {
+  return `${n} ${n === 1 ? sg : pl}`
+}
+
+// Eine Partie-Zeile – einheitlich für laufende und beendete Partien:
+//   Zeile 1: Datum bei Ort (kleiner in Klammern: laufend "Runde X · Spiel Y",
+//            beendet "R Runden / G Spiele")
+//   Zeile 2: Endstand nach Punkten absteigend: "Name (Punkte) | Name (Punkte) | …"
+//            (frische laufende Partie ohne Spiele → nur Namen)
 function SessionRow({ session, onClick }) {
+  const isDone    = session.status === 'abgeschlossen'
+  const venuePart = session.venueName ? ` bei ${session.venueName}` : ''
+
+  const bracket = isDone
+    ? `${plural(session.roundsCount, 'Runde', 'Runden')} / ${plural(session.gamesCount, 'Spiel', 'Spiele')}`
+    : (session.progress ? `aktuell: Runde ${session.progress.round} / Spiel ${session.progress.game}` : null)
+
+  const secondLine = session.standings.length > 0
+    ? session.standings.map(s => `${s.name} (${s.total})`).join('  |  ')
+    : session.playerNames.join('  |  ')
+
   return (
     <button
       onClick={onClick}
       className="w-full text-left rounded-xl border border-border bg-card p-4 active:bg-muted"
     >
       <p className="text-sm font-medium">
-        {formatSessionDate(session.date)}{session.venueName ? ` · ${session.venueName}` : ''}
+        {formatSessionDate(session.date)}{venuePart}
+        {bracket && <span className="text-xs font-normal text-muted-foreground"> ({bracket})</span>}
       </p>
-      {session.playerNames.length > 0 && (
-        <p className="text-xs text-muted-foreground mt-1 truncate">{session.playerNames.join(', ')}</p>
-      )}
-      {session.progress && (
-        <p className="text-xs text-primary mt-1">
-          Runde {session.progress.round} · Spiel {session.progress.game}
-        </p>
+      {secondLine && (
+        <p className="text-xs text-muted-foreground mt-1">{secondLine}</p>
       )}
     </button>
   )

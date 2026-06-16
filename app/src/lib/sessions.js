@@ -16,7 +16,7 @@ export function formatSessionDate(dateStr) {
 export async function loadSessions() {
   const { data, error } = await supabase
     .from('sessions')
-    .select('id, date, status, created_at, venues(name), rounds(number, status, games(id), round_participations(seat_position, players(id, name)))')
+    .select('id, date, status, created_at, venues(name), rounds(number, status, games(id, game_results(player_id, zaehlopunkte)), round_participations(seat_position, players(id, name)))')
     .order('created_at', { ascending: false })
 
   if (error) throw error
@@ -30,6 +30,20 @@ export async function loadSessions() {
       for (const rp of [...(r.round_participations ?? [])].sort((a, b) => a.seat_position - b.seat_position))
         if (rp.players && !byId.has(rp.players.id)) byId.set(rp.players.id, rp.players.name)
     const playerNames = [...byId.values()]
+
+    // Runden-/Spielzahl
+    const roundsCount = rounds.length
+    const gamesCount  = rounds.reduce((a, r) => a + (r.games?.length ?? 0), 0)
+
+    // Endstand: Zählpunkte pro Spieler:in über alle Spiele summieren, absteigend sortiert
+    const totals = new Map()
+    for (const r of rounds)
+      for (const g of (r.games ?? []))
+        for (const gr of (g.game_results ?? []))
+          totals.set(gr.player_id, (totals.get(gr.player_id) ?? 0) + (gr.zaehlopunkte ?? 0))
+    const standings = [...totals.entries()]
+      .map(([pid, total]) => ({ name: byId.get(pid) ?? '?', total }))
+      .sort((a, b) => b.total - a.total)
 
     // Fortschritt der laufenden Runde (nur bei laufenden Partien)
     let progress = null
@@ -45,6 +59,9 @@ export async function loadSessions() {
       createdAt: s.created_at,
       venueName: s.venues?.name ?? null,
       playerNames,
+      roundsCount,
+      gamesCount,
+      standings,
       progress,
     }
   })

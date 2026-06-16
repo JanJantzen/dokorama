@@ -17,6 +17,7 @@ export function SessionProvider({ children, sessionId }) {
   const [participants,   setParticipants]   = useState([])
   const [gameNumber,     setGameNumber]     = useState(1)
   const [loading,        setLoading]        = useState(true)
+  const [noActiveRound,  setNoActiveRound]  = useState(false) // Partie ohne laufende Runde (nicht spielbar)
 
   // erfassungsView: welche Erfassungs-Ansicht der Nutzer zuletzt gewählt hat ('table' | 'block')
   // activeView: was gerade angezeigt wird – kann auch 'evaluate' sein
@@ -34,7 +35,17 @@ export function SessionProvider({ children, sessionId }) {
         .from('sessions').select('*, venues(name)').eq('id', sessionId).single()
       const { data: round } = await supabase
         .from('rounds').select('*').eq('session_id', sessionId).eq('status', 'laufend')
-        .order('number', { ascending: false }).limit(1).single()
+        .order('number', { ascending: false }).limit(1).maybeSingle()
+
+      // Keine laufende Runde (abgeschlossene/inkonsistente Partie) → nicht spielbar,
+      // statt mit round.id abzustürzen sauber abfangen.
+      if (!round) {
+        setSessionData(session)
+        setNoActiveRound(true)
+        setLoading(false)
+        return
+      }
+
       const { data: parts } = await supabase
         .from('round_participations').select('*, players(id, name, avatar_url)')
         .eq('round_id', round.id).order('seat_position')
@@ -115,7 +126,7 @@ export function SessionProvider({ children, sessionId }) {
 
   return (
     <SessionContext.Provider value={{
-      sessionData, roundData, participants, gameNumber, loading,
+      sessionData, roundData, participants, gameNumber, loading, noActiveRound,
       erfassungsView, activeView,
       switchErfassungsView, showEvaluation, backToErfassung,
       evalResult, saving, setSaving,

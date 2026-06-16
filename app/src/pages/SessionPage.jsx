@@ -174,7 +174,10 @@ function EndSessionScreen({ sessionData, roundData, participantCount, onClose })
 
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
 
-        {/* A: Beenden & Speichern – ganze Karte klickbar */}
+        {/* A: Beenden & Speichern – nur anbieten, wenn es überhaupt etwas zu speichern gibt.
+            Sonst (keine abgeschlossene Runde) würde Speichern nur eine leere abgeschlossene
+            Partie-Hülle hinterlassen → dann bleibt nur Verwerfen oder Weiterspielen. */}
+        {savedRounds > 0 && (
         <button
           onClick={handleSave}
           disabled={working}
@@ -198,6 +201,7 @@ function EndSessionScreen({ sessionData, roundData, participantCount, onClose })
             )}
           </span>
         </button>
+        )}
 
         {/* B: Alles verwerfen – ganze Karte klickbar */}
         <button
@@ -512,7 +516,7 @@ function SessionPageInner() {
       {/* ─── Header ─────────────────────────────────────────────────────── */}
       <header className="shrink-0 flex items-center justify-between px-4 pt-12 pb-3 bg-background border-b border-border z-10">
 
-        <button onClick={() => navigate(-1)} className="p-1.5 text-muted-foreground w-10">
+        <button onClick={() => navigate('/')} className="p-1.5 text-muted-foreground w-10">
           <ArrowLeft size={20} />
         </button>
 
@@ -626,9 +630,20 @@ function SessionPageInner() {
 // ─── Ladebrücke – wartet auf Teilnehmer bevor GameProvider gemountet wird ─────
 
 function SessionPageContent() {
-  const { loading, participants } = useSession()
+  const navigate = useNavigate()
+  const { loading, participants, noActiveRound } = useSession()
   if (loading) {
     return <div className="flex items-center justify-center h-screen text-muted-foreground">Lade…</div>
+  }
+  if (noActiveRound) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 h-screen px-6 text-center">
+        <p className="text-muted-foreground text-sm">Diese Partie hat keine laufende Runde und kann nicht fortgesetzt werden.</p>
+        <button onClick={() => navigate('/')} className="h-11 px-5 rounded-xl bg-primary text-primary-foreground font-semibold">
+          Zur Startseite
+        </button>
+      </div>
+    )
   }
   return (
     <GameProvider initialParticipants={participants}>
