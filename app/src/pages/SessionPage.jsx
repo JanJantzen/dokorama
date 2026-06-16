@@ -44,12 +44,15 @@ const overlayStyle = {
 
 // ─── Hamburger-Menü ────────────────────────────────────────────────────────────
 
-function SessionMenu({ onClose, onEndSession, onResetGame }) {
-  const greyItems = ['Hauptmenü', 'Tischordnung', 'Statistiken']
+function SessionMenu({ onClose, onEndSession, onResetGame, onMainMenu }) {
+  const greyItems = ['Tischordnung', 'Statistiken']
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
       <div className="fixed top-16 right-4 z-50 bg-card rounded-2xl shadow-xl overflow-hidden min-w-[200px]">
+        <button onClick={onMainMenu} className="w-full px-4 py-3 text-sm text-left active:bg-muted border-b border-border">
+          Hauptmenü
+        </button>
         {greyItems.map((label, i) => (
           <div key={label} className={`px-4 py-3 text-sm text-muted-foreground/40 ${i < greyItems.length - 1 ? 'border-b border-border' : ''}`}>
             {label}
@@ -587,6 +590,7 @@ function SessionPageInner() {
       {showMenu && (
         <SessionMenu
           onClose={() => setShowMenu(false)}
+          onMainMenu={() => { setShowMenu(false); navigate('/') }}
           onEndSession={() => { setShowMenu(false); setShowEndScreen(true) }}
           onResetGame={() => { setShowMenu(false); setShowResetScreen(true) }}
         />

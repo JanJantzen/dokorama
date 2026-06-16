@@ -34,3 +34,5 @@ CREATE POLICY "dev_update" ON game_results FOR UPDATE USING (true);
 CREATE POLICY "dev_delete" ON announcements  FOR DELETE USING (true);
 CREATE POLICY "dev_delete" ON special_points FOR DELETE USING (true);
 CREATE POLICY "dev_delete" ON games          FOR DELETE USING (true);
+CREATE POLICY "dev_delete" ON rounds         FOR DELETE USING (true);
+CREATE POLICY "dev_delete" ON sessions       FOR DELETE USING (true);
