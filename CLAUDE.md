@@ -2,7 +2,8 @@
 
 > Diese Datei ist das zentrale Briefing für jeden Claude-Assistenten, der an diesem Projekt arbeitet.
 > Sie wird bei jeder neuen Sitzung gelesen. Halte sie aktuell.
-> Letzte Aktualisierung: 15. Juni 2026 – Konsistenzlogik Teil 6 (Fallback + Logging) umgesetzt: persistente DB-Tabelle `consistency_logs` (`database/migration_003_consistency_logs.sql`), `logConsistencyFallback` schreibt jetzt zusätzlich in die DB (fire-and-forget, `writer_id = NULL` bis Login). Damit sind alle 7 Teile (0–6) der Konsistenzregeln (Roadmap-Punkt 9) **von Jan abgenommen (done)**. Migration noch in Supabase auszuführen.
+> Letzte Aktualisierung: 16. Juni 2026 – Auth-/Schreibrechte-Reihenfolge präzisiert (Abschnitt 3 + 10): Login → lesender Link → **nur Ersteller:in der Partie schreibt** (übertragbar) → zuletzt paralleles Schreiben; **Duplikat-Schutz an die Parallel-Phase gekoppelt** (vorher als V1 geführt). Implementierungs-Notiz `sessions.created_by` beim Login-Bau ergänzt.
+> Vorherige Aktualisierung: 15. Juni 2026 – Konsistenzlogik Teil 6 (Fallback + Logging) umgesetzt: persistente DB-Tabelle `consistency_logs` (`database/migration_003_consistency_logs.sql`), `logConsistencyFallback` schreibt jetzt zusätzlich in die DB (fire-and-forget, `writer_id = NULL` bis Login). Damit sind alle 7 Teile (0–6) der Konsistenzregeln (Roadmap-Punkt 9) **von Jan abgenommen (done)**. Migration noch in Supabase auszuführen.
 > Vorherige Aktualisierung: 13. Juni 2026 – Konsistenzlogik: separate Spec `KONSISTENZREGELN.md` als verbindlich verankert; Roadmap-Punkt 9 in 7 Teile (0–6) aufgeschlüsselt; Wisch-Geste aus „Irgendwann" in Phase 2 (Teil 5) vorgezogen; Doppelkopf-Obergrenze auf max. 4 pro Spiel korrigiert; Hinweis zum Nachziehen der Schreiber-ID fürs Fallback-Log beim Login-Bau ergänzt.
 
 ---
@@ -58,9 +59,13 @@ Die Runde spielt regelmäßig Doppelkopf und schreibt jedes Spiel detailliert in
 - **Gruppen-Link (ohne Login):** Jeder mit dem Link kann alles sehen – laufende Partien, Statistiken, Historie. Niedrige Hürde für Mitspieler:innen, die nur konsumieren wollen.
 - **Individueller Login:** Nur eingeloggte Spieler:innen können Partien starten, Spiele erfassen und korrigieren. Nachvollziehbar wer was eingetragen oder geändert hat. Nicht jede:r Spieler:in muss einen Login haben.
 
-### Duplikat-Schutz (V1):
+> **Schreibrechte-Stufung (Jan, 16.6.2026):** Zunächst schreibt **nur, wer die Partie angelegt hat** (nicht jede:r Eingeloggte). Das Schreibrecht ist **übertragbar** – der Wechsel sitzt im selben Menü wie die Änderung der Rundenzusammensetzung (Abschnitt 6). Dass jede:r Eingeloggte erfassen kann und **paralleles** Erfassen mehrerer sind spätere Stufen (Build-Reihenfolge in Abschnitt 10).
+
+### Duplikat-Schutz (an die Parallel-Schreib-Phase gekoppelt):
 
 Wenn ein:e Spieler:in ein Spiel speichert, das bereits von jemand anderem gespeichert wurde, erscheint ein Hinweis: „Dieses Spiel wurde bereits von [Name] gespeichert. Willst Du [Name]s Version ansehen, Deine Version speichern (überschreibt) oder Deine Notizen verwerfen?"
+
+> **Einordnung (Jan, 16.6.2026):** Greift erst, wenn **mehrere parallel** schreiben – das ist die letzte Auth-Stufe (Abschnitt 10). Bis dahin **zurückgestellt**: ohne Login fehlt die Schreiber-Identität für „[Name]", und real erfasst aktuell nur eine Person. Technisch = Kollision auf `(round_id, Spielnummer)` abfangen → freundlicher Dialog statt rohem Fehler.
 
 ### Perspektivisch (kein aktueller Scope, aber im Design berücksichtigen):
 
@@ -686,6 +691,17 @@ Alle jeweils absolut und pro 4 Runden.
 - Leser:in: Kann nur Statistiken sehen
 
 Ein:e Spieler:in kann in verschiedenen Gruppen verschiedene Rollen haben.
+
+### Build-Reihenfolge (Jan, 16.6.2026):
+
+Die Auth-Features werden in dieser Reihenfolge gebaut – jede Stufe schaltet die nächste frei:
+
+1. **Login** zuerst (individuell, Supabase Auth).
+2. **Lesender Gruppen-Link** – wer den Link hat, sieht alles, kann aber **nichts** ändern.
+3. **Schreibrecht minimal:** nur die **Ersteller:in der Partie** schreibt (übertragbar; der Wechsel sitzt im Rundenzusammensetzungs-Menü, Abschnitt 6).
+4. **Paralleles Schreiben** mehrerer – zuletzt; erst dann greift der **Duplikat-Schutz** (Abschnitt 3).
+
+**Implementierungs-Notiz:** Für „nur Ersteller:in schreibt" braucht `sessions` ein Feld `created_by` (Schreiber-ID) – beim Login-Bau ergänzen. Passt zur `writer_id` im Fallback-Log (`consistency_logs`, Phase-2-Teil 6).
 
 ### Perspektivisch:
 
