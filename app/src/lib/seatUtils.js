@@ -54,8 +54,9 @@ export function getDisplayPositions(participants) {
   const result = new Map()
 
   if (n === 4) {
-    // Statisch: P1=unten-links[3], P2=unten-rechts[2], P3=oben-rechts[1], P4=oben-links[0]
-    const cornerIdx = [3, 2, 1, 0]
+    // Statisch im Uhrzeigersinn ab unten-links:
+    // P1=unten-links[3], P2=oben-links[0], P3=oben-rechts[1], P4=unten-rechts[2]
+    const cornerIdx = [3, 0, 1, 2]
     participants.forEach(p => result.set(p.player_id, CORNERS[cornerIdx[p.seat_position - 1]]))
     return result
   }
@@ -91,10 +92,17 @@ export function getDisplayPositions(participants) {
 
 // ─── Sitzstatus ────────────────────────────────────────────────────────────────
 
-// Berechnet für ein bestimmtes Spiel einer Runde wer Geber ist und wer aussetzt
-export function calcSeatStatus(participants, gameNumber) {
+// Berechnet für ein bestimmtes Spiel einer Runde wer Geber ist und wer aussetzt.
+//
+// solosBefore = Anzahl ANGESAGTER Solos in den Spielen VOR diesem Spiel. Bei einem
+// angesagten Solo muss der/die Geber:in nochmal geben (die Runde verlängert sich),
+// d.h. der Geber wandert für dieses eine Spiel NICHT weiter. Jeder vorherige Solo
+// hält die Rotation also um eins zurück. (Stilles Solo zählt nicht – dort wandert
+// der Geber normal weiter.) Bei 5+ Spieler:innen setzt der/die Geber:in aus, sitzt
+// nach einem angesagten Solo also zwei Spiele hintereinander zu.
+export function calcSeatStatus(participants, gameNumber, solosBefore = 0) {
   const n             = participants.length
-  const dealerSeatPos = ((gameNumber - 1) % n) + 1
+  const dealerSeatPos = ((gameNumber - 1 - solosBefore) % n) + 1
 
   let sittingPositions = []
   if (n === 5) {

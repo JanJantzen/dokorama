@@ -438,7 +438,7 @@ function SessionPageInner() {
       // Runde fertig? (Ziel = Teilnehmerzahl + angesagte Solos) → Übergangs-Screen
       // statt direkt das nächste Spiel. Das Spiel ist gespeichert; wie es weitergeht
       // (nächste Runde / Partie beenden) entscheidet der/die Nutzer:in.
-      const { isComplete } = await loadRoundProgress(roundData.id, participants.length)
+      const { isComplete, announcedSolos } = await loadRoundProgress(roundData.id, participants.length)
       if (isComplete) {
         // Auswertungs-Screen verlassen (sonst bliebe er aktiv im Hintergrund) und
         // den Runden-Übergang zeigen. Das Spiel ist bereits gespeichert.
@@ -447,12 +447,14 @@ function SessionPageInner() {
         return
       }
 
+      // Geber fürs nächste Spiel: angesagte Solos der Runde halten die Rotation an.
+      // announcedSolos zählt alle bisher gespeicherten Solos inkl. des gerade gespeicherten.
       const nextNum  = gameNumber + 1
       const rawParts = participants.map(p => ({
         player_id: p.player_id, players: p.players,
         seat_position: p.seat_position, round_id: p.round_id, id: p.id,
       }))
-      const newParts = refreshSeatStatus(nextNum, rawParts)
+      const newParts = refreshSeatStatus(nextNum, rawParts, announcedSolos)
       setGameNumber(nextNum)
       resetForNextGame(newParts)
       backToErfassung()

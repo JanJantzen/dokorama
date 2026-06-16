@@ -7,6 +7,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { calcSeatStatus } from '@/lib/seatUtils'
+import { loadRoundProgress } from '@/lib/rounds'
 
 const SessionContext = createContext(null)
 
@@ -37,22 +38,25 @@ export function SessionProvider({ children, sessionId }) {
       const { data: parts } = await supabase
         .from('round_participations').select('*, players(id, name, avatar_url)')
         .eq('round_id', round.id).order('seat_position')
-      const { count } = await supabase
-        .from('games').select('id', { count: 'exact', head: true }).eq('round_id', round.id)
 
-      const nextGameNum = (count ?? 0) + 1
+      // played = bereits gespeicherte Spiele, announcedSolos = davon angesagte Solos
+      // (halten die Geber-Rotation an). Beide aus der DB, überlebt Reload mitten in der Runde.
+      const { played, announcedSolos } = await loadRoundProgress(round.id, parts.length)
+
+      const nextGameNum = played + 1
       setSessionData(session)
       setRoundData(round)
-      setParticipants(calcSeatStatus(parts, nextGameNum))
+      setParticipants(calcSeatStatus(parts, nextGameNum, announcedSolos))
       setGameNumber(nextGameNum)
       setLoading(false)
     }
     load()
   }, [sessionId])
 
-  // Sitzstatus neu berechnen (nach jedem gespeicherten Spiel) – gibt neue Teilnehmer zurück
-  const refreshSeatStatus = useCallback((num, rawParts) => {
-    const updated = calcSeatStatus(rawParts, num)
+  // Sitzstatus neu berechnen (nach jedem gespeicherten Spiel) – gibt neue Teilnehmer zurück.
+  // solosBefore = angesagte Solos in den bisherigen Spielen der Runde (halten den Geber an).
+  const refreshSeatStatus = useCallback((num, rawParts, solosBefore = 0) => {
+    const updated = calcSeatStatus(rawParts, num, solosBefore)
     setParticipants(updated)
     return updated
   }, [])
