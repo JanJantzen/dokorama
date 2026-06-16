@@ -20,7 +20,9 @@ import TableView from '@/components/session/TableView'
 import BlockView from '@/components/session/BlockView'
 import EvaluationView from '@/components/session/EvaluationView'
 import Scoreboard from '@/components/session/Scoreboard'
+import RoundEndView from '@/components/session/RoundEndView'
 import ConsistencyDialog from '@/components/session/ConsistencyDialog'
+import { loadRoundProgress } from '@/lib/rounds'
 
 function formatDate(dateStr) {
   if (!dateStr) return ''
@@ -74,14 +76,14 @@ function SessionMenu({ onClose, onEndSession, onResetGame }) {
 //
 // Farbe von A: grün wenn keine Spiele verloren gehen (laufende Runde leer), sonst rot.
 
-function EndSessionScreen({ sessionData, roundData, gameNumber, onClose }) {
+function EndSessionScreen({ sessionData, roundData, participantCount, onClose }) {
   const navigate = useNavigate()
-  const [counts,  setCounts]  = useState(null)  // { prevRoundsCount, prevGamesCount }
+  const [info,    setInfo]    = useState(null)  // { prevRoundsCount, prevGamesCount, currentPlayed, currentComplete }
   const [working, setWorking] = useState(false)
 
-  // Zähle abgeschlossene Runden und ihre Spiele aus der DB
+  // Abgeschlossene Runden + Spiele UND den Stand der aktuellen Runde aus der DB holen
   useEffect(() => {
-    async function fetchCounts() {
+    async function fetchInfo() {
       // Alle Runden dieser Partie außer der aktuellen
       const { data: prevRounds } = await supabase
         .from('rounds').select('id')
@@ -95,20 +97,30 @@ function EndSessionScreen({ sessionData, roundData, gameNumber, onClose }) {
           .in('round_id', prevRoundIds)
         prevGames = count ?? 0
       }
-      setCounts({ prevRoundsCount: prevRoundIds.length, prevGamesCount: prevGames })
+
+      // Ist die aktuelle Runde komplett? (z.B. beim Beenden direkt aus dem Rundenende)
+      const progress = await loadRoundProgress(roundData.id, participantCount)
+
+      setInfo({
+        prevRoundsCount: prevRoundIds.length,
+        prevGamesCount:  prevGames,
+        currentPlayed:   progress.played,
+        currentComplete: progress.isComplete,
+      })
     }
-    fetchCounts()
-  }, [sessionData.id, roundData.id])
+    fetchInfo()
+  }, [sessionData.id, roundData.id, participantCount])
 
-  // Spiele die bereits in der laufenden Runde gespeichert wurden (aktuelles Spiel noch nicht gespeichert)
-  const currentRoundSaved = gameNumber - 1
-  const saveIsGreen = currentRoundSaved === 0
-
-  // Beenden & Speichern: laufende Runde (+ ihre Spiele via CASCADE) löschen, Session abschließen
+  // Beenden & Speichern: vollständige aktuelle Runde behalten (nur als abgeschlossen
+  // markieren), unfertige laufende Runde (+ ihre Spiele via CASCADE) löschen.
   async function handleSave() {
     setWorking(true)
     try {
-      await supabase.from('rounds').delete().eq('id', roundData.id)
+      if (info.currentComplete) {
+        await supabase.from('rounds').update({ status: 'abgeschlossen' }).eq('id', roundData.id)
+      } else {
+        await supabase.from('rounds').delete().eq('id', roundData.id)
+      }
       await supabase.from('sessions').update({ status: 'abgeschlossen' }).eq('id', sessionData.id)
       navigate('/')
     } catch (err) { console.error(err); setWorking(false) }
@@ -123,7 +135,7 @@ function EndSessionScreen({ sessionData, roundData, gameNumber, onClose }) {
     } catch (err) { console.error(err); setWorking(false) }
   }
 
-  if (!counts) {
+  if (!info) {
     return (
       <div className="bg-background flex items-center justify-center" style={overlayStyle}>
         <p className="text-muted-foreground text-sm">Lade…</p>
@@ -131,8 +143,21 @@ function EndSessionScreen({ sessionData, roundData, gameNumber, onClose }) {
     )
   }
 
-  const totalRoundsForAbort = counts.prevRoundsCount + (currentRoundSaved > 0 ? 1 : 0)
-  const totalGamesForAbort  = counts.prevGamesCount + currentRoundSaved
+  const { prevRoundsCount, prevGamesCount, currentPlayed, currentComplete } = info
+
+  // Solange die Runde nicht komplett ist, läuft ein noch nicht gespeichertes Spiel –
+  // das geht beim Beenden ebenfalls verloren und wird mitgezählt.
+  const inProgress  = currentComplete ? 0 : 1
+  const currentLost = currentPlayed + inProgress
+
+  // Vollständige aktuelle Runde wird gespeichert; sonst geht die laufende Runde verloren.
+  const currentDeleted = !currentComplete
+  const saveIsGreen    = !currentDeleted
+  const savedRounds    = prevRoundsCount + (currentComplete ? 1 : 0)
+  const savedGames     = prevGamesCount  + (currentComplete ? currentPlayed : 0)
+
+  const totalRoundsForAbort = prevRoundsCount + (currentLost > 0 ? 1 : 0)
+  const totalGamesForAbort  = prevGamesCount + currentLost
 
   return (
     <div className="bg-background flex flex-col" style={overlayStyle}>
@@ -146,58 +171,57 @@ function EndSessionScreen({ sessionData, roundData, gameNumber, onClose }) {
 
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
 
-        {/* A: Beenden & Speichern */}
-        <div className={`rounded-xl border p-4 ${saveIsGreen ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
-          <button
-            onClick={handleSave}
-            disabled={working}
-            className={`w-full text-left font-semibold text-base mb-2 disabled:opacity-50 ${saveIsGreen ? 'text-green-800' : 'text-destructive'}`}
-          >
+        {/* A: Beenden & Speichern – ganze Karte klickbar */}
+        <button
+          onClick={handleSave}
+          disabled={working}
+          className={`w-full text-left rounded-xl border p-4 disabled:opacity-50 ${saveIsGreen ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}
+        >
+          <span className={`block font-semibold text-base mb-2 ${saveIsGreen ? 'text-green-800' : 'text-destructive'}`}>
             Beenden & Speichern
-          </button>
-          <ul className="text-sm space-y-1">
-            {counts.prevRoundsCount > 0 ? (
-              <li className="text-green-700">
-                ✓ {pl(counts.prevRoundsCount, 'Runde', 'Runden')} ({pl(counts.prevGamesCount, 'Spiel', 'Spiele')}) werden gespeichert
-              </li>
+          </span>
+          <span className="block text-sm space-y-1">
+            {savedRounds > 0 ? (
+              <span className="block text-green-700">
+                ✓ {pl(savedRounds, 'Runde', 'Runden')} ({pl(savedGames, 'Spiel', 'Spiele')}) werden gespeichert
+              </span>
             ) : (
-              <li className="text-muted-foreground">Keine abgeschlossenen Runden vorhanden</li>
+              <span className="block text-muted-foreground">Keine abgeschlossenen Runden vorhanden</span>
             )}
-            {currentRoundSaved > 0 && (
-              <li className="text-destructive">
-                ✗ Laufende Runde ({pl(currentRoundSaved, 'Spiel', 'Spiele')}) wird gelöscht
-              </li>
+            {currentDeleted && (
+              <span className="block text-destructive">
+                ✗ Laufende Runde ({pl(currentLost, 'Spiel', 'Spiele')}) wird gelöscht
+              </span>
             )}
-          </ul>
-        </div>
+          </span>
+        </button>
 
-        {/* B: Alles verwerfen */}
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-          <button
-            onClick={handleAbort}
-            disabled={working}
-            className="w-full text-left font-semibold text-base text-destructive mb-2 disabled:opacity-50"
-          >
-            Alles verwerfen
-          </button>
-          <ul className="text-sm space-y-1">
+        {/* B: Alles verwerfen – ganze Karte klickbar */}
+        <button
+          onClick={handleAbort}
+          disabled={working}
+          className="w-full text-left rounded-xl border border-red-200 bg-red-50 p-4 disabled:opacity-50"
+        >
+          <span className="block font-semibold text-base text-destructive mb-2">Alles verwerfen</span>
+          <span className="block text-sm">
             {totalGamesForAbort > 0 ? (
-              <li className="text-destructive">
+              <span className="block text-destructive">
                 ✗ {pl(totalRoundsForAbort, 'Runde', 'Runden')} und {pl(totalGamesForAbort, 'Spiel', 'Spiele')} werden gelöscht
-              </li>
+              </span>
             ) : (
-              <li className="text-muted-foreground">Noch keine Spiele erfasst – Partie wird gelöscht</li>
+              <span className="block text-muted-foreground">Noch keine Spiele erfasst – Partie wird gelöscht</span>
             )}
-          </ul>
-        </div>
+          </span>
+        </button>
 
-        {/* C: Weiterspielen */}
-        <div className="rounded-xl border border-green-200 bg-green-50 p-4">
-          <button onClick={onClose} className="w-full text-left font-semibold text-base text-green-800">
-            Weiterspielen
-          </button>
-          <p className="text-sm text-green-700 mt-1">Zurück zur Erfassung</p>
-        </div>
+        {/* C: Weiterspielen – ganze Karte klickbar */}
+        <button
+          onClick={onClose}
+          className="w-full text-left rounded-xl border border-green-200 bg-green-50 p-4"
+        >
+          <span className="block font-semibold text-base text-green-800">Weiterspielen</span>
+          <span className="block text-sm text-green-700 mt-1">Zurück zur Erfassung</span>
+        </button>
 
       </div>
     </div>
@@ -364,13 +388,15 @@ function SessionPageInner() {
     switchErfassungsView, showEvaluation, backToErfassung,
     evalResult, saving, setSaving,
     showMenu, setShowMenu,
-    setGameNumber, refreshSeatStatus,
+    setGameNumber, refreshSeatStatus, advanceToNextRound,
   } = useSession()
   const { gameState, resetForNextGame, resetCurrentGame } = useGame()
 
   const [showEndScreen,   setShowEndScreen]   = useState(false)
   const [showResetScreen, setShowResetScreen] = useState(false)
   const [showScoreboard,  setShowScoreboard]  = useState(false)
+  const [showRoundEnd,    setShowRoundEnd]    = useState(false)
+  const [advancing,       setAdvancing]       = useState(false)
 
   // Spiel in DB speichern, GameState zurücksetzen, nächstes Spiel starten
   async function handleConfirm() {
@@ -409,6 +435,18 @@ function SessionPageInner() {
       if (spInsert.length > 0)
         await supabase.from('special_points').insert(spInsert)
 
+      // Runde fertig? (Ziel = Teilnehmerzahl + angesagte Solos) → Übergangs-Screen
+      // statt direkt das nächste Spiel. Das Spiel ist gespeichert; wie es weitergeht
+      // (nächste Runde / Partie beenden) entscheidet der/die Nutzer:in.
+      const { isComplete } = await loadRoundProgress(roundData.id, participants.length)
+      if (isComplete) {
+        // Auswertungs-Screen verlassen (sonst bliebe er aktiv im Hintergrund) und
+        // den Runden-Übergang zeigen. Das Spiel ist bereits gespeichert.
+        backToErfassung()
+        setShowRoundEnd(true)
+        return
+      }
+
       const nextNum  = gameNumber + 1
       const rawParts = participants.map(p => ({
         player_id: p.player_id, players: p.players,
@@ -423,6 +461,28 @@ function SessionPageInner() {
     } finally {
       setSaving(false)
     }
+  }
+
+  // Nächste Runde: DB-Übergang (Runde abschließen + neue anlegen), GameContext
+  // zurücksetzen, zurück zur Erfassung.
+  async function handleNextRound() {
+    setAdvancing(true)
+    try {
+      const seated = await advanceToNextRound()
+      resetForNextGame(seated)
+      setShowRoundEnd(false)
+      backToErfassung()
+    } catch (err) {
+      console.error('Fehler beim Rundenwechsel:', err)
+    } finally {
+      setAdvancing(false)
+    }
+  }
+
+  // Partie beenden aus dem Rundenende heraus. RoundEndView bleibt darunter offen,
+  // damit "Zurück" im Beenden-Screen wieder zum Rundenende führt (nicht zur Erfassung).
+  function handleEndFromRound() {
+    setShowEndScreen(true)
   }
 
   // GameContext-Zustand auf Initialstand zurücksetzen (keine DB-Änderung)
@@ -510,6 +570,17 @@ function SessionPageInner() {
         />
       )}
 
+      {/* ─── Runden-Übergang ─────────────────────────────────────────────── */}
+      {showRoundEnd && (
+        <RoundEndView
+          sessionId={sessionData?.id}
+          roundNumber={roundData?.number}
+          onNextRound={handleNextRound}
+          onEndSession={handleEndFromRound}
+          busy={advancing}
+        />
+      )}
+
       {/* ─── Hamburger-Menü ──────────────────────────────────────────────── */}
       {showMenu && (
         <SessionMenu
@@ -524,7 +595,7 @@ function SessionPageInner() {
         <EndSessionScreen
           sessionData={sessionData}
           roundData={roundData}
-          gameNumber={gameNumber}
+          participantCount={participants.length}
           onClose={() => setShowEndScreen(false)}
         />
       )}

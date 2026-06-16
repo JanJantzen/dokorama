@@ -7,10 +7,8 @@
 
 import { useEffect, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
-import PlayerAvatar from '@/components/ui/PlayerAvatar'
+import StandingsList from '@/components/session/StandingsList'
 import { loadStandings } from '@/lib/standings'
-
-const fmt = (n) => (n > 0 ? `+${n}` : `${n}`)
 
 // Beschreibt, bis zu welchem Spiel der Stand zählt. gameNumber ist das AKTUELLE
 // (noch nicht gespeicherte) Spiel der laufenden Runde – gezählt ist also alles davor.
@@ -56,33 +54,7 @@ export default function Scoreboard({ sessionId, roundNumber, gameNumber, date, v
 
       {/* Rangliste */}
       <div className="flex-1 overflow-y-auto px-4 py-5">
-        {error ? (
-          <p className="text-sm text-muted-foreground text-center mt-8">
-            Spielstand konnte nicht geladen werden.
-          </p>
-        ) : standings === null ? (
-          <p className="text-sm text-muted-foreground text-center mt-8">Lädt…</p>
-        ) : standings.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center mt-8">
-            Noch keine Spiele gespeichert.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {standings.map((s, i) => (
-              <div
-                key={s.player_id}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border bg-card"
-              >
-                <span className="w-5 text-sm font-semibold text-muted-foreground tabular-nums">{i + 1}.</span>
-                <PlayerAvatar player={s} size="sm" />
-                <span className="flex-1 font-medium text-sm truncate">{s.name}</span>
-                <span className={`text-lg font-bold tabular-nums ${s.total >= 0 ? 'text-green-700' : 'text-destructive'}`}>
-                  {fmt(s.total)}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+        <StandingsList standings={standings} error={error} />
       </div>
     </div>
   )

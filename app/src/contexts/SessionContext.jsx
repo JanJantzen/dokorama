@@ -57,6 +57,37 @@ export function SessionProvider({ children, sessionId }) {
     return updated
   }, [])
 
+  // Nächste Runde starten: aktuelle Runde abschließen, neue Runde + Teilnahmen anlegen
+  // (gleiche Spieler:innen & Sitzpositionen), Context auf Spiel 1 der neuen Runde setzen.
+  // Gibt die neuen Teilnehmer (mit Sitzstatus) zurück, damit der/die Aufrufer:in den
+  // GameContext zurücksetzen kann.
+  const advanceToNextRound = useCallback(async () => {
+    // 1) Aktuelle Runde abschließen
+    await supabase.from('rounds').update({ status: 'abgeschlossen' }).eq('id', roundData.id)
+
+    // 2) Neue Runde anlegen
+    const { data: newRound } = await supabase
+      .from('rounds')
+      .insert({ session_id: sessionData.id, number: roundData.number + 1, status: 'laufend' })
+      .select().single()
+
+    // 3) Teilnahmen übernehmen (gleiche Spieler:innen & Sitzpositionen)
+    const { data: newParts } = await supabase
+      .from('round_participations')
+      .insert(participants.map(p => ({
+        round_id: newRound.id, player_id: p.player_id, seat_position: p.seat_position,
+      })))
+      .select('*, players(id, name, avatar_url)')
+    newParts.sort((a, b) => a.seat_position - b.seat_position)
+
+    // 4) Context auf Spiel 1 der neuen Runde setzen
+    const seated = calcSeatStatus(newParts, 1)
+    setRoundData(newRound)
+    setParticipants(seated)
+    setGameNumber(1)
+    return seated
+  }, [roundData, sessionData, participants])
+
   // Wechselt zwischen Tisch- und Block-Ansicht (nur wenn nicht im Auswertungs-Screen)
   const switchErfassungsView = useCallback(() => {
     setErfassungsView(prev => {
@@ -85,7 +116,7 @@ export function SessionProvider({ children, sessionId }) {
       switchErfassungsView, showEvaluation, backToErfassung,
       evalResult, saving, setSaving,
       showMenu, setShowMenu,
-      setGameNumber, refreshSeatStatus,
+      setGameNumber, refreshSeatStatus, advanceToNextRound,
     }}>
       {children}
     </SessionContext.Provider>
