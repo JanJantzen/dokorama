@@ -101,7 +101,9 @@ export function calculateGameResult({ reEyes, gameType, announcements, specialPo
     breakdown.push({ label: 'Gewonnen', points: 1 })
     basePoints += 1
 
-    if (winner === 'kontra') {
+    // "Gegen die Alten" gibt es nur im NORMALSPIEL (Kontra ohne Kreuz-Damen schlägt Re).
+    // Beim Solo gewinnen die drei Gegner ganz normal – kein "Gegen die Alten".
+    if (winner === 'kontra' && !solo) {
       breakdown.push({ label: 'Gegen die Alten', points: 1 })
       basePoints += 1
     }
