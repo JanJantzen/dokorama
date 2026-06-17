@@ -67,6 +67,52 @@ export async function loadSessions() {
   })
 }
 
+// Lädt alle Spiele einer Partie für die Details-Block-Ansicht: nach Runde gruppiert,
+// je Spiel die aktiven Spieler:innen pro Team mit Punkten, Ansagen und Sonderpunkten
+// (eigene = erzielt, fremde = wo man Bestohlene:r war).
+export async function loadSessionGames(sessionId) {
+  const { data, error } = await supabase
+    .from('rounds')
+    .select('number, games(number, game_type, farbe, game_results(player_id, partei, zaehlopunkte, sonderrolle, players(name, avatar_url)), announcements(player_id, typ), special_points(player_id, typ, loser_id))')
+    .eq('session_id', sessionId)
+    .order('number')
+
+  if (error) throw error
+
+  return data
+    .map(r => ({
+      number: r.number,
+      games: [...(r.games ?? [])]
+        .sort((a, b) => a.number - b.number)
+        .map(g => {
+          const anns = g.announcements ?? []
+          const sps  = g.special_points ?? []
+
+          const buildPlayer = (gr) => ({
+            playerId:  gr.player_id,
+            name:      gr.players?.name ?? '?',
+            avatarUrl: gr.players?.avatar_url ?? null,
+            party:     gr.partei,
+            points:    gr.zaehlopunkte ?? 0,
+            role:      gr.sonderrolle ?? null,
+            anns:      anns.filter(a => a.player_id === gr.player_id).map(a => a.typ),
+            earnedSp:  sps.filter(s => s.player_id === gr.player_id),
+            lostSp:    sps.filter(s => s.loser_id === gr.player_id),
+          })
+
+          const active = (g.game_results ?? []).filter(gr => gr.partei !== 'ausgesetzt')
+          return {
+            number:   g.number,
+            gameType: g.game_type,
+            farbe:    g.farbe,
+            re:       active.filter(gr => gr.partei === 're').map(buildPlayer),
+            kontra:   active.filter(gr => gr.partei === 'kontra').map(buildPlayer),
+          }
+        }),
+    }))
+    .filter(r => r.games.length > 0)
+}
+
 // Löscht eine Partie. Runden, Spiele, Ergebnisse etc. gehen per ON DELETE CASCADE mit.
 export async function deleteSession(id) {
   const { error } = await supabase.from('sessions').delete().eq('id', id)
