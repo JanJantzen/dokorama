@@ -6,3 +6,6 @@ _workspace/
 
 # macOS
 .DS_Store
+
+# Historische Import-JSONs (echte Spieldaten mit Klarnamen) – nur lokal, nicht ins Repo
+database/imports/*.json
