@@ -369,8 +369,12 @@ export default function PlayerSheet({
 
   return (
     <>
-      {/* Haupt-Backdrop: tippen schließt alles */}
-      <div className="fixed inset-0 z-40 bg-black/30" onClick={onClose} />
+      {/* Haupt-Backdrop: tippen schließt alles.
+          onPointerDown statt onClick: Beim Öffnen via Tap auf einen oberen Spieler
+          synthetisiert Android danach einen Geister-Click an der Tap-Position, der
+          sonst hier (Backdrop über dem oberen Tischbereich) das Sheet sofort wieder
+          schlösse. Ein pointerdown gibt es aus dem öffnenden Tap nicht mehr. */}
+      <div className="fixed inset-0 z-40 bg-black/30" onPointerDown={onClose} />
 
       {/* Player Sheet */}
       <div
