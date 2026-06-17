@@ -17,6 +17,7 @@ export async function loadSessions() {
   const { data, error } = await supabase
     .from('sessions')
     .select('id, date, status, created_at, venues(name), rounds(number, status, games(id, game_results(player_id, zaehlopunkte)), round_participations(seat_position, players(id, name)))')
+    .order('date', { ascending: false })
     .order('created_at', { ascending: false })
 
   if (error) throw error

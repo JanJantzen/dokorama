@@ -65,7 +65,7 @@ function PlayerLine({ p }) {
   ].filter(c => c.icon)
 
   return (
-    <div className="flex items-start gap-1.5">
+    <div className="flex items-center gap-1.5">
       <div className="shrink-0">
         <PlayerAvatar player={{ name: p.name, avatar_url: p.avatarUrl }} size="xs" />
       </div>
