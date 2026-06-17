@@ -140,4 +140,9 @@
   html {
     @apply font-sans;
     }
+  /* Verhindert Pull-to-Refresh (versehentliches Neuladen beim Runterswipen am Rand)
+     und Scroll-Chaining – die App ist eine SPA, ein Reload tiefer Routen ist unnötig. */
+  html, body {
+    overscroll-behavior-y: contain;
+    }
 }
