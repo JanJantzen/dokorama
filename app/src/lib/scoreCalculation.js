@@ -94,9 +94,14 @@ export function calculateGameResult({ reEyes, gameType, announcements, specialPo
   const breakdown = []
 
   if (isTie) {
-    // Gespaltener Arsch: Kontra gewinnt, aber nur "Gegen die Alten", kein "Gewonnen"
+    // Gespaltener Arsch (genau 120:120): Kontra gewinnt, aber NICHT "Gewonnen".
+    // Normalspiel → der eine Grundpunkt ist "Gegen die Alten".
+    // Solo → kein "Gegen die Alten" (gibt's beim Solo nicht), stattdessen der Solo-Punkt.
+    // Beides ergibt +1 Grundpunkt; der/die Solist:in (Verlierer:in) bekommt das Dreifache.
     basePoints = 1
-    breakdown.push({ label: 'Gespaltener Arsch – Gegen die Alten', points: 1 })
+    breakdown.push(solo
+      ? { label: 'Gespaltener Arsch – Solo', points: 1 }
+      : { label: 'Gespaltener Arsch – Gegen die Alten', points: 1 })
   } else {
     breakdown.push({ label: 'Gewonnen', points: 1 })
     basePoints += 1
