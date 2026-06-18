@@ -144,7 +144,9 @@ export function buildAnnouncementConflictDialog({ action, state, participants, c
 // Gegenseite. Reihenfolge der "Statt"-Optionen: Tischreihenfolge (seat_position).
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function buildFullTeamDialog({ action, state, participants, commit }) {
+// announce (optional): kam der Konflikt von einer Re/Kontra-Ansage (B.2.2/C.2.2),
+// wird die Ansage nach dem Partei-Tausch mitgesetzt – sonst (reiner Partei-Toggle) leer.
+export function buildFullTeamDialog({ action, state, participants, commit, announce }) {
   const { playerId, party } = action            // party = das volle Ziel-Team
   const active = participants.filter(p => !p.isSitting)
   const nameOf = id => active.find(p => p.player_id === id)?.players.name ?? '?'
@@ -182,7 +184,11 @@ export function buildFullTeamDialog({ action, state, participants, commit }) {
             `${m.players.name} ist ${otherLabel}`,
             ...c58Lines(state, after, nameOf),
           ],
-          onSelect: () => swap.forEach(commit),
+          onSelect: () => {
+            swap.forEach(commit)
+            // Kam der Konflikt von einer Ansage: nach dem Tausch die Ansage mitsetzen.
+            if (announce) commit({ type: 'toggleAnnouncement', playerId, announcement: announce })
+          },
         }
       }),
     ],
@@ -257,7 +263,7 @@ export function buildPartyAnnouncementConflictDialog({ action, state, participan
 // annullieren") – halbes Auflösen wäre nutzlos.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function buildSpecialGameConflictDialog({ action, state, participants, commit, ownAnnouncement }) {
+export function buildSpecialGameConflictDialog({ action, state, participants, commit, ownAnnouncement, announce }) {
   const { playerId, party } = action
   const active = participants.filter(p => !p.isSitting)
   const nameOf = id => active.find(p => p.player_id === id)?.players.name ?? '?'
@@ -328,6 +334,8 @@ export function buildSpecialGameConflictDialog({ action, state, participants, co
     ...(multiCause ? [{ type: 'toggleAnnouncement', playerId, announcement: conflictingAnn }] : []),
     { type: 'clearSpecialGame' },
     { type: 'setParty', playerId, party },
+    // Kam der Konflikt von einer Ansage (B.2.2/C.2.2): nach dem Auflösen die Ansage mitsetzen.
+    ...(announce ? [{ type: 'toggleAnnouncement', playerId, announcement: announce }] : []),
   ]
   if (!resolvesCleanly(state, participants, resolveActions)) return null
 

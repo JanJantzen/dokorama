@@ -198,12 +198,40 @@ export function GameProvider({ children, initialParticipants, initialGameState }
     // (I5 = Re/Kontra, I6 = Absage). Sind zusätzlich Partei-Invarianten verletzt
     // (z.B. Team schon voll), gehört der Fall zum Partei-Knoten (Teil 2) und
     // läuft bis dahin in den Fallback.
-    if (action.type === 'makeAnnouncement'
-        && violations.every(v => v === 'I5' || v === 'I6')) {
-      return buildAnnouncementConflictDialog({
-        action, state, participants: participantsRef.current,
-        commit: commitAction,
-      })
+    if (action.type === 'makeAnnouncement') {
+      // a) Reine zweite gleiche An-/Absage im Team (I5/I6) → C.2.3/C.2.5.
+      if (violations.every(v => v === 'I5' || v === 'I6')) {
+        return buildAnnouncementConflictDialog({
+          action, state, participants: participantsRef.current,
+          commit: commitAction,
+        })
+      }
+      // b) B.2.2/C.2.2: Eine Re/Kontra-Ansage erzwingt eine kollidierende Partei
+      // (Team voll = I2, oder Sonderspiel-Fixierung = I10). Aufgelöst wird das über
+      // den Partei-Block – DIESELBEN Dialoge wie bei setParty (C.5.7 Sonderspiel,
+      // C.5.6 Team voll); die Ansage wird beim Auflösen mitgesetzt (announce).
+      if (action.announcement === 're' || action.announcement === 'kontra') {
+        const party       = action.announcement
+        const partyAction = { type: 'setParty', playerId: action.playerId, party }
+        const specialActive = participantsRef.current.some(p =>
+          !p.isSitting &&
+          ['solist', 'hochzeit', 'eingeheiratet', 'arm', 'reich'].includes(state.specialRoles[p.player_id]))
+
+        if (specialActive && (violations.includes('I10') || violations.includes('I2'))) {
+          return buildSpecialGameConflictDialog({
+            action: partyAction, state, participants: participantsRef.current,
+            commit: commitAction, announce: party,
+          })
+        }
+        if (violations.includes('I2')) {
+          return buildFullTeamDialog({
+            action: partyAction, state, participants: participantsRef.current,
+            commit: commitAction, announce: party,
+          })
+        }
+      }
+      // sonst → sicherer Fallback (sollte praktisch nicht vorkommen)
+      return null
     }
 
     // Teil 2 – Partei-Knoten (setParty). Reihenfolge der Prüfung folgt P1: zuerst
