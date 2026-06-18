@@ -515,6 +515,10 @@ Diese Entscheidungen wurden im Dialog ausführlich besprochen und sind die Grund
 
 Alles auswerten, was die Daten hergeben. Die Runde ist statistik-verrückt. Die Datenerfassung ist von Anfang an granular genug, um auch später noch neue Auswertungen zu ermöglichen, ohne das Datenmodell zu ändern. Welche Stats prominent angezeigt, welche hinter einem „Nerd-Modus" versteckt und welche erst später gebaut werden, ist eine UI-Entscheidung bei der Implementierung. Die Daten sind vollständig – dieser Abschnitt beschreibt was wir **anzeigen**, nicht was wir erfassen.
 
+### „Stats of the Party" (pro Partie)
+
+Zusätzlich zu den gruppenweiten Auswertungen soll es eine **Mini-Statistik pro einzelner Partie** geben (im Partie-Details-Screen, hinter „Details" beim Endstand). Eine kompakte Auswahl der unten stehenden Kennzahlen, aber **auf eine Partie/einen Abend bezogen** statt über alle Daten – z.B. Endstand, bester/schlechtester Einzelspielwert des Abends, Anzahl Solos/Sonderpunkte/Sonderspiele, ggf. Verlaufskurve über die Spiele (siehe Roadmap-Punkt 21). Welche Kennzahlen genau, ist Teil des Statistik-Konzepts.
+
 ### Zeiträume
 
 Alle Auswertungen sind filterbar nach:
