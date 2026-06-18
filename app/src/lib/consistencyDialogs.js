@@ -163,7 +163,10 @@ export function buildFullTeamDialog({ action, state, participants, commit, annou
   if (members.length === 0) return null
 
   return {
-    was:   `${clicker} kann nicht einfach ${targetLabel} sein.`,
+    // Aktions-Achse (C.2.2): vom Ansage-Einstieg "… kann nicht Re sagen",
+    // vom reinen Partei-Toggle "… kann nicht einfach Re sein".
+    was:   announce ? `${clicker} kann nicht ${targetLabel} sagen.`
+                    : `${clicker} kann nicht einfach ${targetLabel} sein.`,
     warum: `Die Teams stehen schon fest – ${members.map(m => m.players.name).join(' und ')} sind ${targetLabel}.`,
     options: [
       { label: 'Abbrechen', subtitle: 'Ohne Änderung zurück.' },
@@ -280,6 +283,7 @@ export function buildSpecialGameConflictDialog({ action, state, participants, co
 
   const clicker     = nameOf(playerId)
   const targetLabel = PARTY_LABELS[party]
+  const verb        = announce ? 'sagen' : 'sein'   // Aktions-Achse (C.2.2): Ansage → "sagen"
   const onSpecialSide = RE_SIDE_ROLES.includes(roleOf(playerId))   // Rollenträger → soll Kontra
   const soloLabel   = SOLO_LABELS[state.soloType] ?? 'Solo'
 
@@ -346,7 +350,7 @@ export function buildSpecialGameConflictDialog({ action, state, participants, co
   if (multiCause) {
     const annLabel = PARTY_LABELS[conflictingAnn]
     return {
-      was:   `${clicker} kann nicht ${targetLabel} sein.`,
+      was:   `${clicker} kann nicht ${targetLabel} ${verb}.`,
       warum: `${clicker} hat ${annLabel} gesagt und ${warumMultiClause}.`,
       options: [
         { label: 'Abbrechen', subtitle: 'Ohne Änderung zurück.' },
