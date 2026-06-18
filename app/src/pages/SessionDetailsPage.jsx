@@ -101,13 +101,16 @@ function TeamCell({ players, score, special, hasSpecial }) {
   )
 }
 
-function GameRow({ game }) {
+function GameRow({ game, onEdit }) {
   const reScore = game.re[0]?.points ?? 0
   const koScore = game.kontra[0]?.points ?? 0
   const special = specialLabel(game.gameType, game.farbe)
 
   return (
-    <div className="flex items-stretch gap-2 py-1.5 border-b border-border/40">
+    <div
+      onClick={onEdit ?? undefined}
+      className={`flex items-stretch gap-2 py-1.5 border-b border-border/40 ${onEdit ? 'cursor-pointer active:bg-muted -mx-1 px-1 rounded' : ''}`}
+    >
       <div className="w-5 shrink-0 flex items-center justify-center text-base text-muted-foreground tabular-nums">
         {game.number}
       </div>
@@ -170,7 +173,13 @@ export default function SessionDetailsPage() {
                 <div className="w-px shrink-0" />
                 <div className="flex-1 text-amber-600">Kontra</div>
               </div>
-              {r.games.map(g => <GameRow key={g.number} game={g} />)}
+              {r.games.map(g => (
+                <GameRow
+                  key={g.number}
+                  game={g}
+                  onEdit={g.editable ? () => navigate(`/spiel/${g.id}/bearbeiten`) : null}
+                />
+              ))}
             </div>
           ))
         )}

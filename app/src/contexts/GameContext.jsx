@@ -145,11 +145,12 @@ function logConsistencyFallback({ violations, action, state }) {
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
-export function GameProvider({ children, initialParticipants }) {
+export function GameProvider({ children, initialParticipants, initialGameState }) {
   // Ref statt State für participants: wird in Mutation-Callbacks gebraucht ohne
   // stale-closure-Probleme. Wird von resetForNextGame() synchron aktualisiert.
   const participantsRef = useRef(initialParticipants)
-  const [gameState, setGameState] = useState(() => initGameState(initialParticipants))
+  // initialGameState befüllt den Edit-Modus mit einem gespeicherten Spiel; sonst leer.
+  const [gameState, setGameState] = useState(() => initialGameState ?? initGameState(initialParticipants))
 
   // Zentraler Auflösungs-Dialog: null = keiner offen. Liegt hier (nicht in einer
   // Ansicht), damit Tisch- und Block-Ansicht denselben Dialog teilen (P7).

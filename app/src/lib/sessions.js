@@ -74,7 +74,7 @@ export async function loadSessions() {
 export async function loadSessionGames(sessionId) {
   const { data, error } = await supabase
     .from('rounds')
-    .select('number, games(number, game_type, farbe, game_results(player_id, partei, zaehlopunkte, sonderrolle, players(name, avatar_url)), announcements(player_id, typ), special_points(player_id, typ, loser_id))')
+    .select('number, games(id, number, game_type, farbe, augen_re, game_results(player_id, partei, zaehlopunkte, sonderrolle, players(name, avatar_url)), announcements(player_id, typ), special_points(player_id, typ, loser_id))')
     .eq('session_id', sessionId)
     .order('number')
 
@@ -103,9 +103,11 @@ export async function loadSessionGames(sessionId) {
 
           const active = (g.game_results ?? []).filter(gr => gr.partei !== 'ausgesetzt')
           return {
+            id:       g.id,
             number:   g.number,
             gameType: g.game_type,
             farbe:    g.farbe,
+            editable: g.augen_re != null,   // nur app-erfasste Spiele (exakte Augen) editierbar
             re:       active.filter(gr => gr.partei === 're').map(buildPlayer),
             kontra:   active.filter(gr => gr.partei === 'kontra').map(buildPlayer),
           }

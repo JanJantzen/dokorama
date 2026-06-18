@@ -10,6 +10,7 @@ import PlayersPage from '@/pages/PlayersPage'
 import SessionPage from '@/pages/SessionPage'
 import SessionResultPage from '@/pages/SessionResultPage'
 import SessionDetailsPage from '@/pages/SessionDetailsPage'
+import EditGamePage from '@/pages/EditGamePage'
 import StartSessionPage from '@/pages/StartSessionPage'
 
 // AppLayout liest die aktuelle URL und entscheidet ob die Tab-Bar sichtbar ist
@@ -32,6 +33,7 @@ function AppLayout() {
           <Route path="/partie/:id"         element={<SessionPage />}        />
           <Route path="/partie/:id/ergebnis" element={<SessionResultPage />} />
           <Route path="/partie/:id/details" element={<SessionDetailsPage />} />
+          <Route path="/spiel/:gameId/bearbeiten" element={<EditGamePage />} />
         </Routes>
         {showTabBar && <TabBar />}
       </div>

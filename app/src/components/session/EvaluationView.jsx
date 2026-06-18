@@ -210,6 +210,7 @@ export default function EvaluationView({
   onConfirm,     // () → void – speichert und nächstes Spiel
   onBack,        // () → void – zurück zum Tischscreen
   saving,        // boolean
+  confirmLabel = 'Bestätigen – nächstes Spiel', // im Edit-Modus z.B. "Speichern"
 }) {
   if (!result) return null
 
@@ -310,7 +311,7 @@ export default function EvaluationView({
           disabled={saving}
           className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold text-base disabled:opacity-50"
         >
-          {saving ? 'Wird gespeichert…' : 'Bestätigen – nächstes Spiel'}
+          {saving ? 'Wird gespeichert…' : confirmLabel}
         </button>
       </div>
     </div>

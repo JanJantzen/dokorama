@@ -9,7 +9,9 @@ import { supabase } from '@/lib/supabase'
 import { calcSeatStatus } from '@/lib/seatUtils'
 import { loadRoundProgress } from '@/lib/rounds'
 
-const SessionContext = createContext(null)
+// Exportiert, damit der Edit-Modus (EditGamePage) einen schlanken eigenen Context-Wert
+// bereitstellen kann (nur participants + showEvaluation, mehr braucht TableView nicht).
+export const SessionContext = createContext(null)
 
 export function SessionProvider({ children, sessionId }) {
   const [sessionData,    setSessionData]    = useState(null)
