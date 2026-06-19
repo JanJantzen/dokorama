@@ -12,7 +12,7 @@
 
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Ratio, LayoutList, Trophy, Menu, ArrowLeft, X } from 'lucide-react'
+import { Ratio, LayoutList, Trophy, Menu, X } from 'lucide-react'
 import { SessionProvider, useSession } from '@/contexts/SessionContext'
 import { GameProvider, useGame, buildCalculationInput } from '@/contexts/GameContext'
 import { supabase } from '@/lib/supabase'
@@ -23,6 +23,7 @@ import Scoreboard from '@/components/session/Scoreboard'
 import RoundEndView from '@/components/session/RoundEndView'
 import ConsistencyDialog from '@/components/session/ConsistencyDialog'
 import { loadRoundProgress } from '@/lib/rounds'
+import { saveDraft, clearDraft } from '@/lib/draft'
 
 function formatDate(dateStr) {
   if (!dateStr) return ''
@@ -44,27 +45,29 @@ const overlayStyle = {
 
 // ─── Hamburger-Menü ────────────────────────────────────────────────────────────
 
-function SessionMenu({ onClose, onEndSession, onResetGame, onMainMenu }) {
-  const greyItems = ['Tischordnung', 'Statistiken']
+function SessionMenu({ onClose, onMainMenu, onScoreboard, onEditGames, onResetGame, onEndSession }) {
+  const sectionCls = 'px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70'
+  const itemCls    = 'w-full px-4 py-3 text-sm text-left active:bg-muted'
+  const greyCls    = 'px-4 py-3 text-sm text-muted-foreground/40'   // noch ohne Funktion
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
-      <div className="fixed top-16 right-4 z-50 bg-card rounded-2xl shadow-xl overflow-hidden min-w-[200px]">
-        <button onClick={onMainMenu} className="w-full px-4 py-3 text-sm text-left active:bg-muted border-b border-border">
-          Hauptmenü
-        </button>
-        {greyItems.map((label, i) => (
-          <div key={label} className={`px-4 py-3 text-sm text-muted-foreground/40 ${i < greyItems.length - 1 ? 'border-b border-border' : ''}`}>
-            {label}
-          </div>
-        ))}
-        <div className="border-t border-border" />
-        <button onClick={onResetGame} className="w-full px-4 py-3 text-sm text-left text-amber-600 active:bg-muted border-b border-border">
-          Spiel zurücksetzen
-        </button>
-        <button onClick={onEndSession} className="w-full px-4 py-3 text-sm text-left text-destructive active:bg-muted">
-          Partie beenden
-        </button>
+      <div className="fixed top-16 right-4 z-50 bg-card rounded-2xl shadow-xl overflow-hidden min-w-[220px] divide-y divide-border">
+        <div>
+          <button onClick={onMainMenu} className={itemCls}>zum Hauptmenü</button>
+          <div className={greyCls}>Statistiken</div>
+        </div>
+        <div>
+          <div className={sectionCls}>Aktuelles Spiel</div>
+          <button onClick={onResetGame} className={itemCls}>Spiel zurücksetzen</button>
+        </div>
+        <div>
+          <div className={sectionCls}>Aktuelle Partie</div>
+          <button onClick={onScoreboard} className={itemCls}>Aktueller Spielstand</button>
+          <div className={greyCls}>Tischordnung</div>
+          <button onClick={onEditGames} className={itemCls}>Vorherige Spiele bearbeiten</button>
+          <button onClick={onEndSession} className={itemCls}>Partie beenden</button>
+        </div>
       </div>
     </>
   )
@@ -125,6 +128,7 @@ function EndSessionScreen({ sessionData, roundData, participantCount, onClose })
         await supabase.from('rounds').delete().eq('id', roundData.id)
       }
       await supabase.from('sessions').update({ status: 'abgeschlossen' }).eq('id', sessionData.id)
+      clearDraft(sessionData.id)
       navigate('/')
     } catch (err) { console.error(err); setWorking(false) }
   }
@@ -134,6 +138,7 @@ function EndSessionScreen({ sessionData, roundData, participantCount, onClose })
     setWorking(true)
     try {
       await supabase.from('sessions').delete().eq('id', sessionData.id)
+      clearDraft(sessionData.id)
       navigate('/')
     } catch (err) { console.error(err); setWorking(false) }
   }
@@ -405,6 +410,12 @@ function SessionPageInner() {
   const [showRoundEnd,    setShowRoundEnd]    = useState(false)
   const [advancing,       setAdvancing]       = useState(false)
 
+  // Laufendes (noch nicht bestätigtes) Spiel lokal sichern – überlebt Navigation
+  // (Bearbeiten, Hauptmenü) und Seiten-Reload. Erst beim Bestätigen geht's in die DB.
+  useEffect(() => {
+    if (sessionData?.id) saveDraft(sessionData.id, gameNumber, gameState)
+  }, [gameState, gameNumber, sessionData])
+
   // Spiel in DB speichern, GameState zurücksetzen, nächstes Spiel starten
   async function handleConfirm() {
     setSaving(true)
@@ -446,6 +457,7 @@ function SessionPageInner() {
       // statt direkt das nächste Spiel. Das Spiel ist gespeichert; wie es weitergeht
       // (nächste Runde / Partie beenden) entscheidet der/die Nutzer:in.
       const { isComplete, announcedSolos } = await loadRoundProgress(roundData.id, participants.length)
+      clearDraft(sessionData.id)
       if (isComplete) {
         // Auswertungs-Screen verlassen (sonst bliebe er aktiv im Hintergrund) und
         // den Runden-Übergang zeigen. Das Spiel ist bereits gespeichert.
@@ -478,6 +490,7 @@ function SessionPageInner() {
     setAdvancing(true)
     try {
       const seated = await advanceToNextRound()
+      clearDraft(sessionData.id)
       resetForNextGame(seated)
       setShowRoundEnd(false)
       backToErfassung()
@@ -496,6 +509,7 @@ function SessionPageInner() {
 
   // GameContext-Zustand auf Initialstand zurücksetzen (keine DB-Änderung)
   function handleResetConfirm() {
+    clearDraft(sessionData.id)
     resetCurrentGame()
     if (activeView === 'evaluate') backToErfassung()
     setShowResetScreen(false)
@@ -516,8 +530,8 @@ function SessionPageInner() {
       {/* ─── Header ─────────────────────────────────────────────────────── */}
       <header className="shrink-0 flex items-center justify-between px-4 pt-12 pb-3 bg-background border-b border-border z-10">
 
-        <button onClick={() => navigate('/')} className="p-1.5 text-muted-foreground w-10">
-          <ArrowLeft size={20} />
+        <button onClick={() => navigate('/')} className="p-1.5 text-muted-foreground w-10" title="Erfassung schließen">
+          <X size={20} />
         </button>
 
         <div className="text-center flex-1 min-w-0">
@@ -595,8 +609,10 @@ function SessionPageInner() {
         <SessionMenu
           onClose={() => setShowMenu(false)}
           onMainMenu={() => { setShowMenu(false); navigate('/') }}
-          onEndSession={() => { setShowMenu(false); setShowEndScreen(true) }}
+          onScoreboard={() => { setShowMenu(false); setShowScoreboard(true) }}
+          onEditGames={() => { setShowMenu(false); navigate(`/partie/${sessionData.id}/details`) }}
           onResetGame={() => { setShowMenu(false); setShowResetScreen(true) }}
+          onEndSession={() => { setShowMenu(false); setShowEndScreen(true) }}
         />
       )}
 
@@ -631,7 +647,7 @@ function SessionPageInner() {
 
 function SessionPageContent() {
   const navigate = useNavigate()
-  const { loading, participants, noActiveRound } = useSession()
+  const { loading, participants, noActiveRound, initialGameState } = useSession()
   if (loading) {
     return <div className="flex items-center justify-center h-screen text-muted-foreground">Lade…</div>
   }
@@ -646,7 +662,7 @@ function SessionPageContent() {
     )
   }
   return (
-    <GameProvider initialParticipants={participants}>
+    <GameProvider initialParticipants={participants} initialGameState={initialGameState}>
       <SessionPageInner />
     </GameProvider>
   )

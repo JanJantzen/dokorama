@@ -8,6 +8,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { supabase } from '@/lib/supabase'
 import { calcSeatStatus } from '@/lib/seatUtils'
 import { loadRoundProgress } from '@/lib/rounds'
+import { loadDraft } from '@/lib/draft'
 
 // Exportiert, damit der Edit-Modus (EditGamePage) einen schlanken eigenen Context-Wert
 // bereitstellen kann (nur participants + showEvaluation, mehr braucht TableView nicht).
@@ -20,6 +21,7 @@ export function SessionProvider({ children, sessionId }) {
   const [gameNumber,     setGameNumber]     = useState(1)
   const [loading,        setLoading]        = useState(true)
   const [noActiveRound,  setNoActiveRound]  = useState(false) // Partie ohne laufende Runde (nicht spielbar)
+  const [initialGameState, setInitialGameState] = useState(null) // lokaler Entwurf des laufenden Spiels (falls vorhanden)
 
   // erfassungsView: welche Erfassungs-Ansicht der Nutzer zuletzt gewählt hat ('table' | 'block')
   // activeView: was gerade angezeigt wird – kann auch 'evaluate' sein
@@ -61,6 +63,8 @@ export function SessionProvider({ children, sessionId }) {
       setRoundData(round)
       setParticipants(calcSeatStatus(parts, nextGameNum, announcedSolos))
       setGameNumber(nextGameNum)
+      // Lokalen Entwurf des laufenden Spiels wiederherstellen (falls zur Spielnummer passend)
+      setInitialGameState(loadDraft(sessionId, nextGameNum))
       setLoading(false)
     }
     load()
@@ -128,7 +132,7 @@ export function SessionProvider({ children, sessionId }) {
 
   return (
     <SessionContext.Provider value={{
-      sessionData, roundData, participants, gameNumber, loading, noActiveRound,
+      sessionData, roundData, participants, gameNumber, loading, noActiveRound, initialGameState,
       erfassungsView, activeView,
       switchErfassungsView, showEvaluation, backToErfassung,
       evalResult, saving, setSaving,
