@@ -776,13 +776,14 @@ export function buildSwipeDialog({ state, participants, aId, bId, resolve }) {
 // C.3.2 – Sonderpunkt-Obergrenze erreicht (Spiel-Kontingent erschöpft, Teil 4)
 //
 // Die Sonderpunkt-Kontingente sind TISCHWEIT (Invariante I11, B.3.1): Fuchs ≤ 2,
-// Karlchen gemacht ≤ 1, Karlchen gefangen ≤ 1, Doppelkopf ≤ 4. Ist das Kontingent
-// voll und jemand will denselben Typ noch eintragen, greift dieser Dialog (P5).
-// Vier Fälle, ein Grundmuster (Abbrechen + Verdrängungs-Optionen), aber verschieden
-// in Optionenzahl und Identifikation:
+// Karlchen gemacht ≤ 1, Karlchen gefangen ≤ 2, Doppelkopf ≤ 4. Zusätzliches
+// kombiniertes Limit: Karlchen gemacht + Karlchen gefangen ≤ 2 (nur 2 Kreuz-Buben).
+// Ist das Kontingent voll und jemand will denselben Typ noch eintragen, greift
+// dieser Dialog (P5). Vier Fälle, ein Grundmuster (Abbrechen + Verdrängungs-
+// Optionen), aber verschieden in Optionenzahl und Identifikation:
 //   • Fuchs             – je gefangenem Fuchs eine „Statt"-Option (Fänger + Bestohlene/r)
-//   • Karlchen gemacht  – „Korrektur" (kein Bestohlener)
-//   • Karlchen gefangen – „Korrektur" + „von wem"-Nachfassen
+//   • Karlchen gemacht  – „Korrektur" (kein Bestohlener) + Fall D (2× gefangen → kombiniertes Limit)
+//   • Karlchen gefangen – 3 Unterfälle: B (2× gefangen), C (kombiniertes Limit 1+1)
 //   • Doppelkopf        – je Spieler mit ≥1 eine „Statt"-Option (Person + Anzahl)
 //
 // Gefangene Punkte (Fuchs / Karlchen gefangen): die gewählte Option LÖSCHT den alten
@@ -827,52 +828,120 @@ export function buildSpecialPointQuotaDialog({ action, state, participants, comm
     }
   }
 
-  // ── Karlchen gemacht (max. 1) – „Korrektur" (kein Bestohlener). ──────────────
+  // ── Karlchen gemacht (max. 1) – zwei mögliche Auslöser:
+  //    Fall A: ein anderer hat bereits das Karlchen gemacht → Korrektur
+  //    Fall D: kombiniertes Limit erschöpft (2× gefangen, kein Platz mehr für gemacht)
   if (spType === 'karlchen_gemacht') {
-    const old = state.specialPoints.find(sp => sp.type === 'karlchen_gemacht')
-    if (!old) return null
-    return {
-      was:   `${clicker} kann kein Karlchen machen.`,
-      warum: `${nameOf(old.earnerId)} hat das Karlchen bereits gemacht.`,
-      options: [
-        cancel,
-        {
-          label: 'Korrektur',
-          subtitle: [
-            `${nameOf(old.earnerId)} hat kein Karlchen gemacht`,
-            `${clicker} hat das Karlchen gemacht`,
-          ],
-          onSelect: () => {
-            commit({ type: 'removeSpecialPoint', pointId: old.id })
-            commit({ type: 'addSpecialPoint', earnerId, spType: 'karlchen_gemacht', loserId: null })
+    const old    = state.specialPoints.find(sp => sp.type === 'karlchen_gemacht')
+    const caught = state.specialPoints
+      .filter(sp => sp.type === 'karlchen_gefangen')
+      .sort((a, b) => seatOf(a.earnerId) - seatOf(b.earnerId))
+
+    // Fall A: anderer hat Karlchen gemacht → einzelne Korrektur-Option
+    if (old) {
+      return {
+        was:   `${clicker} kann kein Karlchen machen.`,
+        warum: `${nameOf(old.earnerId)} hat das Karlchen bereits gemacht.`,
+        options: [
+          cancel,
+          {
+            label: 'Korrektur',
+            subtitle: [
+              `${nameOf(old.earnerId)} hat kein Karlchen gemacht`,
+              `${clicker} hat das Karlchen gemacht`,
+            ],
+            onSelect: () => {
+              commit({ type: 'removeSpecialPoint', pointId: old.id })
+              commit({ type: 'addSpecialPoint', earnerId, spType: 'karlchen_gemacht', loserId: null })
+            },
           },
-        },
-      ],
+        ],
+      }
     }
+
+    // Fall D: 2× gefangen → kombiniertes Limit (gemacht + gefangen ≤ 2) erschöpft
+    if (caught.length >= 2) {
+      const list = caught.map(sp => `${nameOf(sp.earnerId)} von ${nameOf(sp.loserId)}`).join(', ')
+      return {
+        was:   `${clicker} kann kein Karlchen machen.`,
+        warum: `Das Karlchen-Limit ist erreicht: Beide Karlchen wurden bereits gefangen (${list}).`,
+        options: [
+          cancel,
+          ...caught.map(sp => ({
+            label: `Statt ${nameOf(sp.earnerId)}s Karlchen von ${nameOf(sp.loserId)}`,
+            subtitle: [
+              `${nameOf(sp.earnerId)} hat das Karlchen von ${nameOf(sp.loserId)} nicht gefangen`,
+              `${clicker} hat das Karlchen gemacht`,
+            ],
+            onSelect: () => {
+              commit({ type: 'removeSpecialPoint', pointId: sp.id })
+              commit({ type: 'addSpecialPoint', earnerId, spType: 'karlchen_gemacht', loserId: null })
+            },
+          })),
+        ],
+      }
+    }
+
+    return null
   }
 
-  // ── Karlchen gefangen (max. 1) – „Korrektur" + „von wem"-Nachfassen. ─────────
+  // ── Karlchen gefangen (max. 2) – drei mögliche Auslöser:
+  //    Fall B: Einzelkap erschöpft (2× gefangen bereits, kein dritter möglich)
+  //    Fall C: Kombiniertes Limit erschöpft (1× gemacht + 1× gefangen = 2 total)
   if (spType === 'karlchen_gefangen') {
-    const old = state.specialPoints.find(sp => sp.type === 'karlchen_gefangen')
-    if (!old) return null
-    return {
-      was:   `${clicker} kann kein Karlchen fangen.`,
-      warum: `${nameOf(old.earnerId)} hat das Karlchen bereits gefangen.`,
-      options: [
-        cancel,
-        {
-          label: 'Korrektur',
-          subtitle: [
-            `${nameOf(old.earnerId)} hat das Karlchen nicht gefangen`,
-            `${clicker} hat das Karlchen gefangen (von wem, wird gleich ausgewählt)`,
-          ],
-          onSelect: () => {
-            commit({ type: 'removeSpecialPoint', pointId: old.id })
-            requestLoserSelection(earnerId, 'karlchen_gefangen')
-          },
-        },
-      ],
+    const caught = state.specialPoints
+      .filter(sp => sp.type === 'karlchen_gefangen')
+      .sort((a, b) => seatOf(a.earnerId) - seatOf(b.earnerId))
+    const made = state.specialPoints.filter(sp => sp.type === 'karlchen_gemacht')
+
+    // Fall B: Einzelkap für gefangen erschöpft (2 Fänge bereits eingetragen)
+    if (caught.length >= 2) {
+      const list = caught.map(sp => `${nameOf(sp.earnerId)} von ${nameOf(sp.loserId)}`).join(', ')
+      return {
+        was:   `${clicker} kann kein Karlchen fangen.`,
+        warum: `Beide Karlchen sind schon gefangen (${list}).`,
+        options: [
+          cancel,
+          ...caught.map(sp => ({
+            label: `Statt ${nameOf(sp.earnerId)}s Karlchen von ${nameOf(sp.loserId)}`,
+            subtitle: [
+              `${nameOf(sp.earnerId)} hat das Karlchen von ${nameOf(sp.loserId)} nicht gefangen`,
+              `${clicker} hat das Karlchen gefangen (von wem, wird gleich ausgewählt)`,
+            ],
+            onSelect: () => {
+              commit({ type: 'removeSpecialPoint', pointId: sp.id })
+              requestLoserSelection(earnerId, 'karlchen_gefangen')
+            },
+          })),
+        ],
+      }
     }
+
+    // Fall C: Kombiniertes Limit erschöpft (1× gemacht + 1× gefangen = max. 2 total)
+    if (made.length >= 1 && caught.length >= 1) {
+      const madeEntry   = made[0]
+      const caughtEntry = caught[0]
+      return {
+        was:   `${clicker} kann kein Karlchen fangen.`,
+        warum: `Das Karlchen-Limit ist erreicht: ${nameOf(madeEntry.earnerId)} hat das Karlchen gemacht, ${nameOf(caughtEntry.earnerId)} hat es gefangen (von ${nameOf(caughtEntry.loserId)}). Mehr als 2 Karlchen-Ereignisse sind nicht möglich.`,
+        options: [
+          cancel,
+          {
+            label: `Korrektur: Nicht ${nameOf(caughtEntry.earnerId)}, sondern ${clicker}`,
+            subtitle: [
+              `${nameOf(caughtEntry.earnerId)} hat das Karlchen nicht gefangen`,
+              `${clicker} hat das Karlchen gefangen (von wem, wird gleich ausgewählt)`,
+            ],
+            onSelect: () => {
+              commit({ type: 'removeSpecialPoint', pointId: caughtEntry.id })
+              requestLoserSelection(earnerId, 'karlchen_gefangen')
+            },
+          },
+        ],
+      }
+    }
+
+    return null
   }
 
   // ── Doppelkopf (max. 4) – je Spieler mit ≥1 eine „Statt"-Option (Person +

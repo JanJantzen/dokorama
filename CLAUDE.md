@@ -149,11 +149,14 @@ Erfasst wird: Welche Ansage/Absage von welchem/welcher Spieler:in. Ob das Ziel e
 | Sonderpunkt       | Beschreibung                                                | Erfassung auf Spielerebene                | Mehrfach pro Spiel? |
 | ----------------- | ----------------------------------------------------------- | ----------------------------------------- | ------------------- |
 | Fuchs gefangen    | Karo-Ass des Gegners in einem beliebigen Stich gewonnen     | Wer hat gefangen, wer hat verloren        | Ja (bis zu 2)       |
-| Karlchen gemacht  | Letzten Stich mit dem Kreuz-Buben gemacht                   | Wer hat es gemacht                        | Nein (1 letzter Stich) |
-| Karlchen gefangen | Kreuz-Buben des Gegners im letzten Stich überstochen        | Wer hat gefangen, wer hat verloren        | Nein (1 letzter Stich) |
+| Karlchen gemacht  | Letzten Stich mit dem Kreuz-Buben gemacht                   | Wer hat es gemacht                        | Nein (max. 1)          |
+| Karlchen gefangen | Kreuz-Buben des Gegners im letzten Stich überstochen        | Wer hat gefangen, wer hat verloren        | Ja (max. 2)            |
 | Doppelkopf        | Stich mit 40+ Augen                                         | Wer hat den Stich gemacht                 | Ja (max. 4 pro Spiel) |
 
-**Hinweis:** Karlchen gemacht und Karlchen gefangen können gleichzeitig auftreten – wenn ein Kreuz-Bube den letzten Stich macht und dabei den gegnerischen Kreuz-Buben übersticht.
+**Hinweise zu Karlchen-Limits (validiert mit Robert, 22.6.2026):**
+- Karlchen gemacht und Karlchen gefangen können gleichzeitig auftreten – wenn ein Kreuz-Bube den letzten Stich macht und dabei den gegnerischen Kreuz-Buben übersticht (gemacht = 1, gefangen = 1 → zusammen 2).
+- Karlchen gefangen kann auch zweimal vorkommen – wenn beide gegnerischen Kreuz-Buben im letzten Stich gespielt werden und ein Spieler beide übersticht (gefangen = 2).
+- **Kombiniertes Limit:** Karlchen gemacht + Karlchen gefangen ≤ 2 (es gibt nur 2 Kreuz-Buben im Spiel).
 
 **Sonderpunkte sind teamrelativ:** Eigene Sonderpunkte sind Plus, gegnerische sind Minus. Dadurch können Gewinner in Summe sogar Minuspunkte bekommen.
 
@@ -891,7 +894,7 @@ Neue alternative Erfassungs-UI: nüchterner Schreibblock-Stil, alle Infos auf ei
 | **Gespaltener Arsch**       | Genau 120:120 Augen. Kontra gewinnt, bekommt aber nur „Gegen die Alten" (+1), NICHT „Gewonnen". |
 | **Gruppe (Group)**          | Der Spieler:innen-Pool der zusammen gehört. In V1 nur Jans Runde, perspektivisch mehrere. |
 | **Hochzeit**                | Ein:e Spieler:in hat beide Kreuz-Damen und sucht eine:n Partner:in. Erfasst: wer hatte die Hochzeit (Code: `hochzeit`), wer hat eingeheiratet (Code: `eingeheiratet`). |
-| **Karlchen**                | Kreuz-Bube – „gemacht" wenn er den letzten Stich macht, „gefangen" wenn er dabei überstochen wird. Beides kann gleichzeitig auftreten. Die Skill-Kennzahl unter den Sonderpunkten. |
+| **Karlchen**                | Kreuz-Bube – „gemacht" wenn er den letzten Stich macht (max. 1×), „gefangen" wenn er dabei überstochen wird (max. 2×). Karlchen gefangen 2× ist möglich wenn beide gegnerischen Kreuz-Buben im letzten Stich gespielt und überstochen werden. Kombiniertes Limit: gemacht + gefangen ≤ 2. Die Skill-Kennzahl unter den Sonderpunkten. |
 | **Kontra**                  | Das gegnerische Team. Gewinnt bei 120:120 („Gespaltener Arsch"), bekommt dann aber nur „Gegen die Alten", nicht „Gewonnen". |
 | **n:m-Beziehung**           | Viele-zu-viele: Ein:e Spieler:in kann in mehreren Gruppen sein, eine Gruppe kann viele Spieler:innen haben. Wird über eine Verknüpfungstabelle aufgelöst. |
 | **Normierung**              | Statistik-Werte umgerechnet auf „pro 4 Runden" (Standard-Abend) oder „pro mitgespieltem Spiel", um unterschiedliche Anwesenheit auszugleichen. |

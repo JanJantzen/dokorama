@@ -412,12 +412,14 @@ function checkI10(state, active) {
 }
 
 // I11 – Sonderpunkt-Kontingente pro Spiel (TISCHWEIT, nicht pro Person):
-// Fuchs ≤ 2, Karlchen gemacht ≤ 1, Karlchen gefangen ≤ 1, Doppelkopf ≤ 4.
+// Fuchs ≤ 2, Karlchen gemacht ≤ 1, Karlchen gefangen ≤ 2, Doppelkopf ≤ 4.
+// Zusätzlich: Karlchen gemacht + Karlchen gefangen ≤ 2 (nur 2 Kreuz-Buben im Spiel).
 function checkI11(state) {
-  const caps = { fuchs_gefangen: 2, karlchen_gemacht: 1, karlchen_gefangen: 1, doppelkopf: 4 }
+  const caps = { fuchs_gefangen: 2, karlchen_gemacht: 1, karlchen_gefangen: 2, doppelkopf: 4 }
   const counts = {}
   for (const sp of state.specialPoints) counts[sp.type] = (counts[sp.type] ?? 0) + 1
   for (const [type, cap] of Object.entries(caps)) if ((counts[type] ?? 0) > cap) return false
+  if ((counts.karlchen_gemacht ?? 0) + (counts.karlchen_gefangen ?? 0) > 2) return false
   return true
 }
 

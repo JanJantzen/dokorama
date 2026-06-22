@@ -174,7 +174,7 @@ Spielern** (zwei pro Team). Aussetzer sind auf Spielebene irrelevant.
 | I8 | Pro Spiel **höchstens ein** Sonderspiel. | B.4.1 |
 | I9 | Ein Sonderspiel ist **unteilbar**: seine Rollen existieren vollständig oder gar nicht. | B.4.5 |
 | I10 | Die durch ein Sonderspiel erzwungene Partei-Zuordnung (Solist/Hochzeit/Armut = Re, Gegner = Kontra) darf nicht überschrieben werden, ohne das Sonderspiel aufzulösen. | B.4.3, B.5.7 |
-| I11 | Sonderpunkt-Kontingente pro Spiel: Fuchs ≤ 2, Karlchen gemacht ≤ 1, Karlchen gefangen ≤ 1, Doppelkopf ≤ 4 (tischweit, nicht pro Person). | B.3.1 |
+| I11 | Sonderpunkt-Kontingente pro Spiel: Fuchs ≤ 2, Karlchen gemacht ≤ 1, Karlchen gefangen ≤ 2, Doppelkopf ≤ 4 (tischweit, nicht pro Person). Zusätzliches kombiniertes Limit: Karlchen gemacht + Karlchen gefangen ≤ 2. | B.3.1 |
 | I12 | „gefangen"-Sonderpunkte (Fuchs/Karlchen) nur gültig, wenn Fänger und Bestohlene/r in **verschiedenen** Teams sind. | B.3.4, B.5.8 |
 | I13 | Augen der Re-Partei (bzw. Min/Max-Range) liegen im Bereich **0–240**. | B.6.2 |
 
@@ -248,11 +248,13 @@ Wird der Konflikt durch eine **Partei-Zuordnung** ausgelöst, sind beide Ansagen
 |-------------|----------------|-------|
 | Fuchs gefangen | **2** | Nur zwei Füchse (Karo-Asse) im Spiel |
 | Karlchen gemacht | **1** | Nur ein letzter Stich |
-| Karlchen gefangen | **1** | Am letzten Stich gebunden |
+| Karlchen gefangen | **2** | Beide Kreuz-Buben können im letzten Stich gespielt und gefangen werden |
 | Doppelkopf | **4** | Max. vier 40+-Stiche (braucht 16 hohe Karten: 8 Asse + 8 Zehnen). Sehr theoretisch, aber reale Grenze; in der App eingebaut. |
 
 Die Grenzen sind Kontingente des **ganzen Spiels**, nicht einer Person. (CLAUDE.md Abschnitt 4 nennt
 Doppelkopf ungenau als „mehrere/ohne Grenze"; korrekt ist 4 – dort bei Gelegenheit nachziehen.)
+
+**Kombiniertes Karlchen-Limit:** Zusätzlich gilt Karlchen gemacht + Karlchen gefangen ≤ 2, da es nur zwei Kreuz-Buben im Spiel gibt. Beispiel: 1× gemacht + 1× gefangen = 2 → Limit erschöpft. 2× gefangen = 2 → Limit erschöpft. 1× gemacht + 2× gefangen wäre 3 → nie möglich.
 
 ### B.3.2 Obergrenze erreicht → einheitliches Muster P5, spielerübergreifend
 Sobald das Kontingent des ganzen Spiels erschöpft ist (egal bei wem), wird der Sonderpunkt **bei allen
@@ -263,21 +265,16 @@ Spielern** nach P5 behandelt: optisch ausgegraut, aber klickbar; Klick → Aufl�
   (Fänger + Bestohlene/r) gelöscht und danach der/die neue Bestohlene erfragt (wie Ersterfassung).
 - **Erklärtext genügt** (z.B. „Es gibt nur zwei Füchse – beide bereits gefangen"); wer sie hat, ist
   am Tisch ohnehin sichtbar.
-- Gilt für Fuchs (ab 2), Karlchen gemacht (ab 1), Karlchen gefangen (ab 1), Doppelkopf (ab 4).
+- Gilt für Fuchs (ab 2), Karlchen gemacht (ab 1), Karlchen gefangen (ab 2 bzw. bei kombiniertem Limit ab 1+1), Doppelkopf (ab 4).
   „Karlchen gemacht" hat keine/n Bestohlene/n, „gefangen" schon – Wording je Fall siehe Katalog
-  (Teil C, C.3.2).
+  (Teil C, C.3.2).(Teil C, C.3.2).
 
-### B.3.3 „Karlchen gemacht" und „Karlchen gefangen" schließen sich NICHT aus (Nicht-Regel!)
+### B.3.3 Karlchen-Kombinationen (Nicht-Ausschluss-Regel + Zwei-Fang-Szenario)
 Alles rund um Karlchen passiert nur im **letzten Stich**.
-- Normalfall: „Karlchen gemacht" ODER Gegenseite fängt → „Karlchen gefangen" (Fänger) + „Karlchen
-  verloren" (anderer).
-- **Sonderfall (korrekt, schon abgebildet):** Beide Kreuzbuben im letzten Stich, der zuerst gelegte
-  gewinnt → **eine Person hat gleichzeitig „Karlchen gemacht" UND „Karlchen gefangen"**, der andere
-  „Karlchen verloren".
-- **Nicht-Regel:** „Karlchen gemacht" und „Karlchen gefangen" dürfen **nicht** als gegenseitig
-  ausschließend behandelt werden – beides bei derselben Person ist erlaubt. (Claude Code: keine
-  Ausschlussregel einbauen.)
-
+- **Normalfall:** „Karlchen gemacht" ODER Gegenseite fängt → „Karlchen gefangen" (Fänger) + „Karlchen verloren" (anderer). Gesamt: 1 Ereignis.
+- **Sonderfall A (1× gemacht + 1× gefangen):** Beide Kreuz-Buben im letzten Stich, der zuerst gelegte gewinnt → **eine Person hat gleichzeitig „Karlchen gemacht" UND „Karlchen gefangen"**, der andere „Karlchen verloren". Gesamt: 2 Ereignisse = kombiniertes Limit.
+- **Sonderfall B (2× gefangen, validiert mit Robert 22.6.2026):** Beide gegnerischen Kreuz-Buben werden im letzten Stich gespielt und von **einer Person** überstochen → 2× „Karlchen gefangen" für dieselbe Person (mit zwei verschiedenen Bestohlenen), 2× „Karlchen verloren". Möglich und korrekt. Gesamt: 2 Ereignisse = kombiniertes Limit.
+- **Nicht-Regel:** „Karlchen gemacht" und „Karlchen gefangen" dürfen **nicht** als gegenseitig ausschließend behandelt werden – beides bei derselben Person ist erlaubt. (Claude Code: keine Ausschlussregel einbauen.)
 ### B.3.4 Partei-Voraussetzung der „gefangen"-Sonderpunkte
 „Fuchs gefangen" und „Karlchen gefangen" setzen voraus, dass Fänger und Bestohlene/r in
 **gegnerischen** Parteien sind (Invariante I12). Der Widerspruch kann aus zwei Richtungen entstehen:
@@ -690,9 +687,9 @@ wohlgeformt und widerspruchsfrei"; Auswertung (`scoreCalculation.js`) = „was b
 ### C.3.2 — Sonderpunkt-Obergrenze erreicht (Spiel-Kontingent erschöpft)
 
 > Vier Sonderpunkt-Typen, dasselbe Grundmuster (Kontingent voll → Abbrechen + „Statt"-Optionen), aber
-> unterschiedlich in Optionenzahl und Identifikation (siehe B.3.1: Fuchs max. 2, Karlchen gemacht/
-> gefangen je max. 1, Doppelkopf max. 4). Reihenfolge mehrerer „Statt"-Optionen: Tischreihenfolge der
-> betroffenen Person.
+> unterschiedlich in Optionenzahl und Identifikation (siehe B.3.1: Fuchs max. 2, Karlchen gemacht
+> max. 1, Karlchen gefangen max. 2, kombiniertes Karlchen-Limit 2, Doppelkopf max. 4). Reihenfolge
+> mehrerer „Statt"-Optionen: Tischreihenfolge der betroffenen Person.
 
 **Fall A — Fuchs (max. 2 erschöpft):**
 
@@ -733,23 +730,43 @@ wohlgeformt und widerspruchsfrei"; Auswertung (`scoreCalculation.js`) = „was b
 - Robert hat kein Karlchen gemacht
 - Dani hat das Karlchen gemacht
 
-**Fall C — Karlchen gefangen (max. 1):**
+**Fall C — Karlchen gefangen (max. 2, kombiniertes Limit ≤ 2):**
 
-> Wie Fall B, aber „gefangen" hat eine/n Bestohlene/n – daher das „von wem"-Nachfassen.
+> Drei mögliche Auslöser – je nach Situation unterschiedliche Dialoge:
+
+**Unterfall C1 — Einzelkap erschöpft (2× gefangen bereits eingetragen):**
 
 **Meldung:**
 > Dani kann kein Karlchen fangen.
-> Robert hat das Karlchen bereits gefangen.
+> Beide Karlchen sind schon gefangen (Robert von Jan, Kathrin von Sophia).
 
 **Option 1 — Abbrechen**
 - Ohne Änderung zurück.
 
-**Option 2 — Korrektur**
-- Robert hat das Karlchen nicht gefangen
+**Option 2 — Statt Roberts Karlchen von Jan**
+- Robert hat das Karlchen von Jan nicht gefangen
 - Dani hat das Karlchen gefangen (von wem, wird gleich ausgewählt)
 
-> **Claude Code:** Die Option löscht den alten Fang (Fänger + Bestohlene/n) komplett und legt Dani als
-> neue/n Fänger/in an; danach wird die Bestohlenen-Auswahl ausgelöst (wie Ersterfassung).
+**Option 3 — Statt Kathrins Karlchen von Sophia**
+- Kathrin hat das Karlchen von Sophia nicht gefangen
+- Dani hat das Karlchen gefangen (von wem, wird gleich ausgewählt)
+
+> **Claude Code:** Pro bestehendem Fang eine „Statt"-Option (wie Fuchs). Die gewählte Option löscht den alten Fang und löst die Bestohlenen-Auswahl aus.
+
+**Unterfall C2 — Kombiniertes Limit (1× gemacht + 1× gefangen = 2 total):**
+
+**Meldung:**
+> Dani kann kein Karlchen fangen.
+> Das Karlchen-Limit ist erreicht: Robert hat das Karlchen gemacht, Kathrin hat es gefangen (von Jan). Mehr als 2 Karlchen-Ereignisse sind nicht möglich.
+
+**Option 1 — Abbrechen**
+- Ohne Änderung zurück.
+
+**Option 2 — Korrektur: Nicht Kathrin, sondern Dani**
+- Kathrin hat das Karlchen nicht gefangen
+- Dani hat das Karlchen gefangen (von wem, wird gleich ausgewählt)
+
+> **Claude Code:** Nur die bestehende „gefangen"-Eintragung ist tauschbar (das „gemacht" bleibt). Option löscht den alten Fang und löst die Bestohlenen-Auswahl aus.
 
 **Fall D — Doppelkopf (max. 4 erschöpft; verteilt auf 1–3 Spieler):**
 
