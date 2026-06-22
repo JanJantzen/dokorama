@@ -177,7 +177,18 @@ Aus Sicht des Gewinners (wer der Gewinner ist, ergibt sich aus den Augen UND den
 - Schwarz geschafft: +1
 - Schwarz angesagt und geschafft: +1
 
-**Gescheiterte Absagen:** Wenn eine Absage nicht erreicht wird, verliert die ansagende Partei. Die Grundpunkte drehen sich dann: Der Gegner bekommt Punkte für die gescheiterte Absage UND für den Sieg. Die ansagende Partei wird für jede Ansage bestraft.
+**Gescheiterte Absagen** (validiert mit Robert, 22.6.2026):
+
+Wenn eine Absage nicht erreicht wird, verliert die ansagende Partei das Spiel – unabhängig von den Augen.
+
+- **Gewonnen: +1 immer** – auch wenn die Gewinnerpartei weniger als 120 Augen hat (sie gewinnt ja durch das Scheitern der Gegner, nicht durch Augen).
+- **Pro gescheiterter Absage: +2 für den Gewinner** – aufgeteilt in „[Absage] abgesagt" (+1) und „Absage gescheitert" (+1). Beispiel K60: „Keine 60 abgesagt" (+1) + „Absage gescheitert" (+1) = 2 Punkte.
+- **Übersprungene (nicht deklarierte) Absagen geben keine Punkte** – auch wenn sie augenmäßig erreichbar gewesen wären. Beispiel: Nur K60 deklariert (und gescheitert), K90 übersprungen → nur K60 gibt 2 Punkte, K90 gibt 0.
+- **Deklarierte und augenmäßig erreichte Absagen des Verlierers gehen an den Gewinner** – je 2 Punkte (1 für Errungenschaft + 1 für Deklaration). Testfall 11: K90 wurde von Re deklariert und erreicht (Kontra hatte 70 Augen < 90), K60 scheiterte → Kontra bekommt sowohl die K90-Punkte (+2) als auch die K60-Strafe (+2).
+- **Die Verliererpartei bekommt keine Pluspunkte** – auch nicht für eigene Absagen die augenmäßig erreicht wurden.
+- **Eigene Errungenschaften des Gewinners zählen normal** – wenn der Gewinner selbst über 120 Augen erzielt hat (regulärer Sieg) und seine eigene Augenzahl z.B. K90 ergibt, bekommt er dafür die normalen Punkte zusätzlich.
+
+Merksatz: Im Scheiterns-Fall kippen alle deklarierten Absagen des Verlierers zum Gewinner (+2 je Stufe, egal ob erreicht oder gescheitert). Nicht deklarierte Stufen zählen für niemanden.
 
 **Gespaltener Arsch (genau 120:120):** Kontra gewinnt, bekommt aber nur „Gegen die Alten" (+1), NICHT „Gewonnen".
 

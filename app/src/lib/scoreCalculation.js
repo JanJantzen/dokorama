@@ -61,7 +61,6 @@ function getAchievedDeclarations(party, reEyes) {
 // Rückgabe:
 //   { winner, spielwert, isTie, perPlayer, breakdown }
 export function calculateGameResult({ reEyes, gameType, announcements, specialPoints, playerResults }) {
-  const kontraEyes = 240 - reEyes
   const solo = isSolo(gameType)
 
   // --- 1. Gescheiterte Absagen ermitteln ---
@@ -83,11 +82,12 @@ export function calculateGameResult({ reEyes, gameType, announcements, specialPo
   const kontraAnnouncedAndAchieved = kontraAchieved.filter(t => announcements.some(a => a.party === 'kontra' && a.type === t))
 
   // Aufteilung in Gewinner- und Verlierer-Seite
-  const winnerAchieved            = winner === 're' ? reAchieved            : kontraAchieved
-  const winnerAnnouncedAchieved   = winner === 're' ? reAnnouncedAndAchieved : kontraAnnouncedAndAchieved
-  const loserAchieved             = winner === 're' ? kontraAchieved          : reAchieved
-  const loserAnnouncedAchieved    = winner === 're' ? kontraAnnouncedAndAchieved : reAnnouncedAndAchieved
-  const loserFailed               = winner === 're' ? kontraFailed            : reFailed
+  const winnerAchieved          = winner === 're' ? reAchieved             : kontraAchieved
+  const winnerAnnouncedAchieved = winner === 're' ? reAnnouncedAndAchieved  : kontraAnnouncedAndAchieved
+  // Nur deklarierte UND erreichte Absagen des Verlierers zählen – nicht-deklarierte
+  // (übersprungene) Stufen geben keine Punkte, auch wenn augenmäßig erreichbar (Regel d)
+  const loserAnnouncedAchieved  = winner === 're' ? kontraAnnouncedAndAchieved : reAnnouncedAndAchieved
+  const loserFailed             = winner === 're' ? kontraFailed             : reFailed
 
   // --- 4. Grundpunkte berechnen (immer aus Sicht des Gewinners) ---
   let basePoints = 0
@@ -130,22 +130,22 @@ export function calculateGameResult({ reEyes, gameType, announcements, specialPo
       basePoints += 1
     }
 
-    // Erreichte Absagen des Verlierers zählen ebenfalls für den Gewinner
-    for (const type of loserAchieved) {
+    // Deklarierte und augenmäßig erreichte Absagen des Verlierers gehen an den Gewinner:
+    // je +1 für die Errungenschaft und +1 für die Deklaration = 2 Punkte pro Stufe.
+    // Übersprungene (nicht deklarierte) Stufen geben keine Punkte (Regel d).
+    for (const type of loserAnnouncedAchieved) {
       breakdown.push({ label: `${ABSAGE_LABELS[type]} (Gegner)`, points: 1 })
       basePoints += 1
-    }
-
-    // Angesagte UND erreichte Absagen des Verlierers
-    for (const type of loserAnnouncedAchieved) {
       breakdown.push({ label: `${ABSAGE_LABELS[type]} angesagt (Gegner)`, points: 1 })
       basePoints += 1
     }
 
-    // Gescheiterte Absagen des Verlierers: +2 für Gewinner (Deklarationsstrafe)
+    // Gescheiterte Absagen des Verlierers: „[Absage] abgesagt" (+1) + „Absage gescheitert" (+1)
     for (const type of loserFailed) {
-      breakdown.push({ label: `${ABSAGE_LABELS[type]} angesagt und gescheitert`, points: 2 })
-      basePoints += 2
+      breakdown.push({ label: `${ABSAGE_LABELS[type]} abgesagt`, points: 1 })
+      basePoints += 1
+      breakdown.push({ label: 'Absage gescheitert', points: 1 })
+      basePoints += 1
     }
   }
 
