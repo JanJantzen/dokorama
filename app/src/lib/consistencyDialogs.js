@@ -1011,23 +1011,21 @@ export function buildSameTeamCatchDialog({ action, participants }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // C.3.5 – Karlchen-Fänger-Konsistenz (Invariante I14)
 //
-// Nur wer den letzten Stich macht, kann Karlchen fangen. Deshalb:
-// • Alle karlchen_gefangen-Einträge müssen denselben earnerId haben.
-// • Wenn 2× gefangen, müssen die Bestohlenen verschieden sein.
-//
-// Ausgelöst wenn: jemand anderes als der bereits eingetragene Fänger versucht,
-// ein Karlchen zu fangen. Der Fänger-Wechsel ist die einzige Auflösung.
+// Zwei Sub-Fälle:
+// • Sub-Fall A (anderer Fänger): jemand anderes als der eingetragene Fänger tippt.
+//   → „Nur wer den letzten Stich macht, kann fangen – das ist [Name]." + Korrektur.
+// • Sub-Fall B (gleicher Loser): derselbe Fänger versucht dieselbe Person zweimal
+//   als Bestohlene zu wählen. → Hinweis-Dialog, Picker bleibt offen (wie C.3.4).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function buildKarlchenSingleCatcherDialog({ action, state, participants, commit, requestLoserSelection }) {
-  const { earnerId } = action
+  const { earnerId, loserId } = action
   const active  = participants.filter(p => !p.isSitting)
   const seatOf  = id => active.find(p => p.player_id === id)?.seat_position ?? 0
   const nameOf  = id => active.find(p => p.player_id === id)?.players.name ?? '?'
   const clicker = nameOf(earnerId)
   const cancel  = { label: 'Abbrechen', subtitle: 'Ohne Änderung zurück.' }
 
-  // Alle bestehenden Fänge – haben alle denselben earnerId (per I14-Verletzung mindestens einer anders)
   const caught = state.specialPoints
     .filter(sp => sp.type === 'karlchen_gefangen')
     .sort((a, b) => seatOf(a.earnerId) - seatOf(b.earnerId))
@@ -1035,6 +1033,18 @@ export function buildKarlchenSingleCatcherDialog({ action, state, participants, 
   if (caught.length === 0) return null
   const existingCatcher = caught[0].earnerId
 
+  // Sub-Fall B: gleicher Fänger, gleiche Bestohlene → Hinweis, Picker bleibt offen
+  if (earnerId === existingCatcher && loserId) {
+    return {
+      was:   `${clicker} kann kein zweites Karlchen von ${nameOf(loserId)} fangen.`,
+      warum: `${nameOf(loserId)} hat nur einen Kreuz-Buben – jede Person kann nur einmal als Bestohlene/r auftreten.`,
+      options: [
+        { label: 'Abbrechen', subtitle: 'Anderen Spieler im Picker auswählen.' },
+      ],
+    }
+  }
+
+  // Sub-Fall A: anderer Fänger → Fänger-Wechsel anbieten
   return {
     was:   `${clicker} kann kein Karlchen fangen.`,
     warum: `Nur wer den letzten Stich macht, kann ein Karlchen fangen – und das ist ${nameOf(existingCatcher)}.`,
@@ -1047,7 +1057,6 @@ export function buildKarlchenSingleCatcherDialog({ action, state, participants, 
           `${clicker} hat ein Karlchen gefangen (von wem, wird gleich ausgewählt)`,
         ],
         onSelect: () => {
-          // Alle Einträge des alten Fängers entfernen (kann 1 oder 2 sein)
           for (const sp of caught) commit({ type: 'removeSpecialPoint', pointId: sp.id })
           requestLoserSelection(earnerId, 'karlchen_gefangen')
         },
