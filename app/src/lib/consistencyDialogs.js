@@ -1007,3 +1007,105 @@ export function buildSameTeamCatchDialog({ action, participants }) {
     ],
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C.3.5 – Karlchen-Fänger-Konsistenz (Invariante I14)
+//
+// Nur wer den letzten Stich macht, kann Karlchen fangen. Deshalb:
+// • Alle karlchen_gefangen-Einträge müssen denselben earnerId haben.
+// • Wenn 2× gefangen, müssen die Bestohlenen verschieden sein.
+//
+// Ausgelöst wenn: jemand anderes als der bereits eingetragene Fänger versucht,
+// ein Karlchen zu fangen. Der Fänger-Wechsel ist die einzige Auflösung.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function buildKarlchenSingleCatcherDialog({ action, state, participants, commit, requestLoserSelection }) {
+  const { earnerId } = action
+  const active  = participants.filter(p => !p.isSitting)
+  const seatOf  = id => active.find(p => p.player_id === id)?.seat_position ?? 0
+  const nameOf  = id => active.find(p => p.player_id === id)?.players.name ?? '?'
+  const clicker = nameOf(earnerId)
+  const cancel  = { label: 'Abbrechen', subtitle: 'Ohne Änderung zurück.' }
+
+  // Alle bestehenden Fänge – haben alle denselben earnerId (per I14-Verletzung mindestens einer anders)
+  const caught = state.specialPoints
+    .filter(sp => sp.type === 'karlchen_gefangen')
+    .sort((a, b) => seatOf(a.earnerId) - seatOf(b.earnerId))
+
+  if (caught.length === 0) return null
+  const existingCatcher = caught[0].earnerId
+
+  return {
+    was:   `${clicker} kann kein Karlchen fangen.`,
+    warum: `Nur wer den letzten Stich macht, kann ein Karlchen fangen – und das ist ${nameOf(existingCatcher)}.`,
+    options: [
+      cancel,
+      {
+        label:    `Korrektur: Nicht ${nameOf(existingCatcher)}, sondern ${clicker}`,
+        subtitle: [
+          `${nameOf(existingCatcher)} hat kein Karlchen gefangen`,
+          `${clicker} hat ein Karlchen gefangen (von wem, wird gleich ausgewählt)`,
+        ],
+        onSelect: () => {
+          // Alle Einträge des alten Fängers entfernen (kann 1 oder 2 sein)
+          for (const sp of caught) commit({ type: 'removeSpecialPoint', pointId: sp.id })
+          requestLoserSelection(earnerId, 'karlchen_gefangen')
+        },
+      },
+    ],
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C.3.6 – Karlchen-Earner/Loser-Disjunktheit (Invariante I15)
+//
+// Wer einen Kreuz-Buben im letzten Stich verliert, macht den Stich nicht –
+// und umgekehrt. Deshalb können earner-set und loser-set nicht überlappen.
+//
+// Ausgelöst wenn: jemand, dem bereits ein Karlchen weggefangen wurde, selbst
+// Karlchen gemacht oder gefangen haben möchte. Auflösung: den alten
+// „weggefangen"-Eintrag entfernen.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function buildKarlchenEarnerLoserDialog({ action, state, participants, commit, requestLoserSelection }) {
+  const { earnerId, spType } = action
+  const active  = participants.filter(p => !p.isSitting)
+  const nameOf  = id => active.find(p => p.player_id === id)?.players.name ?? '?'
+  const clicker = nameOf(earnerId)
+  const verb    = spType === 'karlchen_gemacht' ? 'machen' : 'fangen'
+  const cancel  = { label: 'Abbrechen', subtitle: 'Ohne Änderung zurück.' }
+
+  // Der Eintrag, bei dem der Clicker als Bestohlene/r steht
+  const loserEntry = state.specialPoints.find(sp =>
+    sp.type === 'karlchen_gefangen' && sp.loserId === earnerId
+  )
+  if (!loserEntry) return null
+
+  return {
+    was:   `${clicker} kann kein Karlchen ${verb}.`,
+    warum: `${clicker} hat selbst ein Karlchen verloren (${nameOf(loserEntry.earnerId)} hat es gefangen) – wer im letzten Stich einen Kreuz-Buben verliert, macht den Stich nicht.`,
+    options: [
+      cancel,
+      {
+        label:    `Korrektur: ${clicker} hat kein Karlchen verloren`,
+        subtitle: spType === 'karlchen_gefangen'
+          ? [
+              `${nameOf(loserEntry.earnerId)} hat kein Karlchen von ${clicker} gefangen`,
+              `${clicker} hat ein Karlchen gefangen (von wem, wird gleich ausgewählt)`,
+            ]
+          : [
+              `${nameOf(loserEntry.earnerId)} hat kein Karlchen von ${clicker} gefangen`,
+              `${clicker} hat das Karlchen gemacht`,
+            ],
+        onSelect: () => {
+          commit({ type: 'removeSpecialPoint', pointId: loserEntry.id })
+          if (spType === 'karlchen_gefangen') {
+            requestLoserSelection(earnerId, 'karlchen_gefangen')
+          } else {
+            commit({ type: 'addSpecialPoint', earnerId, spType: 'karlchen_gemacht', loserId: null })
+          }
+        },
+      },
+    ],
+  }
+}

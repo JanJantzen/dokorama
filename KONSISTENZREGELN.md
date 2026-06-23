@@ -177,6 +177,8 @@ Spielern** (zwei pro Team). Aussetzer sind auf Spielebene irrelevant.
 | I11 | Sonderpunkt-Kontingente pro Spiel: Fuchs ≤ 2, Karlchen gemacht ≤ 1, Karlchen gefangen ≤ 2, Doppelkopf ≤ 4 (tischweit, nicht pro Person). Zusätzliches kombiniertes Limit: Karlchen gemacht + Karlchen gefangen ≤ 2. | B.3.1 |
 | I12 | „gefangen"-Sonderpunkte (Fuchs/Karlchen) nur gültig, wenn Fänger und Bestohlene/r in **verschiedenen** Teams sind. | B.3.4, B.5.8 |
 | I13 | Augen der Re-Partei (bzw. Min/Max-Range) liegen im Bereich **0–240**. | B.6.2 |
+| I14 | Karlchen-Fänger-Konsistenz: Alle `karlchen_gefangen`-Einträge haben denselben `earnerId` (nur eine Person macht den letzten Stich). Bei 2× gefangen müssen außerdem die Bestohlenen verschieden sein. | B.3.5 |
+| I15 | Karlchen-Earner/Loser-Disjunktheit: earner-set {`karlchen_gemacht`, `karlchen_gefangen`} ∩ loser-set {`karlchen_gefangen.loserId`} = ∅. Wer einen Kreuz-Buben verliert, macht den Stich nicht – und umgekehrt. | B.3.5 |
 
 > **Hinweis Claude Code:** Diese Liste ist sowohl der Pre-Check fürs Ausgrauen (würde ein Klick eine
 > Invariante verletzen?) als auch der finale Gate-Check vor dem Speichern. Verletzt eine Aktion eine
@@ -288,6 +290,27 @@ Alles rund um Karlchen passiert nur im **letzten Stich**.
 - **Durch eine spätere Partei-Änderung:** Geraten ein bereits erfasster Fänger und seine Bestohlene/r
   nachträglich ins selbe Team, werden die Einträge ungültig → Detailbehandlung im Partei-Block
   (B.5.8); umgesetzt als automatischer Drop in jeder partei-ändernden Aktion (C.5.8).
+
+### B.3.5 Karlchen-Fänger-Konsistenz und Earner/Loser-Disjunktheit (I14 + I15)
+
+**I14 – Ein Fänger, verschiedene Bestohlene:**
+Nur wer den letzten Stich macht, kann Karlchen fangen. Daher:
+- Alle `karlchen_gefangen`-Einträge eines Spiels müssen denselben `earnerId` haben.
+- Wenn 2× gefangen, müssen die `loserId`-Werte verschieden sein (jede:r Spieler:in hat nur einen Kreuz-Buben).
+
+Ausgelöst wenn: jemand anderes als der bisherige Fänger versucht, ein Karlchen zu fangen.
+Dialog (C.3.5): „Nur wer den letzten Stich macht, kann ein Karlchen fangen – und das ist [Name]." + Korrektur-Option.
+Das Ausgrauen im „von wem?"-Picker (Constraint: verschiedene Bestohlene) passiert automatisch über `previewSpecialPoint`.
+
+**I15 – Earner/Loser-Disjunktheit:**
+Wer einen Kreuz-Buben im letzten Stich verliert, macht den Stich nicht – und umgekehrt.
+earner-set {`karlchen_gemacht`, `karlchen_gefangen`} ∩ loser-set {`karlchen_gefangen.loserId`} = ∅
+
+Ausgelöst wenn: jemand, dem bereits ein Karlchen weggefangen wurde, selbst `karlchen_gemacht` oder `karlchen_gefangen` einträgt.
+Dialog (C.3.6): „[Name] hat selbst ein Karlchen verloren – wer im letzten Stich einen Kreuz-Buben verliert, macht den Stich nicht." + Korrektur-Option.
+Der „von wem?"-Picker graut Spieler:innen, die bereits als earner eingetragen sind, automatisch aus (`previewSpecialPoint`).
+
+Priorität der Resolver: I15 > I14 > I11 > I12 (spezifischere Regel gewinnt; in `GameContext.jsx` `resolveConflict`).
 
 ---
 
@@ -810,6 +833,53 @@ wohlgeformt und widerspruchsfrei"; Auswertung (`scoreCalculation.js`) = „was b
 
 **Option 1 — Abbrechen**
 - Ohne Änderung zurück.
+
+---
+
+### C.3.5 — Karlchen-Fänger-Konsistenz (B.3.5 / I14)
+
+> Greift wenn eine zweite Person versucht, ein Karlchen zu fangen, obwohl bereits jemand anderes
+> als Fänger eingetragen ist. Nur eine Person macht den letzten Stich. Auflösung: Fänger-Wechsel.
+> (Das Ausgrauen im „von wem?"-Picker für den doppelten-Bestohlenen-Fall läuft automatisch über
+> `previewSpecialPoint` – kein eigener Dialog nötig.)
+
+**Meldung:**
+> Kathrin kann kein Karlchen fangen.
+> Nur wer den letzten Stich macht, kann ein Karlchen fangen – und das ist Robert.
+
+**Option 1 — Abbrechen**
+- Ohne Änderung zurück.
+
+**Option 2 — Korrektur: Nicht Robert, sondern Kathrin**
+- Robert hat kein Karlchen gefangen
+- Kathrin hat ein Karlchen gefangen (von wem, wird gleich ausgewählt)
+
+> **Claude Code:** Alle bestehenden `karlchen_gefangen`-Einträge des alten Fängers werden gelöscht
+> (es können 1 oder 2 sein). Danach `requestLoserSelection` für Kathrin.
+
+---
+
+### C.3.6 — Karlchen-Earner/Loser-Disjunktheit (B.3.5 / I15)
+
+> Greift wenn jemand, dem bereits ein Karlchen weggefangen wurde, selbst Karlchen gefangen oder
+> gemacht haben möchte. Wer einen Kreuz-Buben im letzten Stich verliert, macht den Stich nicht.
+> Auflösung: den alten „weggefangen"-Eintrag entfernen.
+
+**Meldung (Beispiel: Robert versucht zu fangen):**
+> Robert kann kein Karlchen fangen.
+> Robert hat selbst ein Karlchen verloren (Dani hat es gefangen) – wer im letzten Stich einen Kreuz-Buben verliert, macht den Stich nicht.
+
+**Option 1 — Abbrechen**
+- Ohne Änderung zurück.
+
+**Option 2 — Korrektur: Robert hat kein Karlchen verloren**
+- Dani hat kein Karlchen von Robert gefangen
+- Robert hat ein Karlchen gefangen (von wem, wird gleich ausgewählt)
+
+> **Claude Code:** Entfernt den Eintrag, bei dem der Clicker als `loserId` steht. Bei
+> `karlchen_gefangen` dann `requestLoserSelection`; bei `karlchen_gemacht` direkt `addSpecialPoint`.
+> Analog wenn Robert `karlchen_gemacht` versucht – dann lautet die letzte Subtitle-Zeile
+> „Robert hat das Karlchen gemacht".
 
 ---
 

@@ -295,7 +295,7 @@ export function applyAction(state, participants, action) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TEIL 2 – Die Invarianten I1–I13 (A.4 der KONSISTENZREGELN.md)
+// TEIL 2 – Die Invarianten I1–I15 (A.4 der KONSISTENZREGELN.md)
 //
 // Jede Invariante ist eine reine Funktion, die true zurückgibt, wenn der Zustand
 // sie ERFÜLLT (= ok), und false, wenn er sie VERLETZT. checkInvariants() sammelt
@@ -448,6 +448,36 @@ function checkI13(state) {
   return n >= 0 && n <= 240
 }
 
+// I14 – Karlchen-Fänger-Konsistenz: Nur eine Person macht den letzten Stich.
+// (a) Alle karlchen_gefangen-Einträge haben denselben earnerId.
+// (b) Wenn 2× gefangen, müssen die loserId-Werte verschieden sein
+//     (jede:r Spieler:in hat nur einen Kreuz-Buben).
+function checkI14(state) {
+  const caught = state.specialPoints.filter(sp => sp.type === 'karlchen_gefangen')
+  if (caught.length <= 1) return true
+  if (!caught.every(sp => sp.earnerId === caught[0].earnerId)) return false
+  if (caught[0].loserId && caught[1].loserId && caught[0].loserId === caught[1].loserId) return false
+  return true
+}
+
+// I15 – Karlchen-Earner/Loser-Disjunktheit: Wer einen Kreuz-Buben im letzten
+// Stich verliert, macht den Stich nicht – und umgekehrt.
+// earner-set {karlchen_gemacht + karlchen_gefangen} ∩ loser-set {karlchen_gefangen.loserId} = ∅
+function checkI15(state) {
+  const earners = new Set(
+    state.specialPoints
+      .filter(sp => sp.type === 'karlchen_gemacht' || sp.type === 'karlchen_gefangen')
+      .map(sp => sp.earnerId)
+  )
+  const losers = new Set(
+    state.specialPoints
+      .filter(sp => sp.type === 'karlchen_gefangen' && sp.loserId)
+      .map(sp => sp.loserId)
+  )
+  for (const id of earners) if (losers.has(id)) return false
+  return true
+}
+
 // Die Liste in fester Reihenfolge. Jede Invariante kennt ihre Nummer (fürs Log
 // und für die Resolver-Zuordnung in den späteren Teilen).
 const INVARIANTS = [
@@ -463,6 +493,8 @@ const INVARIANTS = [
   { id: 'I11', ok: checkI11 },
   { id: 'I12', ok: checkI12 },
   { id: 'I13', ok: checkI13 },
+  { id: 'I14', ok: checkI14 },
+  { id: 'I15', ok: checkI15 },
 ]
 
 // Prüft alle laufenden Invarianten und gibt die IDs der VERLETZTEN zurück

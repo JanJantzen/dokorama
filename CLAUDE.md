@@ -157,6 +157,9 @@ Erfasst wird: Welche Ansage/Absage von welchem/welcher Spieler:in. Ob das Ziel e
 - Karlchen gemacht und Karlchen gefangen können gleichzeitig auftreten – wenn ein Kreuz-Bube den letzten Stich macht und dabei den gegnerischen Kreuz-Buben übersticht (gemacht = 1, gefangen = 1 → zusammen 2).
 - Karlchen gefangen kann auch zweimal vorkommen – wenn beide gegnerischen Kreuz-Buben im letzten Stich gespielt werden und ein Spieler beide übersticht (gefangen = 2).
 - **Kombiniertes Limit:** Karlchen gemacht + Karlchen gefangen ≤ 2 (es gibt nur 2 Kreuz-Buben im Spiel).
+- **Nur ein Fänger:** Alle Karlchen gefangen-Einträge müssen von derselben Person stammen – nur wer den letzten Stich macht, kann ein Karlchen fangen. Versucht eine zweite Person zu fangen, erscheint ein Korrektur-Dialog (I14).
+- **Verschiedene Bestohlene:** Wenn jemand 2× Karlchen fängt, müssen es von zwei verschiedenen Personen sein – jede:r hat nur einen Kreuz-Buben. Im „von wem?"-Picker wird die bereits gewählte Person automatisch ausgegraut (I14).
+- **Fänger/Verlierer disjunkt:** Wer ein Karlchen verloren hat, kann keines fangen oder machen – und umgekehrt. Button und Picker werden automatisch ausgegraut; bei Tap erscheint ein Korrektur-Dialog (I15).
 
 **Sonderpunkte sind teamrelativ:** Eigene Sonderpunkte sind Plus, gegnerische sind Minus. Dadurch können Gewinner in Summe sogar Minuspunkte bekommen.
 

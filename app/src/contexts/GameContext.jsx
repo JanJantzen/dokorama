@@ -25,6 +25,8 @@ import {
   buildLateDoublingDialog,
   buildSpecialPointQuotaDialog,
   buildSameTeamCatchDialog,
+  buildKarlchenSingleCatcherDialog,
+  buildKarlchenEarnerLoserDialog,
   buildSwipeDialog,
   uniteInDirection,
   buildAbsageKeepDialog,
@@ -300,15 +302,32 @@ export function GameProvider({ children, initialParticipants, initialGameState }
 
     // Teil 4 – Sonderpunkte (B.3 / C.3.2, C.3.4). Das Hinzufügen läuft jetzt durch
     // die Engine. Zwei Konfliktarten, je nach verletzter Invariante:
+    //   • Earner/Loser-Konflikt (I15) → C.3.6: Verlierer versucht zu fangen/machen.
+    //   • Falscher Fänger (I14) → C.3.5: zweite Person versucht Karlchen zu fangen.
     //   • Kontingent erschöpft (I11, tischweit) → C.3.2: „Statt"/„Korrektur", bei
     //     gefangenen Punkten mit „von wem"-Nachfassen (requestLoserSelection).
     //   • gefangener Punkt im eigenen Team (I12) → C.3.4: reiner Hinweis-Dialog.
+    // Priorität: I15 > I14 > I11 > I12 (spezifischere Regel gewinnt).
     if (action.type === 'addSpecialPoint') {
+      const isKarlchen = action.spType === 'karlchen_gemacht' || action.spType === 'karlchen_gefangen'
+      const loserSel   = (earnerId, type) => setPendingLoserSelection({ earnerId, type })
+
+      if (violations.includes('I15') && isKarlchen) {
+        return buildKarlchenEarnerLoserDialog({
+          action, state, participants: participantsRef.current,
+          commit: commitAction, requestLoserSelection: loserSel,
+        })
+      }
+      if (violations.includes('I14') && action.spType === 'karlchen_gefangen') {
+        return buildKarlchenSingleCatcherDialog({
+          action, state, participants: participantsRef.current,
+          commit: commitAction, requestLoserSelection: loserSel,
+        })
+      }
       if (violations.every(v => v === 'I11')) {
         return buildSpecialPointQuotaDialog({
           action, state, participants: participantsRef.current,
-          commit: commitAction,
-          requestLoserSelection: (earnerId, type) => setPendingLoserSelection({ earnerId, type }),
+          commit: commitAction, requestLoserSelection: loserSel,
         })
       }
       if (violations.every(v => v === 'I12')) {
