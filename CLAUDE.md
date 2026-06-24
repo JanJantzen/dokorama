@@ -2,7 +2,7 @@
 
 > Diese Datei ist das zentrale Briefing für jeden Claude-Assistenten, der an diesem Projekt arbeitet.
 > Sie wird bei jeder neuen Sitzung gelesen. Halte sie aktuell.
-> Letzte Aktualisierung: 16. Juni 2026 – Auth-/Schreibrechte-Reihenfolge präzisiert (Abschnitt 3 + 10): Login → lesender Link → **nur Ersteller:in der Partie schreibt** (übertragbar) → zuletzt paralleles Schreiben; **Duplikat-Schutz an die Parallel-Phase gekoppelt** (vorher als V1 geführt). Implementierungs-Notiz `sessions.created_by` beim Login-Bau ergänzt.
+> Letzte Aktualisierung: 22. Juni 2026 – Phase 2 (Roadmap-Punkte 7–17) als ✅ abgeschlossen markiert. Architektur-Fundament abgenommen, Konsistenz-Teile 0–5 nachgezogen, Item-Beschreibungen auf fertig-Stand gebracht.
 > Vorherige Aktualisierung: 15. Juni 2026 – Konsistenzlogik Teil 6 (Fallback + Logging) umgesetzt: persistente DB-Tabelle `consistency_logs` (`database/migration_003_consistency_logs.sql`), `logConsistencyFallback` schreibt jetzt zusätzlich in die DB (fire-and-forget, `writer_id = NULL` bis Login). Damit sind alle 7 Teile (0–6) der Konsistenzregeln (Roadmap-Punkt 9) **von Jan abgenommen (done)**. Migration noch in Supabase auszuführen.
 > Vorherige Aktualisierung: 13. Juni 2026 – Konsistenzlogik: separate Spec `KONSISTENZREGELN.md` als verbindlich verankert; Roadmap-Punkt 9 in 7 Teile (0–6) aufgeschlüsselt; Wisch-Geste aus „Irgendwann" in Phase 2 (Teil 5) vorgezogen; Doppelkopf-Obergrenze auf max. 4 pro Spiel korrigiert; Hinweis zum Nachziehen der Schreiber-ID fürs Fallback-Log beim Login-Bau ergänzt.
 
@@ -494,7 +494,7 @@ Diese Entscheidungen wurden im Dialog ausführlich besprochen und sind die Grund
 - Bestätigen → Spiel gespeichert → zurück zum Tischscreen, nächstes Spiel beginnt
 - Zurück-Option für Korrekturen ohne Verlust der Eingaben
 
-**⚠ Reminder:** Diese Design-Sektion nach Abschluss der Phase-2-Iterationen mit dem finalen Stand aktualisieren.
+**Stand 22. Juni 2026:** Phase 2 abgeschlossen. Diese Design-Sektion beschreibt den umgesetzten Stand – bei zukünftigen UI-Änderungen aktualisieren.
 
 ### Runden-Logik:
 
@@ -773,32 +773,32 @@ Die App soll als PWA funktionieren, damit sie auf dem Homescreen installiert wer
 
 **Technischer Stand:** Supabase-Client verbunden (`src/lib/supabase.js`), App live unter `dokorama.vercel.app`, Struktur: `Dokorama/app/` (React-Code), `Dokorama/database/` (SQL-Dateien)
 
-### Phase 2: Erfassung – in Arbeit
+### ✅ Phase 2: Erfassung – abgeschlossen 22. Juni 2026
 
-**Architektur-Fundament (gebaut, noch nicht von Jan abgenommen):**
+**Architektur-Fundament (✅ abgenommen):**
 - `SessionContext` + `GameContext`: geteilter Zustand für Multi-View-Erfassung
 - `TableView` (Tisch-Ansicht) aus `SessionPage` extrahiert
 - `BlockView` als Platzhalter angelegt, Architektur bereit
 - View-Switcher im Header (Icon der jeweils anderen Ansicht)
 
-7. Partie starten (Datum, Austragungsort, anwesende Spieler:innen aus Pool wählen, Sitzreihenfolge)
-8. Runden-Logik (automatische Verwaltung, Rotation, Aussetzer-Berechnung, Verlängerung bei Solo)
-9. **Tisch-Ansicht Einzelspiel erfassen** – `TableView` gebaut, noch in Iteration. Die Konsistenz-/Konfliktlogik („kein inkonsistenter Zustand erlaubt – erklärende Warnungen statt stiller Auto-Auflösung") wird nach der separaten Spec **`KONSISTENZREGELN.md`** umgesetzt. Diese ist für das Konfliktverhalten verbindlich (Invarianten I1–I13, Prinzipien P1–P8, Wording-Katalog Teil C wörtlich). Umsetzung in 7 abgeschlossenen Teilen (jeder Teil ist ein eigenes Arbeitspaket, dazwischen kann die Session geleert werden):
-   - **Teil 0 – Fundament:** Zentrale Konsistenz-Engine im `GameContext` (P7): Invarianten I1–I13 als reine Funktionen, „würde diese Aktion einen Konflikt auslösen?"-Vorausschau (steuert Ausgrauen *und* Dialog, P5), Dialog-Infrastruktur (Meldung zweiteilig + Optionen-Liste). Basis für alle weiteren Teile.
-   - **Teil 1 – An-/Absagen** (B.2 / C.2.3, C.2.5): zweite gleiche An-/Absage im Team → Korrektur-Dialog. Bewusst zuerst (einfachstes Muster, validiert die Infrastruktur).
-   - **Teil 2 – Partei-Knoten** (B.5 / C.5.6, C.5.7, C.5.9): Drei-Zustands-Toggle, Kaskade (B.5.4), Tausch/Annullieren/Zurückziehen, neutral-Handling, C.5.8-Zeile. Das Herzstück – alle Eingaben laufen hier durch.
-   - **Teil 3 – Sonderspiele** (B.4 / C.5.7): Rollen anpinnen, Partei-Fixierung (B.4.3), feste Rollen-Labels (B.4.4/B.4.6), Unteilbarkeit/Annullieren (B.4.5). Hängt an Teil 2.
-   - **Teil 4 – Sonderpunkte** (B.3 / C.3.2): tischweites Kontingent (I11, **nicht** pro Person – aktueller Code zählt noch pro Person), „von wem"-Nachfassen bei gefangenen Punkten, B.5.8-Ungültigkeit bei Partei-Änderung.
-   - **Teil 5 – Wisch-Geste** (B.5.10 / C.5.10): zwei Spieler per Wisch zu einem Team verbinden – nur eine weitere Eintrittstür in den Partei-Block, neu ist nur die offene Richtung. Hängt an Teil 2. **Gesten-Detailfragen (Trigger-Area, Animation, Abbruch beim Ziehen) vorab mit Jan klären.** (Technische Notiz aus früherer Planung: `elementFromPoint()` am `touchend` für Cross-Element-Detection, Schwellwert ~20px zur Tap-Unterscheidung; benachbarte Avatare sind der Haupt-Use-Case.)
-   - **Teil 6 – Fallback + Logging** (C.Fallback / P8) ✅ done (15.06.2026): generischer Block-Dialog (schon aus Teil 0) + persistente DB-Log-Tabelle `consistency_logs` (`database/migration_003_consistency_logs.sql`: `violated_invariants`, `attempted_action` JSONB, `state_before` JSONB, `writer_id`, `created_at`). `logConsistencyFallback` in `GameContext.jsx` schreibt fire-and-forget in die DB. Bewusst **keine** eigene `affected_players`-Spalte – betroffene Spieler:innen stecken bereits in `attempted_action`/`state_before`. Solange kein Login existiert: `writer_id = NULL` (nachzuziehen beim Login-Bau, siehe „Irgendwann"-Liste).
-10. **Spielwert automatisch berechnen** – `scoreCalculation.js` gebaut, gegen 15 Testfälle validiert
-11. **Auswertungs-Screen & Bestätigung** – `EvaluationView` gebaut; Duplikat-Schutz fehlt noch
-12. Korrektur/Löschen von Spielen
-13. **Spielstandanzeige** – Pokal-Button öffnet aktuell nichts
-14. **Runden-Übergang** – Hinweis „Runde X beendet!", Punktetabelle, Optionen „Nächste Runde / Partie beenden"
-15. **Hamburger-Menü** – Menüpunkte mit Leben füllen
-16. **Partie abschließen** – vollständiger Flow inkl. Hinweis bei unfertiger letzter Runde
-17. **Laufende & fertige Partien** – Übersicht und Handling beider Zustände auf der Startseite
+7. ✅ **Partie starten** (Datum, Austragungsort, anwesende Spieler:innen aus Pool wählen, Sitzreihenfolge)
+8. ✅ **Runden-Logik** (automatische Verwaltung, Rotation, Aussetzer-Berechnung, Verlängerung bei Solo)
+9. ✅ **Tisch-Ansicht Einzelspiel erfassen** – `TableView` abgenommen. Die Konsistenz-/Konfliktlogik („kein inkonsistenter Zustand erlaubt – erklärende Warnungen statt stiller Auto-Auflösung") wird nach der separaten Spec **`KONSISTENZREGELN.md`** umgesetzt. Diese ist für das Konfliktverhalten verbindlich (Invarianten I1–I13, Prinzipien P1–P8, Wording-Katalog Teil C wörtlich). Umsetzung in 7 abgeschlossenen Teilen:
+   - **Teil 0 – Fundament** ✅ done: Zentrale Konsistenz-Engine im `GameContext` (P7): Invarianten I1–I13 als reine Funktionen, „würde diese Aktion einen Konflikt auslösen?"-Vorausschau (steuert Ausgrauen *und* Dialog, P5), Dialog-Infrastruktur (Meldung zweiteilig + Optionen-Liste). Basis für alle weiteren Teile.
+   - **Teil 1 – An-/Absagen** ✅ done (B.2 / C.2.3, C.2.5): zweite gleiche An-/Absage im Team → Korrektur-Dialog.
+   - **Teil 2 – Partei-Knoten** ✅ done (B.5 / C.5.6, C.5.7, C.5.9): Drei-Zustands-Toggle, Kaskade (B.5.4), Tausch/Annullieren/Zurückziehen, neutral-Handling, C.5.8-Zeile.
+   - **Teil 3 – Sonderspiele** ✅ done (B.4 / C.5.7): Rollen anpinnen, Partei-Fixierung (B.4.3), feste Rollen-Labels (B.4.4/B.4.6), Unteilbarkeit/Annullieren (B.4.5).
+   - **Teil 4 – Sonderpunkte** ✅ done (B.3 / C.3.2): tischweites Kontingent (I11), „von wem"-Nachfassen bei gefangenen Punkten, B.5.8-Ungültigkeit bei Partei-Änderung. Inkl. Karlchen-Einzel-Fänger-Constraint (I14) und Earner/Loser-Disjunkt (I15).
+   - **Teil 5 – Wisch-Geste** ✅ done (B.5.10 / C.5.10): zwei Spieler per Wisch zu einem Team verbinden. Implementiert mit `elementFromPoint()` am `touchend`, Schwellwert ~20px zur Tap-Unterscheidung.
+   - **Teil 6 – Fallback + Logging** ✅ done (15.06.2026): generischer Block-Dialog + persistente DB-Log-Tabelle `consistency_logs` (`database/migration_003_consistency_logs.sql`: `violated_invariants`, `attempted_action` JSONB, `state_before` JSONB, `writer_id`, `created_at`). `logConsistencyFallback` in `GameContext.jsx` schreibt fire-and-forget in die DB. Solange kein Login existiert: `writer_id = NULL` (nachzuziehen beim Login-Bau, siehe „Irgendwann"-Liste).
+10. ✅ **Spielwert automatisch berechnen** – `scoreCalculation.js` gebaut, gegen 15 Testfälle validiert
+11. ✅ **Auswertungs-Screen & Bestätigung** – `EvaluationView` gebaut. Duplikat-Schutz ist bewusst zurückgestellt bis zur Parallel-Schreib-Phase (Abschnitt 3).
+12. ✅ **Korrektur/Löschen von Spielen**
+13. ✅ **Spielstandanzeige** – Pokal-Button öffnet aktuellen Spielstand der Partie
+14. ✅ **Runden-Übergang** – Hinweis „Runde X beendet!", Punktetabelle, Optionen „Nächste Runde / Partie beenden"
+15. ✅ **Hamburger-Menü** – alle V1-Menüpunkte implementiert (außer Statistiken = Phase 4 und Tischordnung = zurückgestellt)
+16. ✅ **Partie abschließen** – vollständiger Flow inkl. Hinweis bei unfertiger letzter Runde
+17. ✅ **Laufende & fertige Partien** – Übersicht und Handling beider Zustände auf der Startseite
 
 ### Phase 2b: Block-Ansicht (nach Tisch-Ansicht stabil, vor Phase 3)
 
