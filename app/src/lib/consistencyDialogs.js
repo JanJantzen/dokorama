@@ -919,24 +919,54 @@ export function buildSpecialPointQuotaDialog({ action, state, participants, comm
 
     // Fall C: Kombiniertes Limit erschöpft (1× gemacht + 1× gefangen = max. 2 total)
     if (made.length >= 1 && caught.length >= 1) {
-      const madeEntry   = made[0]
-      const caughtEntry = caught[0]
+      const madeEntry      = made[0]
+      const caughtEntry    = caught[0]
+      // Wenn der Clicker schon der vorhandene Fänger ist ("Nicht Jan, sondern Jan" vermeiden):
+      // Dann statt "anderen Fänger" die Loser-Korrektur anbieten.
+      const sameAsExisting = earnerId === caughtEntry.earnerId
+
       return {
         was:   `${clicker} kann kein Karlchen fangen.`,
         warum: `Das Karlchen-Limit ist erreicht: ${nameOf(madeEntry.earnerId)} hat das Karlchen gemacht, ${nameOf(caughtEntry.earnerId)} hat es gefangen (von ${nameOf(caughtEntry.loserId)}). Mehr als 2 Karlchen-Ereignisse sind nicht möglich.`,
         options: [
           cancel,
+          // Option 1: gemacht-Eintrag streichen → Platz für neues gefangen frei
           {
-            label: `Korrektur: Nicht ${nameOf(caughtEntry.earnerId)}, sondern ${clicker}`,
+            label: `Korrektur: ${nameOf(madeEntry.earnerId)} hat kein Karlchen gemacht`,
             subtitle: [
-              `${nameOf(caughtEntry.earnerId)} hat das Karlchen nicht gefangen`,
+              `${nameOf(madeEntry.earnerId)} hat das Karlchen nicht gemacht`,
               `${clicker} hat das Karlchen gefangen (von wem, wird gleich ausgewählt)`,
             ],
             onSelect: () => {
-              commit({ type: 'removeSpecialPoint', pointId: caughtEntry.id })
+              commit({ type: 'removeSpecialPoint', pointId: madeEntry.id })
               requestLoserSelection(earnerId, 'karlchen_gefangen')
             },
           },
+          // Option 2a (gleicher Fänger): bestehenden Loser korrigieren (nicht "Nicht Jan, sondern Jan")
+          // Option 2b (anderer Fänger):  Fänger korrigieren
+          sameAsExisting
+            ? {
+                label: `Korrektur: Nicht von ${nameOf(caughtEntry.loserId)}, sondern von ...`,
+                subtitle: [
+                  `${clicker} hat das Karlchen nicht von ${nameOf(caughtEntry.loserId)} gefangen`,
+                  `${clicker} hat das Karlchen gefangen (von wem, wird gleich ausgewählt)`,
+                ],
+                onSelect: () => {
+                  commit({ type: 'removeSpecialPoint', pointId: caughtEntry.id })
+                  requestLoserSelection(earnerId, 'karlchen_gefangen')
+                },
+              }
+            : {
+                label: `Korrektur: Nicht ${nameOf(caughtEntry.earnerId)}, sondern ${clicker}`,
+                subtitle: [
+                  `${nameOf(caughtEntry.earnerId)} hat das Karlchen nicht gefangen`,
+                  `${clicker} hat das Karlchen gefangen (von wem, wird gleich ausgewählt)`,
+                ],
+                onSelect: () => {
+                  commit({ type: 'removeSpecialPoint', pointId: caughtEntry.id })
+                  requestLoserSelection(earnerId, 'karlchen_gefangen')
+                },
+              },
         ],
       }
     }
@@ -1011,15 +1041,22 @@ export function buildSameTeamCatchDialog({ action, participants }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // C.3.5 – Karlchen-Fänger-Konsistenz (Invariante I14)
 //
-// Zwei Sub-Fälle:
-// • Sub-Fall A (anderer Fänger): jemand anderes als der eingetragene Fänger tippt.
-//   → „Nur wer den letzten Stich macht, kann fangen – das ist [Name]." + Korrektur.
-// • Sub-Fall B (gleicher Loser): derselbe Fänger versucht dieselbe Person zweimal
-//   als Bestohlene zu wählen. → Hinweis-Dialog, Picker bleibt offen (wie C.3.4).
+// Nur wer den letzten Stich macht, kann ein Karlchen fangen oder machen. Deshalb
+// müssen gemacht.earnerId und gefangen.earnerId immer übereinstimmen.
+//
+// Vier Sub-Fälle je nach vorhandenem Zustand und neuer Aktion:
+// • Sub-Fall A (anderer Fänger, gefangen): Robert hat gefangen, Kathrin tippt gefangen.
+//   → Fänger-Wechsel anbieten (alle bisherigen gefangen-Einträge werden ersetzt).
+// • Sub-Fall B (gleicher Loser): gleicher Fänger, gleiche Bestohlene zweimal.
+//   → Hinweis-Dialog, Picker bleibt offen.
+// • Sub-Fall C (Cross-Constraint gemacht): Robert hat gefangen, Kathrin tippt gemacht.
+//   → Nur Robert kann gemacht haben – Korrektur: gemacht auf Robert umleiten.
+// • Sub-Fall D (Cross-Constraint gefangen): Robert hat gemacht, Kathrin tippt gefangen.
+//   → Nur Robert kann fangen – Korrektur: Picker für Robert öffnen.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function buildKarlchenSingleCatcherDialog({ action, state, participants, commit, requestLoserSelection }) {
-  const { earnerId, loserId } = action
+  const { earnerId, spType, loserId } = action
   const active  = participants.filter(p => !p.isSitting)
   const seatOf  = id => active.find(p => p.player_id === id)?.seat_position ?? 0
   const nameOf  = id => active.find(p => p.player_id === id)?.players.name ?? '?'
@@ -1029,40 +1066,95 @@ export function buildKarlchenSingleCatcherDialog({ action, state, participants, 
   const caught = state.specialPoints
     .filter(sp => sp.type === 'karlchen_gefangen')
     .sort((a, b) => seatOf(a.earnerId) - seatOf(b.earnerId))
+  const made = state.specialPoints.filter(sp => sp.type === 'karlchen_gemacht')
 
-  if (caught.length === 0) return null
-  const existingCatcher = caught[0].earnerId
+  // Der „rechtmäßige" Stichgewinner: bekannt aus gemacht oder gefangen
+  const rightfulCatcher = made[0]?.earnerId ?? caught[0]?.earnerId ?? null
+  if (!rightfulCatcher) return null
 
   // Sub-Fall B: gleicher Fänger, gleiche Bestohlene → Hinweis, Picker bleibt offen
-  if (earnerId === existingCatcher && loserId) {
+  if (spType === 'karlchen_gefangen' && earnerId === rightfulCatcher && loserId) {
     return {
       was:   `${clicker} kann kein zweites Karlchen von ${nameOf(loserId)} fangen.`,
-      warum: `${nameOf(loserId)} hat nur einen Kreuz-Buben – jede Person kann nur einmal als Bestohlene/r auftreten.`,
+      warum: `Jede:r kann nur einmal als Bestohlene/r auftreten.`,
       options: [
         { label: 'Abbrechen', subtitle: 'Anderen Spieler im Picker auswählen.' },
       ],
     }
   }
 
-  // Sub-Fall A: anderer Fänger → Fänger-Wechsel anbieten
-  return {
-    was:   `${clicker} kann kein Karlchen fangen.`,
-    warum: `Nur wer den letzten Stich macht, kann ein Karlchen fangen – und das ist ${nameOf(existingCatcher)}.`,
-    options: [
-      cancel,
-      {
-        label:    `Korrektur: Nicht ${nameOf(existingCatcher)}, sondern ${clicker}`,
-        subtitle: [
-          `${nameOf(existingCatcher)} hat kein Karlchen gefangen`,
-          `${clicker} hat ein Karlchen gefangen (von wem, wird gleich ausgewählt)`,
-        ],
-        onSelect: () => {
-          for (const sp of caught) commit({ type: 'removeSpecialPoint', pointId: sp.id })
-          requestLoserSelection(earnerId, 'karlchen_gefangen')
+  // Sub-Fall C: Robert hat gefangen, Kathrin tippt gemacht.
+  // Intention: Kathrin hat den letzten Stich gemacht → Roberts gefangen streichen, Kathrins gemacht setzen.
+  if (spType === 'karlchen_gemacht' && caught.length > 0) {
+    const existingCatcher = caught[0].earnerId
+    return {
+      was:   `${clicker} kann kein Karlchen machen.`,
+      warum: `${nameOf(existingCatcher)} hat ein Karlchen gefangen – das setzt voraus, dass ${nameOf(existingCatcher)} den letzten Stich macht. Nur eine Person kann den letzten Stich machen.`,
+      options: [
+        cancel,
+        {
+          label:    `Korrektur: ${nameOf(existingCatcher)} hat kein Karlchen gefangen`,
+          subtitle: [
+            `${nameOf(existingCatcher)}s Karlchen-Fang wird gestrichen`,
+            `${clicker} hat das Karlchen gemacht`,
+          ],
+          onSelect: () => {
+            for (const sp of caught) commit({ type: 'removeSpecialPoint', pointId: sp.id })
+            commit({ type: 'addSpecialPoint', earnerId, spType: 'karlchen_gemacht', loserId: null })
+          },
         },
-      },
-    ],
+      ],
+    }
   }
+
+  // Sub-Fall D: Robert hat gemacht, Kathrin tippt gefangen.
+  // Intention: Kathrin hat ein Karlchen gefangen → Roberts gemacht streichen, Picker für Kathrin öffnen.
+  if (spType === 'karlchen_gefangen' && made.length > 0 && caught.length === 0) {
+    const maker = made[0].earnerId
+    return {
+      was:   `${clicker} kann kein Karlchen fangen.`,
+      warum: `${nameOf(maker)} hat das Karlchen gemacht – das setzt voraus, dass ${nameOf(maker)} den letzten Stich macht. Nur eine Person kann den letzten Stich machen.`,
+      options: [
+        cancel,
+        {
+          label:    `Korrektur: ${nameOf(maker)} hat kein Karlchen gemacht`,
+          subtitle: [
+            `${nameOf(maker)}s Karlchen-Eintrag wird gestrichen`,
+            `${clicker} hat ein Karlchen gefangen (von wem, wird gleich ausgewählt)`,
+          ],
+          onSelect: () => {
+            commit({ type: 'removeSpecialPoint', pointId: made[0].id })
+            requestLoserSelection(earnerId, 'karlchen_gefangen')
+          },
+        },
+      ],
+    }
+  }
+
+  // Sub-Fall A: anderer Fänger (gefangen) → Fänger-Wechsel anbieten
+  if (spType === 'karlchen_gefangen' && caught.length > 0) {
+    const existingCatcher = caught[0].earnerId
+    return {
+      was:   `${clicker} kann kein Karlchen fangen.`,
+      warum: `Nur wer den letzten Stich macht, kann ein Karlchen fangen – und das ist ${nameOf(existingCatcher)}.`,
+      options: [
+        cancel,
+        {
+          label:    `Korrektur: Nicht ${nameOf(existingCatcher)}, sondern ${clicker}`,
+          subtitle: [
+            `${nameOf(existingCatcher)} hat kein Karlchen gefangen`,
+            `${clicker} hat ein Karlchen gefangen (von wem, wird gleich ausgewählt)`,
+          ],
+          onSelect: () => {
+            for (const sp of caught) commit({ type: 'removeSpecialPoint', pointId: sp.id })
+            requestLoserSelection(earnerId, 'karlchen_gefangen')
+          },
+        },
+      ],
+    }
+  }
+
+  return null
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

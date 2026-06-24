@@ -452,11 +452,16 @@ function checkI13(state) {
 // (a) Alle karlchen_gefangen-Einträge haben denselben earnerId.
 // (b) Wenn 2× gefangen, müssen die loserId-Werte verschieden sein
 //     (jede:r Spieler:in hat nur einen Kreuz-Buben).
+// (c) karlchen_gemacht und karlchen_gefangen müssen denselben earnerId haben –
+//     nur wer den Stich macht, kann dabei auch fangen.
 function checkI14(state) {
   const caught = state.specialPoints.filter(sp => sp.type === 'karlchen_gefangen')
-  if (caught.length <= 1) return true
-  if (!caught.every(sp => sp.earnerId === caught[0].earnerId)) return false
-  if (caught[0].loserId && caught[1].loserId && caught[0].loserId === caught[1].loserId) return false
+  const made   = state.specialPoints.filter(sp => sp.type === 'karlchen_gemacht')
+  if (caught.length >= 2) {
+    if (!caught.every(sp => sp.earnerId === caught[0].earnerId)) return false
+    if (caught[0].loserId && caught[1].loserId && caught[0].loserId === caught[1].loserId) return false
+  }
+  if (made.length > 0 && caught.length > 0 && made[0].earnerId !== caught[0].earnerId) return false
   return true
 }
 

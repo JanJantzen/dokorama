@@ -318,7 +318,7 @@ export function GameProvider({ children, initialParticipants, initialGameState }
           commit: commitAction, requestLoserSelection: loserSel,
         })
       }
-      if (violations.includes('I14') && action.spType === 'karlchen_gefangen') {
+      if (violations.includes('I14') && isKarlchen) {
         return buildKarlchenSingleCatcherDialog({
           action, state, participants: participantsRef.current,
           commit: commitAction, requestLoserSelection: loserSel,
