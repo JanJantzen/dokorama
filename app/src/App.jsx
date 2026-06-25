@@ -3,6 +3,7 @@
 // Die Tab-Bar wird ausgeblendet wenn ein Abend aktiv ist (Vollbild-Erfassung).
 
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { AuthProvider } from '@/contexts/AuthContext'
 import TabBar from '@/components/layout/TabBar'
 import HomePage from '@/pages/HomePage'
 import StatsPage from '@/pages/StatsPage'
@@ -12,6 +13,7 @@ import SessionResultPage from '@/pages/SessionResultPage'
 import SessionDetailsPage from '@/pages/SessionDetailsPage'
 import EditGamePage from '@/pages/EditGamePage'
 import StartSessionPage from '@/pages/StartSessionPage'
+import LoginPage from '@/pages/LoginPage'
 
 // AppLayout liest die aktuelle URL und entscheidet ob die Tab-Bar sichtbar ist
 function AppLayout() {
@@ -34,6 +36,7 @@ function AppLayout() {
           <Route path="/partie/:id/ergebnis" element={<SessionResultPage />} />
           <Route path="/partie/:id/details" element={<SessionDetailsPage />} />
           <Route path="/spiel/:gameId/bearbeiten" element={<EditGamePage />} />
+          <Route path="/login"                   element={<LoginPage />}        />
         </Routes>
         {showTabBar && <TabBar />}
       </div>
@@ -44,7 +47,10 @@ function AppLayout() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AppLayout />
+      {/* AuthProvider stellt Login-Zustand der gesamten App zur Verfügung */}
+      <AuthProvider>
+        <AppLayout />
+      </AuthProvider>
     </BrowserRouter>
   )
 }

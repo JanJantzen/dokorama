@@ -11,10 +11,11 @@
 // handleConfirm lebt hier weil es beide Contexts braucht (Spiel speichern + Session weiterschalten).
 
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { Ratio, LayoutList, Trophy, Menu, X } from 'lucide-react'
 import { SessionProvider, useSession } from '@/contexts/SessionContext'
 import { GameProvider, useGame, buildCalculationInput } from '@/contexts/GameContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import TableView from '@/components/session/TableView'
 import BlockView from '@/components/session/BlockView'
@@ -647,7 +648,17 @@ function SessionPageInner() {
 
 function SessionPageContent() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { loading, participants, noActiveRound, initialGameState } = useSession()
+  const { user, loading: authLoading } = useAuth()
+
+  // Nicht eingeloggt → zur Login-Seite, mit aktueller URL als Rücksprung-Ziel.
+  // Wir warten bis Auth geladen ist damit eingeloggte Nutzer:innen nicht kurz flackern.
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/login', { state: { from: location.pathname, forced: true }, replace: true })
+    }
+  }, [authLoading, user, navigate, location.pathname])
   if (loading) {
     return <div className="flex items-center justify-center h-screen text-muted-foreground">Lade…</div>
   }

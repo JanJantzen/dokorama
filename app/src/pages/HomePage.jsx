@@ -5,8 +5,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { PlayCircle } from 'lucide-react'
+import { PlayCircle, LogIn, LogOut } from 'lucide-react'
 import { loadSessions, formatSessionDate } from '@/lib/sessions'
+import { useAuth } from '@/contexts/AuthContext'
 
 function plural(n, sg, pl) {
   return `${n} ${n === 1 ? sg : pl}`
@@ -55,6 +56,7 @@ function SectionTitle({ children }) {
 
 export default function HomePage() {
   const navigate = useNavigate()
+  const { user, player, signOut } = useAuth()
   const [sessions, setSessions] = useState(null) // null = lädt noch
   const [showAll, setShowAll] = useState(false)
 
@@ -69,9 +71,33 @@ export default function HomePage() {
   return (
     <div className="flex flex-col min-h-screen pb-20">
       {/* Kopfzeile */}
-      <header className="px-4 pt-12 pb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Dokorama</h1>
-        <p className="text-muted-foreground text-sm mt-1">Willkommen zurück</p>
+      <header className="px-4 pt-12 pb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Dokorama</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            {user ? `Eingeloggt als ${player?.name ?? user.email}` : 'Willkommen'}
+          </p>
+        </div>
+        {/* Login- oder Logout-Button oben rechts */}
+        {user ? (
+          <button
+            onClick={signOut}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1 py-1"
+            title="Ausloggen"
+          >
+            <LogOut size={16} />
+            <span>Ausloggen</span>
+          </button>
+        ) : (
+          <button
+            onClick={() => navigate('/login')}
+            className="flex items-center gap-1.5 text-sm text-primary mt-1 py-1 font-medium"
+            title="Einloggen"
+          >
+            <LogIn size={16} />
+            <span>Einloggen</span>
+          </button>
+        )}
       </header>
 
       <div className="px-4 flex flex-col gap-8">
@@ -81,14 +107,17 @@ export default function HomePage() {
             <SectionTitle>Laufende Partien</SectionTitle>
             <div className="flex flex-col gap-2">
               {running.map(s => (
-                <SessionRow key={s.id} session={s} onClick={() => navigate(`/partie/${s.id}`)} />
+                <SessionRow key={s.id} session={s} onClick={() => navigate(`/partie/${s.id}/ergebnis`)} />
               ))}
             </div>
           </section>
         )}
 
-        {/* Neue Partie starten */}
-        <Button className="w-full h-16 text-lg gap-3" onClick={() => navigate('/partie/starten')}>
+        {/* Neue Partie starten – nur für eingeloggte Spieler:innen */}
+        <Button
+          className="w-full h-16 text-lg gap-3"
+          onClick={() => user ? navigate('/partie/starten') : navigate('/login', { state: { from: '/partie/starten', forced: true } })}
+        >
           <PlayCircle size={24} />
           Neue Partie starten
         </Button>

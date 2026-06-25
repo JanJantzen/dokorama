@@ -5,11 +5,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 import PlayerSelector from '@/components/session/PlayerSelector'
 import SeatingConfirm from '@/components/session/SeatingConfirm'
 
 export default function StartSessionPage() {
   const navigate = useNavigate()
+  const { user, loading: authLoading } = useAuth()
 
   const [step, setStep] = useState(1)
   const [allPlayers, setAllPlayers] = useState([])
@@ -19,6 +21,14 @@ export default function StartSessionPage() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]) // heute
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+
+  // Weiterleitung zur Login-Seite, wenn niemand eingeloggt ist.
+  // authLoading abwarten, sonst würde man kurz auf die Login-Seite flackern.
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/login', { state: { from: '/partie/starten', forced: true }, replace: true })
+    }
+  }, [authLoading, user, navigate])
 
   // Spieler:innen und Orte beim Laden der Seite aus Supabase holen
   // Spieler:innen werden nach Anzahl gespielter Partien sortiert (Stammspieler:innen zuerst)
@@ -61,10 +71,10 @@ export default function StartSessionPage() {
         .eq('name', 'Dokorama')
         .single()
 
-      // Abend anlegen
+      // Abend anlegen; created_by = eingeloggte Auth-UUID (Grundlage für „nur Ersteller:in schreibt")
       const { data: session } = await supabase
         .from('sessions')
-        .insert({ group_id: group.id, venue_id: venue?.id || null, date, status: 'laufend' })
+        .insert({ group_id: group.id, venue_id: venue?.id || null, date, status: 'laufend', created_by: user?.id ?? null })
         .select()
         .single()
 

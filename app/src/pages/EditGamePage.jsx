@@ -10,10 +10,11 @@
 // nicht editierbar.
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { GameProvider, useGame } from '@/contexts/GameContext'
 import { SessionContext } from '@/contexts/SessionContext'
+import { useAuth } from '@/contexts/AuthContext'
 import TableView from '@/components/session/TableView'
 import EvaluationView from '@/components/session/EvaluationView'
 import ConsistencyDialog from '@/components/session/ConsistencyDialog'
@@ -106,8 +107,17 @@ function Fallback({ text, onBack }) {
 export default function EditGamePage() {
   const { gameId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  const { user, loading: authLoading } = useAuth()
   const [loaded, setLoaded] = useState(null) // null = lädt noch
   const [error, setError] = useState(false)
+
+  // Nicht eingeloggt → Login-Seite, mit aktueller URL als Rücksprung-Ziel
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/login', { state: { from: location.pathname, forced: true }, replace: true })
+    }
+  }, [authLoading, user, navigate, location.pathname])
 
   useEffect(() => {
     loadGameForEdit(gameId).then(setLoaded).catch(() => setError(true))

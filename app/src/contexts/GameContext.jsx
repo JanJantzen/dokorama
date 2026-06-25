@@ -14,6 +14,7 @@
 
 import { createContext, useContext, useRef, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 import { deriveGameType } from '@/lib/scoreCalculation'
 import { applyAction, wouldViolate, isComplete, checkInvariants } from '@/lib/consistency'
 import {
@@ -121,14 +122,13 @@ function buildFallbackDialog(closeDialog) {
 // abstürzen lassen – sonst würde das Sicherheitsnetz selbst zum Problem. Schlägt
 // das Schreiben fehl (z.B. offline), bleibt wenigstens die Konsolen-Ausgabe.
 //
-// writer_id bleibt NULL, bis es einen Login gibt (CLAUDE.md "Irgendwann"-Liste:
-// dann wird hier die eingeloggte Schreiber-Identität eingesetzt).
-function logConsistencyFallback({ violations, action, state }) {
+// writerId = Auth-UUID der eingeloggten Person (seit Migration 005 befüllt, davor NULL).
+function logConsistencyFallback({ violations, action, state, writerId }) {
   console.warn('[Konsistenz-Fallback] geblockte Aktion', {
     violatedInvariants: violations,
     attemptedAction:    action,
     stateBefore:        state,
-    writerId:           null,
+    writerId,
     timestamp:          new Date().toISOString(),
   })
 
@@ -138,7 +138,7 @@ function logConsistencyFallback({ violations, action, state }) {
       violated_invariants: violations,
       attempted_action:    action,
       state_before:        state,
-      writer_id:           null,
+      writer_id:           writerId ?? null,
     })
     .then(({ error }) => {
       if (error) console.error('[Konsistenz-Fallback] DB-Log fehlgeschlagen', error)
@@ -148,6 +148,9 @@ function logConsistencyFallback({ violations, action, state }) {
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function GameProvider({ children, initialParticipants, initialGameState }) {
+  // Auth-Context: eingeloggte Auth-UUID für den Konsistenz-Fallback-Log
+  const { user } = useAuth()
+
   // Ref statt State für participants: wird in Mutation-Callbacks gebraucht ohne
   // stale-closure-Probleme. Wird von resetForNextGame() synchron aktualisiert.
   const participantsRef = useRef(initialParticipants)
@@ -357,9 +360,9 @@ export function GameProvider({ children, initialParticipants, initialGameState }
       openDialog(resolver)
       return
     }
-    logConsistencyFallback({ violations, action, state: gameState })
+    logConsistencyFallback({ violations, action, state: gameState, writerId: user?.id })
     openDialog(buildFallbackDialog(closeDialog))
-  }, [gameState, commitAction, resolveConflict, openDialog, closeDialog])
+  }, [gameState, commitAction, resolveConflict, openDialog, closeDialog, user])
 
   // Wisch-Geste (Teil 5, B.5.10/C.5.10): zwei Spieler zu einem Team verbinden, mit
   // OFFENER Richtung. Nur eine weitere Eintrittstür in den Partei-Block. Die fünf
@@ -387,9 +390,9 @@ export function GameProvider({ children, initialParticipants, initialGameState }
       })
       if (dlg) { openDialog(dlg); return }
     }
-    logConsistencyFallback({ violations: ['I6'], action: { type: 'swipe-absage', actions }, state: gameState })
+    logConsistencyFallback({ violations: ['I6'], action: { type: 'swipe-absage', actions }, state: gameState, writerId: user?.id })
     openDialog(buildFallbackDialog(closeDialog))
-  }, [gameState, commitAction, openDialog, closeDialog])
+  }, [gameState, commitAction, openDialog, closeDialog, user])
 
   const requestSwipe = useCallback((aId, bId) => {
     const participants = participantsRef.current
@@ -420,9 +423,9 @@ export function GameProvider({ children, initialParticipants, initialGameState }
     // (d)/(e) → Richtungswahl-Dialog; nicht auflösbar (Spec-Lücke) → sicherer Fallback (P8).
     const dlg = buildSwipeDialog({ state: gameState, participants, aId, bId, resolve: resolveSwipe })
     if (dlg) { openDialog(dlg); return }
-    logConsistencyFallback({ violations: ['swipe'], action: { type: 'swipe', aId, bId }, state: gameState })
+    logConsistencyFallback({ violations: ['swipe'], action: { type: 'swipe', aId, bId }, state: gameState, writerId: user?.id })
     openDialog(buildFallbackDialog(closeDialog))
-  }, [gameState, commitAction, openDialog, closeDialog, resolveSwipe])
+  }, [gameState, commitAction, openDialog, closeDialog, resolveSwipe, user])
 
   // ── Konkrete Eingabe-Handler ────────────────────────────────────────────────
   // Behalten ihre bisherige Signatur (TableView/PlayerSheet rufen sie unverändert
