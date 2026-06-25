@@ -2,9 +2,8 @@
 
 > Diese Datei ist das zentrale Briefing für jeden Claude-Assistenten, der an diesem Projekt arbeitet.
 > Sie wird bei jeder neuen Sitzung gelesen. Halte sie aktuell.
-> Letzte Aktualisierung: 22. Juni 2026 – Phase 2 (Roadmap-Punkte 7–17) als ✅ abgeschlossen markiert. Architektur-Fundament abgenommen, Konsistenz-Teile 0–5 nachgezogen, Item-Beschreibungen auf fertig-Stand gebracht.
-> Vorherige Aktualisierung: 15. Juni 2026 – Konsistenzlogik Teil 6 (Fallback + Logging) umgesetzt: persistente DB-Tabelle `consistency_logs` (`database/migration_003_consistency_logs.sql`), `logConsistencyFallback` schreibt jetzt zusätzlich in die DB (fire-and-forget, `writer_id = NULL` bis Login). Damit sind alle 7 Teile (0–6) der Konsistenzregeln (Roadmap-Punkt 9) **von Jan abgenommen (done)**. Migration noch in Supabase auszuführen.
-> Vorherige Aktualisierung: 13. Juni 2026 – Konsistenzlogik: separate Spec `KONSISTENZREGELN.md` als verbindlich verankert; Roadmap-Punkt 9 in 7 Teile (0–6) aufgeschlüsselt; Wisch-Geste aus „Irgendwann" in Phase 2 (Teil 5) vorgezogen; Doppelkopf-Obergrenze auf max. 4 pro Spiel korrigiert; Hinweis zum Nachziehen der Schreiber-ID fürs Fallback-Log beim Login-Bau ergänzt.
+> Letzte Aktualisierung: 25. Juni 2026 – Login (Auth-Stufe 1) deployed: `AuthContext`, `LoginPage`, alle Schreib-Aktionen geschützt, laufende Partie über Spielstand-Screen zugänglich, `created_by` in sessions und `writer_id` im Fallback-Log befüllt. DB-Migration 005 ausgeführt. Roadmap um Auth-Phase ergänzt, Irgendwann-Liste bereinigt.
+> Vorherige Aktualisierung: 22. Juni 2026 – Phase 2 (Roadmap-Punkte 7–17) als ✅ abgeschlossen markiert. Architektur-Fundament abgenommen, Konsistenz-Teile 0–5 nachgezogen, Item-Beschreibungen auf fertig-Stand gebracht.
 
 ---
 
@@ -717,12 +716,10 @@ Ein:e Spieler:in kann in verschiedenen Gruppen verschiedene Rollen haben.
 
 Die Auth-Features werden in dieser Reihenfolge gebaut – jede Stufe schaltet die nächste frei:
 
-1. **Login** zuerst (individuell, Supabase Auth).
-2. **Lesender Gruppen-Link** – wer den Link hat, sieht alles, kann aber **nichts** ändern.
-3. **Schreibrecht minimal:** nur die **Ersteller:in der Partie** schreibt (übertragbar; der Wechsel sitzt im Rundenzusammensetzungs-Menü, Abschnitt 6).
+1. ✅ **Login** (individuell, Supabase Auth) – abgeschlossen 25.06.2026.
+2. **Lesender Gruppen-Link** – wer den Link hat, sieht alles, kann aber **nichts** ändern. (Aktuell schon weitgehend so: Lesen geht ohne Login, Schreiben erfordert es.)
+3. **Schreibrecht minimal:** nur die **Ersteller:in der Partie** schreibt (übertragbar; der Wechsel sitzt im Rundenzusammensetzungs-Menü, Abschnitt 6). Fundament liegt: `sessions.created_by` vorhanden.
 4. **Paralleles Schreiben** mehrerer – zuletzt; erst dann greift der **Duplikat-Schutz** (Abschnitt 3).
-
-**Implementierungs-Notiz:** Für „nur Ersteller:in schreibt" braucht `sessions` ein Feld `created_by` (Schreiber-ID) – beim Login-Bau ergänzen. Passt zur `writer_id` im Fallback-Log (`consistency_logs`, Phase-2-Teil 6).
 
 ### Perspektivisch:
 
@@ -790,7 +787,7 @@ Die App soll als PWA funktionieren, damit sie auf dem Homescreen installiert wer
    - **Teil 3 – Sonderspiele** ✅ done (B.4 / C.5.7): Rollen anpinnen, Partei-Fixierung (B.4.3), feste Rollen-Labels (B.4.4/B.4.6), Unteilbarkeit/Annullieren (B.4.5).
    - **Teil 4 – Sonderpunkte** ✅ done (B.3 / C.3.2): tischweites Kontingent (I11), „von wem"-Nachfassen bei gefangenen Punkten, B.5.8-Ungültigkeit bei Partei-Änderung. Inkl. Karlchen-Einzel-Fänger-Constraint (I14) und Earner/Loser-Disjunkt (I15).
    - **Teil 5 – Wisch-Geste** ✅ done (B.5.10 / C.5.10): zwei Spieler per Wisch zu einem Team verbinden. Implementiert mit `elementFromPoint()` am `touchend`, Schwellwert ~20px zur Tap-Unterscheidung.
-   - **Teil 6 – Fallback + Logging** ✅ done (15.06.2026): generischer Block-Dialog + persistente DB-Log-Tabelle `consistency_logs` (`database/migration_003_consistency_logs.sql`: `violated_invariants`, `attempted_action` JSONB, `state_before` JSONB, `writer_id`, `created_at`). `logConsistencyFallback` in `GameContext.jsx` schreibt fire-and-forget in die DB. Solange kein Login existiert: `writer_id = NULL` (nachzuziehen beim Login-Bau, siehe „Irgendwann"-Liste).
+   - **Teil 6 – Fallback + Logging** ✅ done (15.06.2026): generischer Block-Dialog + persistente DB-Log-Tabelle `consistency_logs` (`database/migration_003_consistency_logs.sql`: `violated_invariants`, `attempted_action` JSONB, `state_before` JSONB, `writer_id`, `created_at`). `logConsistencyFallback` in `GameContext.jsx` schreibt fire-and-forget in die DB. `writer_id` wird seit Login-Bau (25.06.2026) mit der eingeloggten Auth-UUID befüllt.
 10. ✅ **Spielwert automatisch berechnen** – `scoreCalculation.js` gebaut, gegen 15 Testfälle validiert
 11. ✅ **Auswertungs-Screen & Bestätigung** – `EvaluationView` gebaut. Duplikat-Schutz ist bewusst zurückgestellt bis zur Parallel-Schreib-Phase (Abschnitt 3).
 12. ✅ **Korrektur/Löschen von Spielen**
@@ -799,6 +796,22 @@ Die App soll als PWA funktionieren, damit sie auf dem Homescreen installiert wer
 15. ✅ **Hamburger-Menü** – alle V1-Menüpunkte implementiert (außer Statistiken = Phase 4 und Tischordnung = zurückgestellt)
 16. ✅ **Partie abschließen** – vollständiger Flow inkl. Hinweis bei unfertiger letzter Runde
 17. ✅ **Laufende & fertige Partien** – Übersicht und Handling beider Zustände auf der Startseite
+
+### ✅ Auth-Phase: Login – abgeschlossen 25. Juni 2026
+
+- ✅ `AuthContext` (`src/contexts/AuthContext.jsx`): Login-Zustand für die gesamte App (`user`, `player`, `loading`), zwei getrennte Effekte (kein async in `onAuthStateChange`)
+- ✅ `LoginPage` (`/login`): E-Mail + Passwort, Rücksprung zur Ausgangsseite, Hinweis bei erzwungenem Login
+- ✅ Schreib-Aktionen geschützt: Partie starten, Spiel bearbeiten, Partie löschen
+- ✅ Laufende Partie: Klick → Spielstand-Screen (`/partie/:id/ergebnis`), von dort „Partie weiterschreiben" (Login-Gate) → dann Erfassungsscreen
+- ✅ `sessions.created_by` beim Anlegen gesetzt (Grundlage für Auth-Stufe 3)
+- ✅ `consistency_logs.writer_id` mit Auth-UUID befüllt (war seit Phase-2-Teil 6 offen)
+- ✅ DB-Migration 005 in Supabase ausgeführt (`players.auth_user_id`, `sessions.created_by`)
+- ✅ Jan + Robert in `players.auth_user_id` verknüpft
+
+**Auth-Stufen noch offen:**
+- Stufe 2: Lesender Gruppen-Link (aktuell schon weitgehend offen – Lesen geht ohne Login, nur Schreiben erfordert es)
+- Stufe 3: Nur Partie-Ersteller:in schreibt (Fundament liegt: `created_by` vorhanden)
+- Stufe 4: Paralleles Schreiben + Duplikat-Schutz (bewusst zurückgestellt)
 
 ### Phase 2b: Block-Ansicht (nach Tisch-Ansicht stabil, vor Phase 3)
 
@@ -843,7 +856,6 @@ Neue alternative Erfassungs-UI: nüchterner Schreibblock-Stil, alle Infos auf ei
 
 - Öffnung für andere Gruppen (Multi-Tenancy, Regelkonfiguration, Konfigurations-UI)
 - Echtes User-Management für alle Spieler:innen
-  - **Beim Login-Bau nachziehen:** Das Fallback-Log der Konsistenzprüfung (Phase-2-Teil 6, `consistency_logs`) speichert die Schreiber-ID. Solange es keinen Login gibt, wird `writer_id = NULL` geschrieben. Sobald der individuelle Login steht, muss die eingeloggte Schreiber-Identität dort eingesetzt werden.
 - Free/Pay-Modell (Stripe-Integration)
 - Notifications
 - Sichtbarkeitslogik für Austragungsorte (öffentlich/privat)
