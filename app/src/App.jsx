@@ -5,6 +5,7 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { AuthProvider } from '@/contexts/AuthContext'
 import TabBar from '@/components/layout/TabBar'
+import OfflineBanner from '@/components/OfflineBanner'
 import HomePage from '@/pages/HomePage'
 import StatsPage from '@/pages/StatsPage'
 import PlayersPage from '@/pages/PlayersPage'
@@ -26,6 +27,8 @@ function AppLayout() {
     // Äußerer Wrapper: füllt den Screen, zentriert die App-Spalte, bg-muted als Hintergrund
     // auf Tablets/Desktop wo die App-Spalte schmaler als der Screen ist
     <div className="min-h-screen bg-muted flex justify-center">
+      {/* Offline-Banner liegt über allem – fixed, geht durch alle Ebenen */}
+      <OfflineBanner />
       <div className="w-full max-w-[500px] bg-background relative min-h-screen">
         <Routes>
           <Route path="/"               element={<HomePage />}         />
