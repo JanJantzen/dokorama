@@ -2,8 +2,8 @@
 
 > Diese Datei ist das zentrale Briefing für jeden Claude-Assistenten, der an diesem Projekt arbeitet.
 > Sie wird bei jeder neuen Sitzung gelesen. Halte sie aktuell.
-> Letzte Aktualisierung: 25. Juni 2026 – Login (Auth-Stufe 1) deployed: `AuthContext`, `LoginPage`, alle Schreib-Aktionen geschützt, laufende Partie über Spielstand-Screen zugänglich, `created_by` in sessions und `writer_id` im Fallback-Log befüllt. DB-Migration 005 ausgeführt. Roadmap um Auth-Phase ergänzt, Irgendwann-Liste bereinigt.
-> Vorherige Aktualisierung: 22. Juni 2026 – Phase 2 (Roadmap-Punkte 7–17) als ✅ abgeschlossen markiert. Architektur-Fundament abgenommen, Konsistenz-Teile 0–5 nachgezogen, Item-Beschreibungen auf fertig-Stand gebracht.
+> Letzte Aktualisierung: 27. Juni 2026 – PWA (Roadmap-Punkt 19) deployed: `manifest.json`, App-Icons 192/512 + maskable-Variante mit Safe-Zone-Padding, Service Worker via `vite-plugin-pwa` (Workbox), `OfflineBanner`-Komponente. Datenverlust-Schutz war bereits durch `draft.js` abgedeckt. Responsive Design Feinschliff (Punkt 20) noch offen.
+> Vorherige Aktualisierung: 25. Juni 2026 – Login (Auth-Stufe 1) deployed: `AuthContext`, `LoginPage`, alle Schreib-Aktionen geschützt, laufende Partie über Spielstand-Screen zugänglich, `created_by` in sessions und `writer_id` im Fallback-Log befüllt. DB-Migration 005 ausgeführt.
 
 ---
 
@@ -821,7 +821,7 @@ Neue alternative Erfassungs-UI: nüchterner Schreibblock-Stil, alle Infos auf ei
 
 ### Phase 3: App einsatzbereit machen
 
-19. PWA-Setup (Installierbar, Offline-Warnung, Datenverlust-Schutz)
+19. ✅ **PWA-Setup** – `manifest.json`, Icons 192/512 + maskable (Safe-Zone-Padding auf Waldgrün-Canvas), Service Worker via `vite-plugin-pwa` (Workbox, precacht App-Shell), `OfflineBanner` bei fehlendem Netz. Datenverlust-Schutz durch `draft.js` bereits vorhanden.
 20. Responsive Design Feinschliff
 
 **→ Ab hier kann die App das Büchlein ersetzen!**
