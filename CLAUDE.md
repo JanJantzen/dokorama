@@ -2,7 +2,7 @@
 
 > Diese Datei ist das zentrale Briefing für jeden Claude-Assistenten, der an diesem Projekt arbeitet.
 > Sie wird bei jeder neuen Sitzung gelesen. Halte sie aktuell.
-> Letzte Aktualisierung: 27. Juni 2026 – PWA (Roadmap-Punkt 19) deployed: `manifest.json`, App-Icons 192/512 + maskable-Variante mit Safe-Zone-Padding, Service Worker via `vite-plugin-pwa` (Workbox), `OfflineBanner`-Komponente. Datenverlust-Schutz war bereits durch `draft.js` abgedeckt. Responsive Design Feinschliff (Punkt 20) noch offen.
+> Letzte Aktualisierung: 27. Juni 2026 – Hängengelassene Hochzeit als neuer Solo-Typ ergänzt (Spec + Code + DB-Migration 006). PWA (Roadmap-Punkt 19) deployed: `manifest.json`, App-Icons 192/512 + maskable-Variante mit Safe-Zone-Padding, Service Worker via `vite-plugin-pwa` (Workbox), `OfflineBanner`-Komponente. Datenverlust-Schutz war bereits durch `draft.js` abgedeckt. Responsive Design Feinschliff (Punkt 20) noch offen.
 > Vorherige Aktualisierung: 25. Juni 2026 – Login (Auth-Stufe 1) deployed: `AuthContext`, `LoginPage`, alle Schreib-Aktionen geschützt, laufende Partie über Spielstand-Screen zugänglich, `created_by` in sessions und `writer_id` im Fallback-Log befüllt. DB-Migration 005 ausgeführt.
 
 ---
@@ -119,14 +119,16 @@ Kein Konfigurations-UI in V1 – nur das flexible Datenmodell.
 | Buben-Solo   | Nur Buben sind Trumpf                                           | Wer spielt Solo                  |
 | Damen-Solo   | Nur Damen sind Trumpf                                           | Wer spielt Solo                  |
 | Farb-Solo    | Eine Farbe wird als Trumpf bestimmt (Karo, Herz, Pik oder Kreuz) | Wer spielt Solo + welche Farbe |
-| Stilles Solo | Hochzeit verschwiegen – spielt still alleine (wie Farb-Solo Karo) | Wer spielt Solo                |
+| Stilles Solo            | Hochzeit verschwiegen – spielt still alleine (wie Farb-Solo Karo) | Wer spielt Solo                |
+| Hängengelassene Hochzeit | Hochzeit angesagt, aber alle ersten drei Stiche an den/die Hochzeiter:in → kein Partner gefunden, erzwungenes Solo | Wer spielt Solo (Solo-Flow, nicht Hochzeit-Flow) |
 
 **Solo-Auswirkungen:**
 
 - **Zählweise:** Solist:in bekommt den dreifachen Spielwert
 - **Grundpunkt:** Solo bringt immer +1 als Grundpunkt (wie „gegen die Alten")
-- **Rundenlänge:** Bei allen angesagten Solos (alles außer Stilles Solo) kommt der/die Solist:in selber raus und der/die Geber:in muss nochmal geben → die Runde wird um 1 Spiel verlängert
+- **Rundenlänge:** Bei allen angesagten Solos (alles außer Stilles Solo und Hängengelassene Hochzeit) kommt der/die Solist:in selber raus und der/die Geber:in muss nochmal geben → die Runde wird um 1 Spiel verlängert
 - **Stilles Solo:** Kein Neugeben, zählt als normales Spiel in der Rundenfolge
+- **Hängengelassene Hochzeit:** Kein Neugeben (wie Stilles Solo) – das Solo war nicht absichtlich angesagt, sondern erzwungen
 
 ### Ansagen und Absagen bei Jans Runde
 
@@ -338,7 +340,7 @@ Eine Runde ist vollständig, wenn alle regulären Spiele (= Anzahl Spieler:innen
 | ID                    | ✓  | Eindeutige Kennung                                                            |
 | Runden-ID             | ✓  | Zu welcher Runde gehört dieses Spiel                                          |
 | Laufende Nummer       | ✓  | Nummer innerhalb der Runde (1, 2, 3, ...)                                     |
-| Spieltyp              | ✓  | Normal / Hochzeit / Armut / Fleischlos / Buben-Solo / Damen-Solo / Farb-Solo / Stilles Solo |
+| Spieltyp              | ✓  | Normal / Hochzeit / Armut / Fleischlos / Buben-Solo / Damen-Solo / Farb-Solo / Stilles Solo / Hängengelassene Hochzeit |
 | Farbe (bei Farb-Solo) | ✓  | Karo / Herz / Pik / Kreuz (nur bei Farb-Solo, sonst leer)                    |
 | Augen Re-Partei       | ✓  | Augen der Re-Partei (Kontra = 240 minus Re). Re-Partei ist: bei Normalspiel das Team mit den Kreuz-Damen, bei Solo der/die Solist:in, bei Armut die Partei mit Armut (arm) + Armut (reich), bei Hochzeit die Partei mit Hochzeit + Eingeheiratet. In der UI kann man die Augen beliebiger Partei eingeben, gespeichert wird immer Re. Nur bei echter App-Erfassung gesetzt, nie zusammen mit augen_re_min/max. |
 | Augen Re-Min          | ✓  | Untere Grenze der Re-Augen (Integer, nullable). Nur beim historischen Import gesetzt, nie zusammen mit augen_re. |
@@ -584,7 +586,7 @@ Hinweis zu Streaks: Werden pro Spieler:in über Partien hinweg berechnet. Abwese
 
 #### 5. Einzelkämpfer – Solos
 
-- Solos total und je Typ (Fleischlos, Buben-Solo, Damen-Solo, Farb-Solo, Stilles Solo)
+- Solos total und je Typ (Fleischlos, Buben-Solo, Damen-Solo, Farb-Solo, Stilles Solo, Hängengelassene Hochzeit)
 - Gewonnen / Verloren / Gewinnquote (total und je Typ)
 - Durchschnitt Solos pro Runde
 - Durchschnittlicher Punkteertrag pro Solo
@@ -926,7 +928,7 @@ Neue alternative Erfassungs-UI: nüchterner Schreibblock-Stil, alle Infos auf ei
 | **Seed-Daten**              | Vorbefüllte Daten in der Datenbank (z.B. Jans Spieler:innen, Sonderpunkt-Typen, die eine V1-Gruppe). |
 | **shadcn/ui**               | Sammlung fertiger UI-Komponenten (Buttons, Tabellen, Dialoge etc.) die als Code ins Projekt kopiert werden. Individualisierbar, kein Lock-in. |
 | **Sitzposition**            | Feste Position am Tisch (1–7), bestimmt Geber-Rotation und Aussetzer. Position 1 = erste:r Geber:in der Runde. |
-| **Solo**                    | Ein:e Spieler:in spielt alleine gegen die anderen drei. Typen: Fleischlos, Buben-Solo, Damen-Solo, Farb-Solo (mit Farbwahl), Stilles Solo. Solist:in bekommt dreifachen Spielwert. Bringt immer +1 Solo-Punkt als Grundpunkt. Angesagte Solos (außer Still) verlängern die Runde um 1 Spiel. |
+| **Solo**                    | Ein:e Spieler:in spielt alleine gegen die anderen drei. Typen: Fleischlos, Buben-Solo, Damen-Solo, Farb-Solo (mit Farbwahl), Stilles Solo, Hängengelassene Hochzeit. Solist:in bekommt dreifachen Spielwert. Bringt immer +1 Solo-Punkt als Grundpunkt. Angesagte Solos (außer Stilles Solo und Hängengelassene Hochzeit) verlängern die Runde um 1 Spiel. |
 | **Spiel (Game)**            | Eine einzelne Partie Doppelkopf (12 Stiche, dann wird neu gegeben).       |
 | **Spieler:in (Player)**     | Eine Person in der App. Kann in mehreren Gruppen sein.                    |
 | **Spielwert**               | Die Punkte, die für ein einzelnes Spiel vergeben werden. Wird nicht manuell erfasst, sondern automatisch berechnet aus: Grundpunkte → Verdopplung durch Ansagen → Sonderpunkte. Pro Spieler:in als Zählpunkte im Spielergebnis gespeichert. |

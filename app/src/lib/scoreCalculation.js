@@ -2,7 +2,7 @@
 // Validiert gegen die 15 Testfälle aus CLAUDE.md Abschnitt 4
 
 // Alle Spieltypen die als Solo zählen (Solist:in spielt 1 gegen 3)
-export const SOLO_TYPES = ['fleischlos', 'buben_solo', 'damen_solo', 'farb_solo', 'stilles_solo']
+export const SOLO_TYPES = ['fleischlos', 'buben_solo', 'damen_solo', 'farb_solo', 'stilles_solo', 'haengengelassene_hochzeit']
 export const isSolo = (gameType) => SOLO_TYPES.includes(gameType)
 
 // Wie viele Augen braucht eine Partei um eine Absage ERFOLGREICH abzuschließen?

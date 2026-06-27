@@ -40,11 +40,12 @@ function getRoleLabel(specialRole, soloType, soloColor) {
   if (!specialRole) return ''
   if (specialRole === 'solist') {
     return {
-      fleischlos:   'Fleischlos',
-      buben_solo:   'Buben-Solo',
-      damen_solo:   'Damen-Solo',
-      farb_solo:    soloColor ? `Farb-Solo ${FARB_EMOJI[soloColor] ?? ''}` : 'Farb-Solo',
-      stilles_solo: 'Stilles Solo',
+      fleischlos:                'Fleischlos',
+      buben_solo:                'Buben-Solo',
+      damen_solo:                'Damen-Solo',
+      farb_solo:                 soloColor ? `Farb-Solo ${FARB_EMOJI[soloColor] ?? ''}` : 'Farb-Solo',
+      stilles_solo:              'Stilles Solo',
+      haengengelassene_hochzeit: 'Hängengelassene Hochzeit',
     }[soloType] ?? 'Solo'
   }
   return {

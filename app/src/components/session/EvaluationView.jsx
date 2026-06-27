@@ -30,10 +30,11 @@ const SPECIAL_LABELS = {
 
 // Anzeige-Namen der Sonderspiel-Typen (für das Label unter dem aktiven Team)
 const SOLO_LABELS = {
-  fleischlos:   'Fleischlos',
-  buben_solo:   'Buben-Solo',
-  damen_solo:   'Damen-Solo',
-  stilles_solo: 'Stilles Solo',
+  fleischlos:                'Fleischlos',
+  buben_solo:                'Buben-Solo',
+  damen_solo:                'Damen-Solo',
+  stilles_solo:              'Stilles Solo',
+  haengengelassene_hochzeit: 'Hängengelassene Hochzeit',
 }
 const FARBE_LABELS = { karo: 'Karo', herz: 'Herz', pik: 'Pik', kreuz: 'Kreuz' }
 

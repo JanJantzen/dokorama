@@ -20,11 +20,12 @@ import iconKarlchenGemacht  from '@/assets/icons/icon-karlchen-gemacht.png'
 import iconKarlchenGefangen from '@/assets/icons/icon-karlchen-gefangen.png'
 
 const SOLO_TYPEN = [
-  { type: 'fleischlos',   label: 'Fleischlos'   },
-  { type: 'buben_solo',   label: 'Buben-Solo'   },
-  { type: 'damen_solo',   label: 'Damen-Solo'   },
-  { type: 'farb_solo',    label: 'Farb-Solo'    },
-  { type: 'stilles_solo', label: 'Stilles Solo' },
+  { type: 'fleischlos',               label: 'Fleischlos'        },
+  { type: 'buben_solo',               label: 'Buben-Solo'        },
+  { type: 'damen_solo',               label: 'Damen-Solo'        },
+  { type: 'farb_solo',                label: 'Farb-Solo'         },
+  { type: 'stilles_solo',             label: 'Stilles Solo'      },
+  { type: 'haengengelassene_hochzeit', label: 'Hängengelassene'  },
 ]
 
 // Farb-Solo: nur Emojis, Reihenfolge ♣♠ / ♥♦ (oben links → rechts, unten links → rechts)

@@ -262,6 +262,7 @@ const SP_TEXT = {
 const SOLO_TEXT = {
   fleischlos: 'Fleischlos', buben_solo: 'Buben-Solo', damen_solo: 'Damen-Solo',
   farb_solo: 'Farb-Solo', stilles_solo: 'Stilles Solo',
+  haengengelassene_hochzeit: 'Hängengelassene Hochzeit',
 }
 const FARB_TEXT = { karo: '♦', herz: '♥', pik: '♠', kreuz: '♣' }
 

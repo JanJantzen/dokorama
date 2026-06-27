@@ -8,7 +8,7 @@
 
 import { supabase } from './supabase'
 
-// Solo-Typen, die die Runde verlängern (alle außer Stilles Solo)
+// Solo-Typen, die die Runde verlängern (alle außer Stilles Solo und Hängengelassener Hochzeit)
 export const ANNOUNCED_SOLO_TYPES = ['fleischlos', 'buben_solo', 'damen_solo', 'farb_solo']
 
 // Lädt den Fortschritt einer Runde aus der DB.
