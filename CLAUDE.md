@@ -72,7 +72,6 @@ Wenn ein:e Spieler:in ein Spiel speichert, das bereits von jemand anderem gespei
 - Eigenes User-Management (Registrierung, Login)
 - **Parallele Partien:** Mehrere gleichzeitig laufende Partien innerhalb einer Gruppe (z.B. bei 8 Spieler:innen zwei Tische). In V1 nicht gebaut, aber Datenmodell unterstützt es bereits (mehrere Sessions pro Datum möglich).
 - **Turniere:** Eigene Entität mit Turniermodus, vorgegebenen Tisch-Konstellationen, Teilnehmer:innen aus ggf. verschiedenen Gruppen und Turnierauswertung. Tische innerhalb eines Turniers funktionieren ähnlich wie Partien, gehören aber zum Turnier und werden vom Turniermodus vorgegeben.
-- **Monetarisierung (tbd):** Angedachtes Modell: Standard (kostenlos, lesender Zugriff via Gruppenlink) / Pro (Login, Partien erfassen als Schreiber:in) / Group Master (Gruppen anlegen, administrieren, Zählregeln konfigurieren) / Tournament Master (Turniere anlegen, Teilnehmer:innen einladen). Pricing-Modell offen – Einmalzahlung sympathisch, aber recurring revenue nötig da laufende Kosten und endliche Zielgruppe. Details tbd.
 - Doko-Dating: Neue Runden kennenlernen, gruppenübergreifende Statistiken
 - Kollaboratives Schreiben (mehrere erfassen gemeinsam ein Spiel in Echtzeit)
 
