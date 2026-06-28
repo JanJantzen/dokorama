@@ -10,7 +10,7 @@
 //
 // handleConfirm lebt hier weil es beide Contexts braucht (Spiel speichern + Session weiterschalten).
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { Ratio, LayoutList, Trophy, Menu, X } from 'lucide-react'
 import { SessionProvider, useSession } from '@/contexts/SessionContext'
@@ -406,9 +406,41 @@ function SessionPageInner() {
     setGameNumber, refreshSeatStatus, advanceToNextRound,
   } = useSession()
   const { gameState, resetForNextGame, resetCurrentGame } = useGame()
+  const { player } = useAuth()
 
   // Bildschirm-Sperre unterdrücken solange die Erfassung aktiv ist
   useWakeLock()
+
+  // Broadcast-Kanal für Live-Updates an Mitschauer:innen (z.B. SessionResultPage).
+  // Wird beim ersten Laden aufgebaut und beim Verlassen sauber geschlossen.
+  const broadcastRef = useRef(null)
+  useEffect(() => {
+    if (!sessionData?.id) return
+    const ch = supabase.channel(`session-${sessionData.id}`)
+    ch.subscribe()
+    broadcastRef.current = ch
+    return () => { supabase.removeChannel(ch) }
+  }, [sessionData?.id])
+
+  // Kugelschreiber in die DB eintragen: diese Person schreibt jetzt
+  useEffect(() => {
+    if (!sessionData?.id || !player?.id) return
+    supabase.from('sessions')
+      .update({ current_writer_id: player.id })
+      .eq('id', sessionData.id)
+  }, [sessionData?.id, player?.id])
+
+  // Live-Draft: aktuellen Spielerfassungs-Zustand in die DB schreiben (debounced).
+  // Mitschauer:innen lesen diesen Stand über Supabase Realtime.
+  useEffect(() => {
+    if (!sessionData?.id) return
+    const timer = setTimeout(() => {
+      supabase.from('sessions')
+        .update({ live_draft: { gameNumber, gameState } })
+        .eq('id', sessionData.id)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [gameState, gameNumber, sessionData?.id])
 
   const [showEndScreen,   setShowEndScreen]   = useState(false)
   const [showResetScreen, setShowResetScreen] = useState(false)
@@ -464,6 +496,10 @@ function SessionPageInner() {
       // (nächste Runde / Partie beenden) entscheidet der/die Nutzer:in.
       const { isComplete, announcedSolos } = await loadRoundProgress(roundData.id, participants.length)
       clearDraft(sessionData.id)
+      // Live-Draft leeren – das Spiel ist jetzt in der DB, kein halbfertiger Stand mehr
+      await supabase.from('sessions').update({ live_draft: null }).eq('id', sessionData.id)
+      // Mitschauer:innen informieren dass ein neues Spiel gespeichert wurde
+      broadcastRef.current?.send({ type: 'broadcast', event: 'game-saved', payload: {} })
       if (isComplete) {
         // Auswertungs-Screen verlassen (sonst bliebe er aktiv im Hintergrund) und
         // den Runden-Übergang zeigen. Das Spiel ist bereits gespeichert.

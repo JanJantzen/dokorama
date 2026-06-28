@@ -32,6 +32,17 @@ export default function SessionResultPage() {
     loadStandings(id).then(setStandings).catch(() => setError(true))
   }, [id])
 
+  // Live-Updates: Spielstand neu laden wenn der Schreiber ein Spiel bestätigt
+  useEffect(() => {
+    const ch = supabase
+      .channel(`session-${id}`)
+      .on('broadcast', { event: 'game-saved' }, () => {
+        loadStandings(id).then(setStandings).catch(() => {})
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [id])
+
   async function handleDelete() {
     setWorking(true)
     try {
