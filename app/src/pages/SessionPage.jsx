@@ -25,6 +25,7 @@ import RoundEndView from '@/components/session/RoundEndView'
 import ConsistencyDialog from '@/components/session/ConsistencyDialog'
 import { loadRoundProgress } from '@/lib/rounds'
 import { saveDraft, clearDraft } from '@/lib/draft'
+import { useWakeLock } from '@/hooks/useWakeLock'
 
 function formatDate(dateStr) {
   if (!dateStr) return ''
@@ -405,6 +406,9 @@ function SessionPageInner() {
     setGameNumber, refreshSeatStatus, advanceToNextRound,
   } = useSession()
   const { gameState, resetForNextGame, resetCurrentGame } = useGame()
+
+  // Bildschirm-Sperre unterdrücken solange die Erfassung aktiv ist
+  useWakeLock()
 
   const [showEndScreen,   setShowEndScreen]   = useState(false)
   const [showResetScreen, setShowResetScreen] = useState(false)
