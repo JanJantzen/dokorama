@@ -128,6 +128,8 @@ export default function SessionDetailsPage() {
   const [session, setSession] = useState(null)
   const [rounds, setRounds] = useState(null) // null = lädt noch
   const [error, setError] = useState(false)
+  // Welches Spiel wartet auf Bestätigung? null = kein Dialog offen.
+  const [pendingEditId, setPendingEditId] = useState(null)
 
   useEffect(() => {
     supabase.from('sessions').select('id, date, venues(name)').eq('id', id).single()
@@ -178,13 +180,38 @@ export default function SessionDetailsPage() {
                 <GameRow
                   key={g.number}
                   game={g}
-                  onEdit={g.editable ? () => navigate(`/spiel/${g.id}/bearbeiten`) : null}
+                  onEdit={g.editable ? () => setPendingEditId(g.id) : null}
                 />
               ))}
             </div>
           ))
         )}
       </div>
+
+      {/* Bestätigungs-Dialog vor dem Bearbeiten eines Spiels einer abgeschlossenen Partie */}
+      {pendingEditId && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 px-4 pb-8">
+          <div className="w-full max-w-[500px] bg-background rounded-2xl p-6 flex flex-col gap-4">
+            <p className="font-semibold text-base">Spiel bearbeiten?</p>
+            <p className="text-sm text-muted-foreground">
+              Du bist im Begriff, ein Spiel einer bereits abgeschlossenen Partie zu editieren.
+              Bist Du Dir ganz sicher, dass Du das tun willst?
+            </p>
+            <button
+              className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-semibold text-sm"
+              onClick={() => { setPendingEditId(null); navigate(`/spiel/${pendingEditId}/bearbeiten`) }}
+            >
+              Ja, ich weiß was ich tue und mache nichts kaputt
+            </button>
+            <button
+              className="w-full h-11 rounded-xl bg-muted text-foreground font-semibold text-sm"
+              onClick={() => setPendingEditId(null)}
+            >
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
