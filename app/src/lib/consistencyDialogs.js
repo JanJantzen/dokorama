@@ -28,7 +28,7 @@ const otherParty = party => (party === 're' ? 'kontra' : 're')
 const SOLO_LABELS = {
   fleischlos: 'Fleischlos', buben_solo: 'Buben-Solo', damen_solo: 'Damen-Solo',
   farb_solo: 'Farb-Solo', stilles_solo: 'Stilles Solo',
-  haengengelassene_hochzeit: 'Hängengelassene Hochzeit',
+  solo_hochzeit: 'Solo Hochzeit',
 }
 
 // Sonderrollen, die auf der Re-Seite eines Sonderspiels liegen (B.4.3).

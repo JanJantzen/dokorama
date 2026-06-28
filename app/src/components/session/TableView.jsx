@@ -45,7 +45,7 @@ function getRoleLabel(specialRole, soloType, soloColor) {
       damen_solo:                'Damen-Solo',
       farb_solo:                 soloColor ? `Farb-Solo ${FARB_EMOJI[soloColor] ?? ''}` : 'Farb-Solo',
       stilles_solo:              'Stilles Solo',
-      haengengelassene_hochzeit: 'Hängengelassene Hochzeit',
+      solo_hochzeit: 'Solo Hochzeit',
     }[soloType] ?? 'Solo'
   }
   return {

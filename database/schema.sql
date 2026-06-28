@@ -11,7 +11,7 @@ CREATE TYPE global_role     AS ENUM ('super_admin', 'normal');
 CREATE TYPE group_role      AS ENUM ('admin', 'schreiber', 'leser');
 CREATE TYPE session_status  AS ENUM ('laufend', 'abgeschlossen');
 CREATE TYPE round_status    AS ENUM ('laufend', 'abgeschlossen');
-CREATE TYPE game_type       AS ENUM ('normal', 'hochzeit', 'armut', 'fleischlos', 'buben_solo', 'damen_solo', 'farb_solo', 'stilles_solo', 'haengengelassene_hochzeit');
+CREATE TYPE game_type       AS ENUM ('normal', 'hochzeit', 'armut', 'fleischlos', 'buben_solo', 'damen_solo', 'farb_solo', 'stilles_solo', 'solo_hochzeit');
 CREATE TYPE farbe           AS ENUM ('karo', 'herz', 'pik', 'kreuz');
 CREATE TYPE partei          AS ENUM ('re', 'kontra', 'ausgesetzt');
 CREATE TYPE sonderrolle     AS ENUM ('solist', 'hochzeit', 'eingeheiratet', 'arm', 'reich');

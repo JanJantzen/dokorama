@@ -25,7 +25,7 @@ const SOLO_TYPEN = [
   { type: 'damen_solo',               label: 'Damen-Solo'        },
   { type: 'farb_solo',                label: 'Farb-Solo'         },
   { type: 'stilles_solo',             label: 'Stilles Solo'      },
-  { type: 'haengengelassene_hochzeit', label: 'Hängengelassene'  },
+  { type: 'solo_hochzeit', label: 'Solo Hochzeit'  },
 ]
 
 // Farb-Solo: nur Emojis, Reihenfolge ♣♠ / ♥♦ (oben links → rechts, unten links → rechts)

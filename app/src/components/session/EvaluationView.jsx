@@ -34,7 +34,7 @@ const SOLO_LABELS = {
   buben_solo:                'Buben-Solo',
   damen_solo:                'Damen-Solo',
   stilles_solo:              'Stilles Solo',
-  haengengelassene_hochzeit: 'Hängengelassene Hochzeit',
+  solo_hochzeit: 'Solo Hochzeit',
 }
 const FARBE_LABELS = { karo: 'Karo', herz: 'Herz', pik: 'Pik', kreuz: 'Kreuz' }
 
