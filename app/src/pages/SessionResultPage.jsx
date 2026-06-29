@@ -76,9 +76,12 @@ export default function SessionResultPage() {
   const pageTitle   = isRunning ? 'Aktueller Stand' : 'Endstand'
 
   // Wer schreibt gerade? Name aus den geladenen Standings ableiten (haben player_id + name)
-  const writerName  = standings?.find(s => s.player_id === session?.current_writer_id)?.name ?? null
-  const iAmWriter   = !!player?.id && player.id === session?.current_writer_id
-  const hasWriter   = !!session?.current_writer_id
+  const writerName      = standings?.find(s => s.player_id === session?.current_writer_id)?.name ?? null
+  const iAmWriter       = !!player?.id && player.id === session?.current_writer_id
+  const hasWriter       = !!session?.current_writer_id
+  // Nur Teilnehmer:innen (in standings) dürfen schreiben – andere sehen immer "verfolgen"
+  const iAmParticipant  = !!player?.id && (standings ?? []).some(s => s.player_id === player.id)
+  const followMode      = !iAmParticipant || (hasWriter && !iAmWriter)
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -105,13 +108,13 @@ export default function SessionResultPage() {
             className="w-full flex items-center justify-between rounded-xl border border-primary bg-primary/5 p-4 active:bg-primary/10"
           >
             <div className="flex items-center gap-2">
-              {hasWriter && !iAmWriter
+              {followMode
                 ? <Eye size={18} className="text-primary" />
                 : <PenLine size={18} className="text-primary" />
               }
               <div className="text-left">
                 <p className="text-sm font-semibold text-primary">
-                  {hasWriter && !iAmWriter ? 'Partie verfolgen' : 'Partie weiterschreiben'}
+                  {followMode ? 'Partie verfolgen' : 'Partie weiterschreiben'}
                 </p>
                 {hasWriter && !iAmWriter && writerName && (
                   <p className="text-xs text-primary/70">{writerName} schreibt gerade</p>
