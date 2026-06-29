@@ -406,30 +406,59 @@ function SessionPageInner() {
     showMenu, setShowMenu,
     setGameNumber, refreshSeatStatus, advanceToNextRound,
     isWriter, currentWriterName,
+    showTakeoverDialog, requestTakeover, dismissTakeover, updateCurrentWriter,
   } = useSession()
   const { gameState, resetForNextGame, resetCurrentGame, setGameStateFromDraft } = useGame()
   const { player } = useAuth()
 
+  // Ref auf isWriter – ermöglicht es, in Supabase-Callbacks den aktuellen Wert zu lesen
+  // ohne stale-closure-Probleme (Callbacks schließen über die Ref, nicht über isWriter selbst).
+  const isWriterRef = useRef(isWriter)
+  useEffect(() => { isWriterRef.current = isWriter })
+
   // Bildschirm-Sperre unterdrücken solange die Erfassung aktiv ist
   useWakeLock()
 
-  // Broadcast-Kanal für Live-Updates an Mitschauer:innen (z.B. SessionResultPage).
-  // Wird beim ersten Laden aufgebaut und beim Verlassen sauber geschlossen.
+  // Broadcast-Kanal für Live-Updates.
+  // Alle hören auf 'writer-changed' (Kugelschreiber-Übergabe) und 'game-saved'
+  // (Scoreboard im Zuschauer-Modus aktuell halten).
   const broadcastRef = useRef(null)
   useEffect(() => {
     if (!sessionData?.id) return
     const ch = supabase.channel(`session-${sessionData.id}`)
+      .on('broadcast', { event: 'writer-changed' }, (payload) => {
+        updateCurrentWriter(payload.payload.writerId)
+      })
+      .on('broadcast', { event: 'game-saved' }, () => {
+        setScoreboardRefresh(n => n + 1)
+      })
+      // Runde ist komplett: Zuschauer:in wird zum Runden-Abschlussscreen mitgenommen.
+      // Schreiber:in empfängt diesen Event auch von sich selbst (no-op, State ist schon gesetzt).
+      .on('broadcast', { event: 'round-complete' }, () => {
+        setShowRoundEnd(true)
+      })
+      // Nächste Runde gestartet: Zuschauer:in verlässt den Runden-Abschlussscreen.
+      .on('broadcast', { event: 'next-round' }, () => {
+        setShowRoundEnd(false)
+      })
     ch.subscribe()
     broadcastRef.current = ch
     return () => { supabase.removeChannel(ch) }
   }, [sessionData?.id])
 
-  // Kugelschreiber in die DB eintragen: diese Person schreibt jetzt
+  // Kugelschreiber in die DB eintragen – aber nur wenn noch niemand anderes schreibt.
+  // Ohne diese Prüfung würde jeder neu eingeloggte User den bisherigen Schreiber stumm überschreiben.
+  // Das .is('current_writer_id', null) auf DB-Ebene schützt zusätzlich gegen Race Conditions.
   useEffect(() => {
     if (!sessionData?.id || !player?.id) return
-    supabase.from('sessions')
-      .update({ current_writer_id: player.id })
-      .eq('id', sessionData.id)
+    if (sessionData.current_writer_id) return
+    async function setWriter() {
+      await supabase.from('sessions')
+        .update({ current_writer_id: player.id })
+        .eq('id', sessionData.id)
+        .is('current_writer_id', null)
+    }
+    setWriter()
   }, [sessionData?.id, player?.id])
 
   // Live-Draft: aktuellen Spielerfassungs-Zustand in die DB schreiben (debounced).
@@ -437,8 +466,8 @@ function SessionPageInner() {
   // activeView mitschicken damit Zuschauer automatisch auf den Auswertungs-Screen folgen.
   useEffect(() => {
     if (!sessionData?.id || !isWriter) return
-    const timer = setTimeout(() => {
-      supabase.from('sessions')
+    const timer = setTimeout(async () => {
+      await supabase.from('sessions')
         .update({ live_draft: { gameNumber, gameState, activeView } })
         .eq('id', sessionData.id)
     }, 500)
@@ -455,6 +484,10 @@ function SessionPageInner() {
         event: 'UPDATE', schema: 'public', table: 'sessions',
         filter: `id=eq.${sessionData.id}`,
       }, (payload) => {
+        // Sicherheitsventil: falls isWriter in der Zwischenzeit true wurde (Timing-
+        // Fenster beim Auth-Laden), den Handler ignorieren. Verhindert dass die
+        // Zuschauer-Logik versehentlich auf dem Schreiber-Gerät ausgeführt wird.
+        if (isWriterRef.current) return
         const draft = payload.new?.live_draft
         if (!draft) {
           // Spiel wurde bestätigt → GameState leeren, Auswertungs-Screen schließen
@@ -480,11 +513,12 @@ function SessionPageInner() {
     return () => supabase.removeChannel(ch)
   }, [sessionData?.id, isWriter])
 
-  const [showEndScreen,   setShowEndScreen]   = useState(false)
-  const [showResetScreen, setShowResetScreen] = useState(false)
-  const [showScoreboard,  setShowScoreboard]  = useState(false)
-  const [showRoundEnd,    setShowRoundEnd]    = useState(false)
-  const [advancing,       setAdvancing]       = useState(false)
+  const [showEndScreen,      setShowEndScreen]      = useState(false)
+  const [showResetScreen,    setShowResetScreen]    = useState(false)
+  const [showScoreboard,     setShowScoreboard]     = useState(false)
+  const [showRoundEnd,       setShowRoundEnd]       = useState(false)
+  const [advancing,          setAdvancing]          = useState(false)
+  const [scoreboardRefresh,  setScoreboardRefresh]  = useState(0)
 
   // Laufendes (noch nicht bestätigtes) Spiel lokal sichern – überlebt Navigation
   // (Bearbeiten, Hauptmenü) und Seiten-Reload. Erst beim Bestätigen geht's in die DB.
@@ -536,11 +570,15 @@ function SessionPageInner() {
       clearDraft(sessionData.id)
       // Live-Draft leeren – das Spiel ist jetzt in der DB, kein halbfertiger Stand mehr
       await supabase.from('sessions').update({ live_draft: null }).eq('id', sessionData.id)
-      // Mitschauer:innen informieren dass ein neues Spiel gespeichert wurde
+      // Mitschauer:innen informieren dass ein neues Spiel gespeichert wurde;
+      // lokal Scoreboard-Refresh auslösen (Zuschauer bekommen es via Broadcast).
       broadcastRef.current?.send({ type: 'broadcast', event: 'game-saved', payload: {} })
+      setScoreboardRefresh(n => n + 1)
       if (isComplete) {
         // Auswertungs-Screen verlassen (sonst bliebe er aktiv im Hintergrund) und
         // den Runden-Übergang zeigen. Das Spiel ist bereits gespeichert.
+        // round-complete bringt Zuschauer:innen zum selben Zwischenstand-Screen.
+        broadcastRef.current?.send({ type: 'broadcast', event: 'round-complete', payload: {} })
         backToErfassung()
         setShowRoundEnd(true)
         return
@@ -572,6 +610,8 @@ function SessionPageInner() {
       const seated = await advanceToNextRound()
       clearDraft(sessionData.id)
       resetForNextGame(seated)
+      // Zuschauer:innen vom Runden-Abschlussscreen wegführen
+      broadcastRef.current?.send({ type: 'broadcast', event: 'next-round', payload: {} })
       setShowRoundEnd(false)
       backToErfassung()
     } catch (err) {
@@ -593,6 +633,16 @@ function SessionPageInner() {
     resetCurrentGame()
     if (activeView === 'evaluate') backToErfassung()
     setShowResetScreen(false)
+  }
+
+  // Kugelschreiber übernehmen: current_writer_id in DB setzen, lokal aktualisieren,
+  // alten Schreiber per Broadcast informieren.
+  async function handleTakeoverConfirm() {
+    if (!player?.id) return
+    await supabase.from('sessions').update({ current_writer_id: player.id }).eq('id', sessionData.id)
+    updateCurrentWriter(player.id)
+    broadcastRef.current?.send({ type: 'broadcast', event: 'writer-changed', payload: { writerId: player.id } })
+    dismissTakeover()
   }
 
   const dateStr   = formatDate(sessionData?.date)
@@ -651,7 +701,12 @@ function SessionPageInner() {
           <span className="text-sm text-amber-800">
             {currentWriterName ? `${currentWriterName} schreibt – du schaust zu` : 'Zuschauer-Modus'}
           </span>
-          {/* Übernehmen-Button folgt in Schritt 4 */}
+          <button
+            onClick={requestTakeover}
+            className="text-xs font-medium text-amber-800 border border-amber-400 rounded-lg px-2.5 py-1 active:bg-amber-100 shrink-0 ml-3"
+          >
+            Übernehmen
+          </button>
         </div>
       )}
 
@@ -680,6 +735,7 @@ function SessionPageInner() {
           date={dateStr}
           venue={venueName}
           onClose={() => setShowScoreboard(false)}
+          refreshKey={scoreboardRefresh}
         />
       )}
 
@@ -691,6 +747,7 @@ function SessionPageInner() {
           onNextRound={handleNextRound}
           onEndSession={handleEndFromRound}
           busy={advancing}
+          isWriter={isWriter}
         />
       )}
 
@@ -728,6 +785,56 @@ function SessionPageInner() {
 
       {/* Zentraler Auflösungs-Dialog der Konsistenz-Engine (Tisch- wie Block-Ansicht) */}
       <ConsistencyDialog />
+
+      {/* ─── Kugelschreiber-Übergabe-Dialog ──────────────────────────────── */}
+      {showTakeoverDialog && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-6"
+          onClick={dismissTakeover}
+        >
+          <div className="bg-card rounded-2xl p-5 w-full max-w-sm shadow-xl" onClick={e => e.stopPropagation()}>
+            {!player ? (
+              // Nicht eingeloggt → Login anbieten
+              <>
+                <p className="font-semibold text-base">Einloggen zum Schreiben</p>
+                <p className="text-sm text-muted-foreground mt-1 mb-4">
+                  Um das Schreiben zu übernehmen, musst du eingeloggt sein.
+                </p>
+                <div className="flex gap-2">
+                  <button onClick={dismissTakeover}
+                    className="flex-1 h-10 rounded-xl border border-border text-sm font-medium">
+                    Abbrechen
+                  </button>
+                  <button onClick={() => { dismissTakeover(); navigate('/login') }}
+                    className="flex-1 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium">
+                    Einloggen
+                  </button>
+                </div>
+              </>
+            ) : (
+              // Eingeloggt → Übernahme bestätigen
+              <>
+                <p className="font-semibold text-base">Kugelschreiber übernehmen?</p>
+                <p className="text-sm text-muted-foreground mt-1 mb-4">
+                  {currentWriterName
+                    ? `${currentWriterName} schreibt gerade. Möchtest du übernehmen?`
+                    : 'Möchtest du das Schreiben übernehmen?'}
+                </p>
+                <div className="flex gap-2">
+                  <button onClick={dismissTakeover}
+                    className="flex-1 h-10 rounded-xl border border-border text-sm font-medium">
+                    Abbrechen
+                  </button>
+                  <button onClick={handleTakeoverConfirm}
+                    className="flex-1 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium">
+                    Übernehmen
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
     </div>
   )

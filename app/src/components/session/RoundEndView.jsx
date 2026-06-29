@@ -8,7 +8,8 @@ import { useEffect, useState } from 'react'
 import StandingsList from '@/components/session/StandingsList'
 import { loadStandings } from '@/lib/standings'
 
-export default function RoundEndView({ sessionId, roundNumber, onNextRound, onEndSession, busy }) {
+// isWriter: false = Zuschauer:in – Buttons ausblenden, Warte-Hinweis zeigen
+export default function RoundEndView({ sessionId, roundNumber, onNextRound, onEndSession, busy, isWriter = true }) {
   const [standings, setStandings] = useState(null) // null = lädt noch
   const [error, setError] = useState(false)
 
@@ -35,20 +36,28 @@ export default function RoundEndView({ sessionId, roundNumber, onNextRound, onEn
 
       {/* Aktionen */}
       <div className="px-4 pt-3 pb-5 border-t border-border space-y-2">
-        <button
-          onClick={onNextRound}
-          disabled={busy}
-          className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold text-base disabled:opacity-50"
-        >
-          {busy ? 'Starte…' : `Runde ${roundNumber + 1} starten`}
-        </button>
-        <button
-          onClick={onEndSession}
-          disabled={busy}
-          className="w-full h-12 rounded-xl border border-border font-semibold text-base disabled:opacity-50"
-        >
-          Partie beenden
-        </button>
+        {isWriter ? (
+          <>
+            <button
+              onClick={onNextRound}
+              disabled={busy}
+              className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold text-base disabled:opacity-50"
+            >
+              {busy ? 'Starte…' : `Runde ${roundNumber + 1} starten`}
+            </button>
+            <button
+              onClick={onEndSession}
+              disabled={busy}
+              className="w-full h-12 rounded-xl border border-border font-semibold text-base disabled:opacity-50"
+            >
+              Partie beenden
+            </button>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground text-center py-3">
+            Wartet auf den Schreiber…
+          </p>
+        )}
       </div>
     </div>
   )
