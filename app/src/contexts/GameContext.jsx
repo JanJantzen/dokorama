@@ -186,6 +186,12 @@ export function GameProvider({ children, initialParticipants, initialGameState }
     setPendingLoserSelection(null)
   }, [])
 
+  // Überschreibt den kompletten Spielzustand mit einem externen Wert (für Zuschauer-Sync).
+  // null = auf leeren Anfangszustand zurücksetzen (Spiel wurde gerade bestätigt).
+  const setGameStateFromDraft = useCallback((draftGameState) => {
+    setGameState(draftGameState ?? initGameState(participantsRef.current))
+  }, [])
+
   // Führt eine Aktion ungeprüft aus (über den zentralen Reducer). Die einzelnen
   // Handler unten nutzen das – so läuft jede Zustandsänderung durch dieselbe
   // Übergangslogik wie die Vorausschau-Simulation.
@@ -528,6 +534,7 @@ export function GameProvider({ children, initialParticipants, initialGameState }
       gameState,
       resetForNextGame,
       resetCurrentGame,
+      setGameStateFromDraft,
       changeParty,
       previewParty,
       handleAnnouncementToggle,

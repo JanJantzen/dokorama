@@ -9,12 +9,15 @@ import { supabase } from '@/lib/supabase'
 import { calcSeatStatus } from '@/lib/seatUtils'
 import { loadRoundProgress } from '@/lib/rounds'
 import { loadDraft } from '@/lib/draft'
+import { useAuth } from '@/contexts/AuthContext'
 
 // Exportiert, damit der Edit-Modus (EditGamePage) einen schlanken eigenen Context-Wert
 // bereitstellen kann (nur participants + showEvaluation, mehr braucht TableView nicht).
 export const SessionContext = createContext(null)
 
 export function SessionProvider({ children, sessionId }) {
+  const { player } = useAuth()
+
   const [sessionData,    setSessionData]    = useState(null)
   const [roundData,      setRoundData]      = useState(null)
   const [participants,   setParticipants]   = useState([])
@@ -130,6 +133,18 @@ export function SessionProvider({ children, sessionId }) {
     setActiveView(erfassungsView)
   }, [erfassungsView])
 
+  // Ist die aktuelle Person der aktive Schreiber?
+  // Wahr wenn eingeloggt UND (noch kein Schreiber gesetzt ODER man ist der Schreiber selbst).
+  const isWriter = !!player?.id && (
+    !sessionData?.current_writer_id ||
+    sessionData?.current_writer_id === player?.id
+  )
+
+  // Name des aktuellen Schreibers – für den Zuschauer-Banner
+  const currentWriterName = participants.find(
+    p => p.player_id === sessionData?.current_writer_id
+  )?.players?.name ?? null
+
   return (
     <SessionContext.Provider value={{
       sessionData, roundData, participants, gameNumber, loading, noActiveRound, initialGameState,
@@ -138,6 +153,7 @@ export function SessionProvider({ children, sessionId }) {
       evalResult, saving, setSaving,
       showMenu, setShowMenu,
       setGameNumber, refreshSeatStatus, advanceToNextRound,
+      isWriter, currentWriterName,
     }}>
       {children}
     </SessionContext.Provider>

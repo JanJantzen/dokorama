@@ -432,7 +432,7 @@ export default function TableView() {
     updateEyes, updateEyesFor,
     requestSwipe,
   } = useGame()
-  const { participants, showEvaluation } = useSession()
+  const { participants, showEvaluation, isWriter } = useSession()
 
   const [openSheetId, setOpenSheetId] = useState(null)
 
@@ -493,7 +493,11 @@ export default function TableView() {
       const armed = g.armed
       gestureRef.current = null
       setDrag(null)
-      if (!armed) { setOpenSheetId(playerId); return }   // Tap → Sheet öffnen
+      if (!armed) {
+        if (isWriter) setOpenSheetId(playerId)  // Tap → Sheet öffnen (nur Schreiber:in)
+        return
+      }
+      if (!isWriter) return  // Zuschauer:in kann keine Wisch-Geste auslösen
       const target = playerAtPoint(ev.clientX, ev.clientY)
       if (target && target !== playerId) requestSwipe(playerId, target)  // gültiges Ziel → verbinden
     }
@@ -605,6 +609,7 @@ export default function TableView() {
         onEyesForChange={updateEyesFor}
         onEvaluate={handleEvaluateClick}
         isValid={valid}
+        isWriter={isWriter}
       />
 
       {openSheetPlayer && (

@@ -15,6 +15,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { Ratio, LayoutList, Trophy, Menu, X } from 'lucide-react'
 import { SessionProvider, useSession } from '@/contexts/SessionContext'
 import { GameProvider, useGame, buildCalculationInput } from '@/contexts/GameContext'
+import { calculateGameResult } from '@/lib/scoreCalculation'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import TableView from '@/components/session/TableView'
@@ -404,8 +405,9 @@ function SessionPageInner() {
     evalResult, saving, setSaving,
     showMenu, setShowMenu,
     setGameNumber, refreshSeatStatus, advanceToNextRound,
+    isWriter, currentWriterName,
   } = useSession()
-  const { gameState, resetForNextGame, resetCurrentGame } = useGame()
+  const { gameState, resetForNextGame, resetCurrentGame, setGameStateFromDraft } = useGame()
   const { player } = useAuth()
 
   // Bildschirm-Sperre unterdrücken solange die Erfassung aktiv ist
@@ -432,15 +434,51 @@ function SessionPageInner() {
 
   // Live-Draft: aktuellen Spielerfassungs-Zustand in die DB schreiben (debounced).
   // Mitschauer:innen lesen diesen Stand über Supabase Realtime.
+  // activeView mitschicken damit Zuschauer automatisch auf den Auswertungs-Screen folgen.
   useEffect(() => {
-    if (!sessionData?.id) return
+    if (!sessionData?.id || !isWriter) return
     const timer = setTimeout(() => {
       supabase.from('sessions')
-        .update({ live_draft: { gameNumber, gameState } })
+        .update({ live_draft: { gameNumber, gameState, activeView } })
         .eq('id', sessionData.id)
     }, 500)
     return () => clearTimeout(timer)
-  }, [gameState, gameNumber, sessionData?.id])
+  }, [gameState, gameNumber, activeView, sessionData?.id, isWriter])
+
+  // Realtime-Subscription für Zuschauer:innen: live_draft-Änderungen aus der DB empfangen
+  // und den lokalen Spielzustand synchronisieren.
+  useEffect(() => {
+    if (!sessionData?.id || isWriter) return
+    const ch = supabase
+      .channel(`live-draft-${sessionData.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'sessions',
+        filter: `id=eq.${sessionData.id}`,
+      }, (payload) => {
+        const draft = payload.new?.live_draft
+        if (!draft) {
+          // Spiel wurde bestätigt → GameState leeren, Auswertungs-Screen schließen
+          setGameStateFromDraft(null)
+          backToErfassung()
+          return
+        }
+        setGameStateFromDraft(draft.gameState)
+        if (draft.gameNumber && draft.gameNumber !== gameNumber) {
+          setGameNumber(draft.gameNumber)
+        }
+        // Schreiber wechselt auf Auswertungs-Screen → Zuschauer folgt
+        if (draft.activeView === 'evaluate' && activeView !== 'evaluate') {
+          const input = buildCalculationInput(draft.gameState, participants)
+          showEvaluation(calculateGameResult(input))
+        }
+        // Schreiber verlässt Auswertungs-Screen → Zuschauer auch zurück
+        if (draft.activeView !== 'evaluate' && activeView === 'evaluate') {
+          backToErfassung()
+        }
+      })
+      .subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [sessionData?.id, isWriter])
 
   const [showEndScreen,   setShowEndScreen]   = useState(false)
   const [showResetScreen, setShowResetScreen] = useState(false)
@@ -607,6 +645,16 @@ function SessionPageInner() {
         </div>
       </header>
 
+      {/* ─── Zuschauer-Banner ────────────────────────────────────────────── */}
+      {!isWriter && (
+        <div className="shrink-0 bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center justify-between">
+          <span className="text-sm text-amber-800">
+            {currentWriterName ? `${currentWriterName} schreibt – du schaust zu` : 'Zuschauer-Modus'}
+          </span>
+          {/* Übernehmen-Button folgt in Schritt 4 */}
+        </div>
+      )}
+
       {/* ─── Aktive View ─────────────────────────────────────────────────── */}
       {activeView === 'table'    && <TableView />}
       {activeView === 'block'    && <BlockView />}
@@ -689,17 +737,10 @@ function SessionPageInner() {
 
 function SessionPageContent() {
   const navigate = useNavigate()
-  const location = useLocation()
   const { loading, participants, noActiveRound, initialGameState } = useSession()
-  const { user, loading: authLoading } = useAuth()
 
-  // Nicht eingeloggt → zur Login-Seite, mit aktueller URL als Rücksprung-Ziel.
-  // Wir warten bis Auth geladen ist damit eingeloggte Nutzer:innen nicht kurz flackern.
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/login', { state: { from: location.pathname, forced: true }, replace: true })
-    }
-  }, [authLoading, user, navigate, location.pathname])
+  // Kein Login-Redirect mehr – Zuschauer:innen können die Partie ohne Login beobachten.
+  // Die Unterscheidung Schreiber vs. Zuschauer läuft über isWriter in SessionContext.
   if (loading) {
     return <div className="flex items-center justify-center h-screen text-muted-foreground">Lade…</div>
   }
