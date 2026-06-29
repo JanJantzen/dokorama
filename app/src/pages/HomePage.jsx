@@ -37,8 +37,11 @@ function SessionRow({ session, onClick }) {
     >
       <p className="text-sm font-medium">
         {formatSessionDate(session.date)}{venuePart}
-        {bracket && <span className="text-xs font-normal text-muted-foreground"> ({bracket})</span>}
+        {bracket && isDone && <span className="text-xs font-normal text-muted-foreground"> ({bracket})</span>}
       </p>
+      {bracket && !isDone && (
+        <p className="text-xs text-muted-foreground">{bracket}</p>
+      )}
       {secondLine && (
         <p className="text-xs text-muted-foreground mt-1">{secondLine}</p>
       )}
