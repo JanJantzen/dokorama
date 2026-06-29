@@ -470,10 +470,15 @@ function SessionPageInner() {
     if (!sessionData?.id || !player?.id) return
     if (sessionData.current_writer_id) return
     async function setWriter() {
-      await supabase.from('sessions')
+      const { error } = await supabase.from('sessions')
         .update({ current_writer_id: player.id })
         .eq('id', sessionData.id)
         .is('current_writer_id', null)
+      if (!error) {
+        // Lokalen State aktualisieren + andere Geräte informieren
+        updateCurrentWriter(player.id)
+        broadcastRef.current?.send({ type: 'broadcast', event: 'writer-changed', payload: { writerId: player.id } })
+      }
     }
     setWriter()
   }, [sessionData?.id, player?.id])
