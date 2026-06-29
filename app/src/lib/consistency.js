@@ -31,6 +31,8 @@
 // Eine "action" ist ein schlichtes Objekt: { type: '...', ...Felder }.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { generateId } from '@/lib/utils'
+
 // Kaskade (B.5.4): Sobald EINE Seite ihre Soll-Größe erreicht, fallen die übrigen
 // NEUTRALEN aktiven Spieler automatisch auf die Gegenseite. Nur Neutrale werden
 // gefüllt – eine bereits gesetzte Partei wird nie umgeklappt. Bei vier Aktiven
@@ -271,7 +273,7 @@ export function applyAction(state, participants, action) {
         ...state,
         specialPoints: [
           ...state.specialPoints,
-          { id: crypto.randomUUID(), type: spType, earnerId, loserId: loserId ?? null },
+          { id: generateId(), type: spType, earnerId, loserId: loserId ?? null },
         ],
       }
     }

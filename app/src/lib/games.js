@@ -12,6 +12,7 @@ import { supabase } from './supabase'
 import { calcSeatStatus } from './seatUtils'
 import { isSolo, deriveGameType } from './scoreCalculation'
 import { ANNOUNCED_SOLO_TYPES } from './rounds'
+import { generateId } from './utils'
 
 // Lädt ein Spiel und baut { gameState, participants, roundNumber, gameNumber, sessionId }
 export async function loadGameForEdit(gameId) {
@@ -53,7 +54,7 @@ export async function loadGameForEdit(gameId) {
     (announcements[a.player_id] ??= []).push(a.typ)
   }
   const specialPoints = (g.special_points ?? []).map(sp => ({
-    id: crypto.randomUUID(), type: sp.typ, earnerId: sp.player_id, loserId: sp.loser_id ?? null,
+    id: generateId(), type: sp.typ, earnerId: sp.player_id, loserId: sp.loser_id ?? null,
   }))
 
   const gameState = {

@@ -3,13 +3,22 @@
 // Erscheint automatisch, sobald eine Runde komplett ist (letztes Spiel gespeichert).
 // Zeigt "Runde X beendet!" + den aktuellen Punktestand (geladen aus der DB) und
 // bietet zwei Wege: nächste Runde starten oder die Partie beenden.
+//
+// Zuschauer:innen sehen denselben Screen (via round-complete Broadcast), aber
+// die Buttons öffnen den Übergabe-Dialog statt direkt zu handeln.
 
 import { useEffect, useState } from 'react'
 import StandingsList from '@/components/session/StandingsList'
 import { loadStandings } from '@/lib/standings'
 
-// isWriter: false = Zuschauer:in – Buttons ausblenden, Warte-Hinweis zeigen
-export default function RoundEndView({ sessionId, roundNumber, onNextRound, onEndSession, busy, isWriter = true }) {
+// isWriter: false = Zuschauer:in → Buttons öffnen Übergabe-Dialog
+export default function RoundEndView({
+  sessionId, roundNumber,
+  onNextRound, onEndSession, busy,
+  isWriter = true,
+  onRequestTakeover,
+  currentWriterName,
+}) {
   const [standings, setStandings] = useState(null) // null = lädt noch
   const [error, setError] = useState(false)
 
@@ -29,35 +38,42 @@ export default function RoundEndView({ sessionId, roundNumber, onNextRound, onEn
         <p className="text-sm text-muted-foreground mt-1">Aktueller Spielstand</p>
       </div>
 
+      {/* Zuschauer-Banner */}
+      {!isWriter && (
+        <div className="shrink-0 bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center justify-between">
+          <span className="text-sm text-amber-800">
+            {currentWriterName ? `${currentWriterName} schreibt – du schaust zu` : 'Zuschauer-Modus'}
+          </span>
+          <button
+            onClick={onRequestTakeover}
+            className="text-xs font-medium text-amber-800 border border-amber-400 rounded-lg px-2.5 py-1 active:bg-amber-100 shrink-0 ml-3"
+          >
+            Übernehmen
+          </button>
+        </div>
+      )}
+
       {/* Rangliste */}
       <div className="flex-1 overflow-y-auto px-4 py-5">
         <StandingsList standings={standings} error={error} />
       </div>
 
-      {/* Aktionen */}
+      {/* Aktionen: Schreiber:in handelt direkt, Zuschauer:in öffnet Übergabe-Dialog */}
       <div className="px-4 pt-3 pb-5 border-t border-border space-y-2">
-        {isWriter ? (
-          <>
-            <button
-              onClick={onNextRound}
-              disabled={busy}
-              className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold text-base disabled:opacity-50"
-            >
-              {busy ? 'Starte…' : `Runde ${roundNumber + 1} starten`}
-            </button>
-            <button
-              onClick={onEndSession}
-              disabled={busy}
-              className="w-full h-12 rounded-xl border border-border font-semibold text-base disabled:opacity-50"
-            >
-              Partie beenden
-            </button>
-          </>
-        ) : (
-          <p className="text-sm text-muted-foreground text-center py-3">
-            Wartet auf den Schreiber…
-          </p>
-        )}
+        <button
+          onClick={isWriter ? onNextRound : onRequestTakeover}
+          disabled={busy}
+          className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold text-base disabled:opacity-50"
+        >
+          {busy ? 'Starte…' : `Runde ${roundNumber + 1} starten`}
+        </button>
+        <button
+          onClick={isWriter ? onEndSession : onRequestTakeover}
+          disabled={busy}
+          className="w-full h-12 rounded-xl border border-border font-semibold text-base disabled:opacity-50"
+        >
+          Partie beenden
+        </button>
       </div>
     </div>
   )

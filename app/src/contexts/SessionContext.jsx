@@ -33,7 +33,8 @@ export function SessionProvider({ children, sessionId }) {
 
   const [evalResult,     setEvalResult]     = useState(null)
   const [saving,         setSaving]         = useState(false)
-  const [showMenu,       setShowMenu]       = useState(false)
+  const [showMenu,           setShowMenu]           = useState(false)
+  const [showTakeoverDialog, setShowTakeoverDialog] = useState(false)
 
   // Partie-Daten und erste Spielnummer laden
   useEffect(() => {
@@ -133,6 +134,15 @@ export function SessionProvider({ children, sessionId }) {
     setActiveView(erfassungsView)
   }, [erfassungsView])
 
+  // Kugelschreiber-Dialog öffnen/schließen
+  const requestTakeover = useCallback(() => setShowTakeoverDialog(true), [])
+  const dismissTakeover = useCallback(() => setShowTakeoverDialog(false), [])
+
+  // Schreiber lokal wechseln (wird nach DB-Update + Broadcast aufgerufen)
+  const updateCurrentWriter = useCallback((playerId) => {
+    setSessionData(prev => prev ? { ...prev, current_writer_id: playerId } : prev)
+  }, [])
+
   // Ist die aktuelle Person der aktive Schreiber?
   // Wahr wenn eingeloggt UND (noch kein Schreiber gesetzt ODER man ist der Schreiber selbst).
   const isWriter = !!player?.id && (
@@ -154,6 +164,7 @@ export function SessionProvider({ children, sessionId }) {
       showMenu, setShowMenu,
       setGameNumber, refreshSeatStatus, advanceToNextRound,
       isWriter, currentWriterName,
+      showTakeoverDialog, requestTakeover, dismissTakeover, updateCurrentWriter,
     }}>
       {children}
     </SessionContext.Provider>

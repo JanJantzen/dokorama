@@ -40,9 +40,11 @@ function EditGameShell({ gameId, loaded }) {
     setActiveView('evaluate')
   }, [])
 
-  // Schlanker Session-Context: TableView liest nur participants + showEvaluation.
+  // Schlanker Session-Context: TableView liest participants, showEvaluation, isWriter und requestTakeover.
+  // isWriter=true weil man in EditGamePage immer schreibt; requestTakeover ist hier ein No-op
+  // (das Kugelschreiber-Modell gilt nur auf dem Live-Tisch, nicht im Bearbeitungs-Modus).
   const sessionValue = useMemo(
-    () => ({ participants: loaded.participants, showEvaluation }),
+    () => ({ participants: loaded.participants, showEvaluation, isWriter: true, requestTakeover: () => {} }),
     [loaded.participants, showEvaluation],
   )
 

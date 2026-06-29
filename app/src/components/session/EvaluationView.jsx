@@ -208,10 +208,13 @@ export default function EvaluationView({
   gameState,     // für Parteizuordnung, Augen, Ansagen, Sonderpunkte, Spieltyp
   gameNumber,
   roundNumber,
-  onConfirm,     // () → void – speichert und nächstes Spiel
-  onBack,        // () → void – zurück zum Tischscreen
-  saving,        // boolean
+  onConfirm,           // () → void – speichert und nächstes Spiel (nur Schreiber:in)
+  onBack,              // () → void – zurück zum Tischscreen
+  saving,              // boolean
   confirmLabel = 'Bestätigen – nächstes Spiel', // im Edit-Modus z.B. "Speichern"
+  isWriter = true,     // false = Zuschauer:in → Bestätigen öffnet Übergabe-Dialog
+  onRequestTakeover,   // () → void – öffnet den Kugelschreiber-Dialog
+  currentWriterName,   // string | null – Name des aktiven Schreibers (für Banner)
 }) {
   if (!result) return null
 
@@ -270,6 +273,21 @@ export default function EvaluationView({
         </div>
       </div>
 
+      {/* Zuschauer-Banner */}
+      {!isWriter && (
+        <div className="shrink-0 bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center justify-between">
+          <span className="text-sm text-amber-800">
+            {currentWriterName ? `${currentWriterName} schreibt – du schaust zu` : 'Zuschauer-Modus'}
+          </span>
+          <button
+            onClick={onRequestTakeover}
+            className="text-xs font-medium text-amber-800 border border-amber-400 rounded-lg px-2.5 py-1 active:bg-amber-100 shrink-0 ml-3"
+          >
+            Übernehmen
+          </button>
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto px-4 py-5 space-y-4">
         {/* Ergebnis-Überschrift (Normalspiel als Bildunterschrift, Sonderspiel steht am Team) */}
         <div className="text-center">
@@ -305,10 +323,11 @@ export default function EvaluationView({
         </div>
       </div>
 
-      {/* Bestätigen-Button */}
+      {/* Bestätigen-Button: Schreiber:in speichert, Zuschauer:in öffnet Übergabe-Dialog.
+          Label bleibt identisch – der Klick entscheidet was passiert. */}
       <div className="px-4 pt-3 pb-5 border-t border-border">
         <button
-          onClick={onConfirm}
+          onClick={isWriter ? onConfirm : onRequestTakeover}
           disabled={saving}
           className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold text-base disabled:opacity-50"
         >

@@ -3,8 +3,90 @@
 > Diese Datei ist das Gedächtnis für Claude beim Transkribieren von Roberts handgeschriebenen
 > Spielabenden in das Dokorama-Import-JSON-Format.
 > Sie wird zu Beginn jedes Import-Chats gelesen und nach jedem Abend aktualisiert.
-> Letzte Aktualisierung: 23. Juni 2026 – fünfter Abend (22.4.2026, 19 Spiele/4 Runden, 4 Spieler:innen
-> So/Da/Ja/Ro) vollständig abgeschlossen. Wichtigste neue Learnings dieses Abends: **Anker-Methode bei
+> Letzte Aktualisierung: 29. Juni 2026 – zehnter Abend (7.1.2026, 15 Spiele/3 Runden, 4 Spieler:innen
+> Ja/Ka/So/Da, seats 1–4) vollständig abgeschlossen, JSON erstellt (`dokorama_import_2026-01-07.json`).
+> Endstand Ja 35 / Ka 7 / So −3 / Da −39 (Summe 0), alle drei Checks (A Endstand, B Spielwert,
+> C Feigheit) sauber, zusätzlich JSON→Endstand als vierter Gegencheck. Wichtigste neue Learnings dieses
+> Abends: **Reiter-Tippfehler in der JAHRESZAHL (220107 statt 260107):** Das Reiter-Format ist JJMMTT,
+> aber Robert kann sich in der Jahres-Stelle vertippen – Tag/Monat (07.01.) stimmten, nur „22" statt „26".
+> Anders als beim 18.3.-Learning („Reiter schlägt Mund") war hier die mündliche Angabe (Jan: 7.1.26) korrekt
+> und der Reiter falsch. **Regel-Verfeinerung: Stimmen Tag+Monat des Reiters mit der mündlichen Angabe
+> überein und nur das Jahr weicht ab UND alle anderen Reiter der Datei sind aus demselben Jahr wie die
+> mündliche Angabe, ist es ein Robert-Jahres-Tippfehler – mit Jan bestätigen, dann mündliches Jahr nehmen.**
+> NICHT blind den Reiter nehmen (sonst landet ein 2026er Abend fälschlich in 2022). **Führende Ziffer 2↔3
+> verlesbar (21↔31):** Klassischer gegengleicher Nullsummen-Bruch −10/+10 über R3·S3/R3·S4; Jans Stand 21
+> war in Wahrheit 31. Anker-Methode (Jan-Stand R3·S2=36 + Endstand 35) erzwingt 31 eindeutig, beide Zeilen
+> gehen auf, Endstand unberührt (reiner Lesefehler im gegengleichen Paar, keine Rückfrage). Reiht sich in
+> 1↔2 (18.3.) ein – führende Ziffern sind generell die anfälligste Stelle. **Ungerader Wert bei Verdopplung
+> war diesmal KEIN fehlender Doppelkopf, sondern ein ZUVIEL gelesener Sonderpunkt (R1·S2):** Sp 9, Re ang +
+> sichtbares „K" (Karlchen) bei Sophia + Fuchs ergäbe 8 und bräuchte scheinbar einen Doppelkopf auf 9 (wie
+> 4.3./28.1.). Tatsächlich war das „K" gar nicht da (Jan: Sophia hat kein Karlchen gemacht) → ohne Karlchen
+> ist nur Jans Fuchs (+1) der einzige SP, und (Gew+K90g+K90a+K60g=4)×2 +Fuchs = 9 geht parität-sauber auf.
+> **Lehre: „ungerader Wert + Verdopplung" kann auch heißen, dass ein sichtbarer SP zu VIEL ist (Robert-
+> Schreibfehler), nicht nur dass einer fehlt – beide Richtungen prüfen, immer nachfragen statt Doppelkopf
+> zu erfinden.** **Echte Mehrdeutigkeit korrekt als Rückfrage behandelt (R2·S1):** Hochzeit, Wert 3 mit
+> Karlchen-Abzug ging mit ODER ohne Re-Ansage auf (ohne = K30-Feigheit; mit = (Gew+K90)×2 −1, feigheitsfrei).
+> Beide Lesarten denselben Wert → NICHT die feigheitsfreie Variante eigenmächtig wählen (Forcing-Verbot),
+> sondern gefragt – Jan bestätigte Jans Re-Ansage. Frühere Learnings (28.1.): **Ein Ansage-Kürzel (R) kann in der Excel um EINE Zeile verrutscht sein und dadurch zwei
+> Spiele gleichzeitig kaputtmachen** – das fälschlich obenstehende Spiel wird mit Ansage unlösbar
+> (gerader Wert wird ungerade-erzwungen), das untenstehende fehlt die nötige Verdopplung. Leitsignal:
+> Ein „R" in einer Zeile, deren Wert mit Re mathematisch unmöglich ist (R2S2: Re ⇒ min 3, aber Sp 2),
+> PLUS eine Nachbarzeile, die nur mit Ansage aufginge. NICHT vorschnell „Armut statt Re" (A↔R) deuten –
+> das war hier der Notnagel, der den Wert zufällig auch traf; die wahre Lösung war Jans Korrektur „R
+> gehört eine Zeile tiefer" (nach R2S3, Sophias verlorenes Re-Solo). **Lehre: bei einem Ansage-Kürzel,
+> das seine Zeile sprengt, IMMER auch den Zeilenversatz zur Nachbarzeile prüfen, nicht nur Lese-
+> Alternativen derselben Zeile.** **Verlorenes Re-Solo (R2S3):** Solist sagt Re an und geht unter –
+> die Re-Ansage verdoppelt trotzdem (×2), Kontra (die drei Gegner) gewinnt; Solo hat KEIN „Gegen die
+> Alten". Kontra Gew+K90 gg Solist = 2 ×2 = 4 (Sp 12 = 3×4). Augen-Range aus Re(=Solist)-Sicht GESPIEGELT,
+> weil Kontra gewinnt: Kontra K90 geschafft ⇒ Re-Augen 60–89 (nicht 151–180). KEINE Feigheit, weil Re
+> verloren hat (nicht zu vorsichtig gewonnen). **Nicht übertragener Doppelkopf bei ungeradem Wert
+> (R3S2):** R9 (Re+K90 ang) ⇒ Verdopplung ⇒ alle GP-Produkte gerade; Sp 9 ungerade ⇒ es FEHLT genau
+> ein ±1-Sonderpunkt. Kein SP-Kürzel sichtbar → nachgefragt (nicht geraten), Jan bestätigte Sophias
+> Doppelkopf: (Gew+K90g+K90a+K60g=4)×2 +DK = 9. Bestätigt das 4.3.-Learning exakt. **Null-Spiel mit
+> ausgeschriebener Re-Partei (R3S3):** Robert hat diesmal „Sophia + Dani Re Partei" in die Sp-Sonderspalte
+> GESCHRIEBEN statt nur zu unterstreichen – noch eindeutiger. So+Da Re (netto 0), Jan (Kontra) fängt
+> Danis Fuchs → gleicht den +1-Grundpunktsieg von Re exakt aus → alle vier Deltas 0. Saubere
+> Null-Spiel-Mechanik, keine Rückfrage nötig. Frühere Learnings (4.3.): **Spaltenverrutscher in der Excel (Robert→Jan):** Roberts kumulierter
+> Stand (−16) war versehentlich in Jans Nachbarzelle dupliziert. Leitsignal: **zwei identische
+> Nachbarwerte in derselben Zeile** PLUS gegengleicher Nullsummen-Bruch (−10/+10) über zwei Zeilen.
+> Lösung über die Anker-Methode (sichere Stände der Spiele davor/danach erzwingen die Zwischenzeile)
+> + Kürzel-Logik (Jan fängt Roberts Karlchen → Jan ist Kontra-Sieger, also positiv) – eindeutig, kein
+> Raten, Endstand unberührt (gegengleiches Paar). **Ungerader Spielwert bei Verdopplungsansage = es
+> FEHLT zwingend ein Sonderpunkt:** Re/Kontra verdoppelt (×2), Grundpunkt-Produkte sind also immer
+> gerade; ein ungerader Wert (S12: 9 bei Ro-Kontra) ist ohne genau einen ±1-Sonderpunkt mathematisch
+> unmöglich. Fehlt das SP-Kürzel in der Excel → gezielt nachfragen, NICHT raten. War an diesem Abend
+> dreimal ein nicht übertragener **Doppelkopf** (S7, S12, S13). **Zwei Sp-Verleser am selben Abend
+> (S3: 3↔4, S8: 4↔3, gegenläufig!):** Wenn Delta (über Nullsumme + Anker gesichert) und Sp-Zahl
+> auseinandergehen, ist das **Delta die verlässlichere Größe** – die Sp-Spalte ist der „verlierbare"
+> Posten. Beide Spiele über die Spiellogik („richtig herum") aufgelöst: S3 Wert 4 (Armut + Doppelkopf),
+> S8 Wert 3 (Armut, 4 Grundp. − gegnerischer Fuchs). **Methodik-Korrektive von Jan (verbindlich):**
+> (a) **H-/A-Partner (eingeheiratet / Retter) ergeben sich DETERMINIERT aus den Deltas** – wer das
+> gleiche Vorzeichen wie der/die H-/A-Markierte hat, ist der Partner. Kein ⚠️, keine Rückfrage, nicht
+> jedes Mal daran zweifeln. (b) **Rundenstruktur IMMER selbst durchzählen** über Spielzahl + Solos
+> (4 Sp. = 4 Basis-Spiele/Runde, +1 je angesagtem Solo), NIE aus Trennstrichen (die in die Excel
+> ohnehin nicht übertragen werden). (c) **Sitzposition ist festgeschrieben durch die Spaltenreihenfolge
+> im Block: ganz links = erster Geber = seat_position 1**, dann der Reihe nach. `seat_position` ist
+> damit immer aus der Excel determiniert, keine Rückfrage nötig. Keine Feigheiten an diesem Abend,
+> beide Abschluss-Checks exakt (Endstand So 18 / Ka −4 / Ro −34 / Ja 20). Frühere Learnings (18.3.):
+> **Reiter-Datum schlägt mündliche Datumsangabe** – Jan bat um „18.06.", die Excel hatte nur Reiter
+> `260318` = 18.03. (JJMMTT); immer das Reiter-Datum als Wahrheit nehmen und den Konflikt sofort
+> ansprechen, nie einen nicht existierenden Abend „herbeideuten". **Zwei gegengleiche Nullsummen-
+> Brüche (+10/−10 bzw. +9/−9 über zwei aufeinanderfolgende Zeilen) = ein einzelner verlesener Stand
+> in der oberen Zeile**, der sich in beide Deltas fortpflanzt; Korrektur der einen Zahl repariert
+> beide Zeilen (hier R2S2 Ja −15→−25 führende Ziffer 1↔2; R3S1 Da 0→−9 Schleife/0 verlesen). Beide
+> sind reine Verschreiber INNERHALB eines gegengleichen Paares → Endstand bleibt unberührt (kein
+> Robert-Offset-Fehler). **Spieltyp-Kürzel löst „unmögliche" Sonderpunkte auf:** ein „K" (Karlchen)
+> beim Solo ist ein Widerspruch (Damensolo/Fleischlos haben keine Buben bzw. kein Karlchen) → war in
+> Wahrheit Solo-Typ-Korrektur (Fleischlos→Damensolo) + K gestrichen. **Fehlendes Paar-Gegenstück
+> (F+ ohne F−, K ohne K−) ist das Leitsignal zum Nachfragen** – nicht raten; mehrere „K"-Kürzel
+> dieses Abends entpuppten sich als gar nicht existent (Robert-Schreibfehler) oder als Solo-/Typ-
+> Fehler. **Default „Re gewinnt" ist nur Default:** R2S5 schien Re Ro+Ka, war aber Kontra (Jan
+> korrigierte) – erst dadurch ging Wert 2 = (Gew+GgdA+K90+K60) −2 SP auf statt eines erfundenen
+> 4-Grundpunkt-Re ohne GgdA. **Robert schreibt „A" für Armut direkt in die Spielerspalte** (R2S3:
+> Ro A = Armut, Ka R = Retter+Re-Ansage). **augen_re ist IMMER aus Re-Sicht, nie aus Gewinner-Sicht** –
+> bei Kontra-Sieg die Range spiegeln (Kontra K60 geschafft ⇒ Re-Range 30–59, nicht 181–210). Drei
+> echte Feigheiten an diesem Abend (R1S4, R1S5, R2S5: je ohne Ansage K60/K30 geschafft) – Werte
+> stimmen, nur als Kommentar vermerkt, keine Korrektur. Frühere Learnings: **Anker-Methode bei
 > unleserlichen Blöcken** – wenn ein Block (hier R4) zu dicht geschrieben ist, NICHT raten: Endstand
 > des Abends + zwei sauber vorgelesene durchlaufende Spalten (hier Ja und Ro) zwingen die beiden
 > übrigen Spalten und jede Zeile rechnerisch eindeutig (Nullsumme je Zeile + Solo-Bedingung). Damit
@@ -689,6 +771,21 @@ Vertauschung/Fehlverteilung genau zwischen diesen beiden.
 - **Rundengrenzen & Endstand als harte Anker nutzen**, um Runden rückwärts zu verifizieren statt zu raten.
 - **Doppelfuchs F+F+ / F−F−** ist möglich (zwei gefangene Füchse) – beide Kürzel hintereinander.
 - **Solo in Sp = dreifacher Spielwert.** „12 BS" → einfacher Spielwert 4. Kein Solo-Kürzel in Sp = kein Solo.
+- **Sitzposition = Spaltenreihenfolge im Block.** Ganz links = erster Geber = `seat_position` 1, dann
+  der Reihe nach (2, 3, 4 …). Immer aus der Excel/dem Block determiniert – nie raten, nie nachfragen.
+- **H-/A-Partner determiniert aus den Deltas.** Eingeheiratete:r (Hochzeit) bzw. Retter:in (Armut) ist,
+  wer dasselbe Vorzeichen wie der/die H-/A-Markierte hat. Kein ⚠️, keine Rückfrage – nicht daran zweifeln.
+- **Rundenstruktur selbst durchzählen, nie aus Trennstrichen.** n Spieler:innen = n Basis-Spiele je
+  Runde, +1 je angesagtem Solo. Trennstriche werden in die Excel nicht übertragen und sind ohnehin
+  nur ein Hinweis. Die Spielzahl ist maßgeblich.
+- **Ungerader Wert bei Re/Kontra-Ansage ⇒ es fehlt zwingend ein Sonderpunkt.** Verdopplung macht
+  alle Grundpunkt-Produkte gerade; ein ungerader Wert braucht genau einen ±1-Sonderpunkt. Fehlt das
+  Kürzel in der Excel → gezielt nachfragen (war am 4.3. dreimal ein nicht übertragener Doppelkopf).
+- **Spaltenverrutscher in der Excel:** Ein kumulierter Stand kann in die Nachbarzelle dupliziert sein.
+  Leitsignal: zwei identische Nachbarwerte in einer Zeile + gegengleicher Nullsummen-Bruch über zwei
+  Zeilen. Über Anker-Methode + Kürzel-Logik auflösen, nicht raten.
+- **Delta schlägt Sp.** Geht das (über Nullsumme + Anker gesicherte) Delta gegen die Sp-Zahl, ist das
+  Delta die Wahrheit; die Sp-Spalte ist der „verlierbare" Posten (am 4.3. zwei gegenläufige Sp-Verleser).
 
 ---
 
@@ -827,6 +924,23 @@ Keine offenen Punkte mehr – Abend vollständig.
 |-------|-----------|--------|
 | R3/S2 | Re oder Kontra? Wert 4 ohne sichtbare Ansage. Re-Default ⇒ K30 ohne Ansage (unplausibel); Kontra (C vergessen) ⇒ K60, plausibler. Auge kann es nicht entscheiden. | ⏳ Vorläufig als Re-Sieg angenommen (Annahme: Robert hat korrekt aufgeschrieben). Verifikation bei Robert ausstehend – ggf. später korrigieren (dann Schwelle K60, Range 181–210; Wert bleibt 4) |
 
+### Abend 25.3.2026
+
+| Spiel | Nachfrage | Status |
+|-------|-----------|--------|
+| R1S3 | Wert 1, aber Dani (vermeintl. Gewinner) hat K+ UND F+ → ergäbe 3 | ✓ Geklärt (Jan): Re = Robert+Jan, gewinnen einfach (+1); die 2 gefangenen SP von Dani drehen das Netto → So+Da (Kontra) bekommen trotz Niederlage je +1 |
+| R2S2 | Wert 8 nur mit Verdopplung erklärbar, aber nur „9" (K90) sichtbar – erzwungen | ✓ Geklärt (Jan): Robert hat Re angesagt (beim ersten Lesen übersehen) → (Gew+K90 gesch.+K90 ang.+K60 gesch.=4)×2 = 8 |
+| R4S1 | Wert 4 ganz ohne Kürzel nach CK-Korrektur → Feigheitsverdacht (K30 ungesagt) | ✓ Geklärt (Jan): Robert hat den Kontra-SIEG vergessen zu verzeichnen → So+Da Kontra: Gew+GgdA+K90+K60 = 4. Keine Feigheit |
+| R4S2 | „CDK" bei Sophia, Wert 8 ging mit Doppelkopf nicht auf (→7 oder 9) | ✓ Korrigiert in Excel: nur „C" (Kontra), kein DK. (Gew+GgdA+K90+K60=4)×2 = 8 |
+| R4S3 | „CK" stand fälschlich bei R4S1 (Zeilenversatz) | ✓ Korrigiert in Excel: CK gehört zu Robert in R4S3. Ja+Ro Kontra, Ro Karlchen gemacht, Ja fängt Fuchs → (Gew+GgdA+K90=3)×2 +Karlchen +Fuchs = 8 |
+| R4S5 | Damensolo Sophia „RDK", Wert 24 ging mit Doppelkopf nicht auf (→27) | ✓ Korrigiert in Excel: Doppelkopf entfernt → (Gew+Solopkt+K90+K60=4)×2 = 8 (Sp 24) |
+| R4S6 | F− bei Jan ohne paariges F+ (einziger unpaariger Fuchs) | ✓ Korrigiert in Excel: Sophia „HR9F+" → Sophia fängt Jans Fuchs. (Gew+K90 gesch.+K90 ang.+K60 gesch.=4)×2 +Fuchs = 9 |
+
+Offene Detailpunkte: Bei den Hochzeiten R2S1 und R3S3 ist der/die Eingeheiratete aus dem
+Gewinner-Delta abgeleitet (plausibelste Zuordnung), nicht explizit im Blatt vermerkt. Falls
+Robert/Jan die echten Eingeheirateten kennen, nachtragen. Keine offenen Werte mehr – Abend
+inhaltlich vollständig.
+
 ### Abend 10.6.2026
 
 Alle ursprünglich offenen Punkte (R1·S3 Konstellation, R4·S1 Wert-Diskrepanz, vier
@@ -857,7 +971,16 @@ Keine offenen Punkte mehr – Abend vollständig.
 
 | Beobachtung | Gelernt am |
 |-------------|------------|
-| 9 kann wie 7 aussehen | 27.5.2026 |
+| Reiter-Tippfehler in der JAHRESZAHL möglich (220107 = 07.01.2022 gemeint war 260107 = 07.01.2026); wenn Tag+Monat stimmen, nur Jahr abweicht und alle anderen Reiter aus dem mündlich genannten Jahr sind → Robert-Jahres-Tippfehler, mündliches Jahr nehmen (mit Jan bestätigen). NICHT blind den Reiter nehmen | 7.1.2026 |
+| Führende Ziffer 2↔3 verlesbar (21↔31); gegengleicher Nullsummen-Bruch −10/+10 über zwei Zeilen, Anker-Methode erzwingt den wahren Wert, Endstand unberührt | 7.1.2026 |
+| „Ungerader Wert + Verdopplung" kann auch ein ZUVIEL gelesener Sonderpunkt sein (Robert schrieb ein Karlchen, das es nicht gab), nicht nur ein fehlender Doppelkopf – beide Richtungen prüfen, nachfragen statt SP zu erfinden | 7.1.2026 |
+| Echte Mehrdeutigkeit (mit/ohne Re-Ansage gleicher Wert, eine Variante feigheitsfrei): NICHT die feigheitsfreie Lesart eigenmächtig wählen (Forcing-Verbot), sondern fragen | 7.1.2026 |
+| Ein Ansage-Kürzel (R) kann um EINE Zeile verrutscht sein und zwei Spiele zugleich zerstören (obenstehend unlösbar/erzwungen, untenstehend fehlt Verdopplung) – bei „R sprengt seine Zeile" IMMER Zeilenversatz prüfen, nicht nur Lese-Alternativen | 28.1.2026 |
+| Nicht „Armut statt Re" (A↔R) deuten, nur weil es den Wert zufällig trifft – erst Zeilenversatz ausschließen (R2S2: Armut-Notnagel traf 2, wahr war: R gehört nach R2S3) | 28.1.2026 |
+| Verlorenes Re-Solo: Solist sagt Re an, geht unter; Re verdoppelt trotzdem (×2), Kontra (3 Gegner) gewinnt; Solo hat kein „Gegen die Alten" (R2S3: Kontra Gew+K90=2 ×2=4) | 28.1.2026 |
+| Bei Kontra-Sieg Augen-Range aus Re-Sicht SPIEGELN: Kontra K90 geschafft ⇒ Re-Augen 60–89 (nicht 151–180). Verlorenes Re-Solo ist KEINE Feigheit (Re verlor, nicht zu vorsichtig) | 28.1.2026 |
+| Ungerader Wert bei Re/Kontra-Ansage ohne SP-Kürzel = fehlender Sonderpunkt → nachfragen (R3S2: Sophias Doppelkopf, von Jan bestätigt; (Gew+K90g+K90a+K60g=4)×2 +DK=9) – bestätigt 4.3. | 28.1.2026 |
+| Robert kann die Re-Partei beim Null-Spiel AUSSCHREIBEN („Sophia + Dani Re Partei" in Sp-Sonderspalte) statt zu unterstreichen – noch eindeutiger (R3S3) | 28.1.2026 |
 | 8 kann wie „e" aussehen | 27.5.2026 |
 | 19 kann wie „1J" aussehen | 27.5.2026 |
 | Durchgestrichene erste Spalte = Schreibfehler, ignorieren | 27.5.2026 |
@@ -893,6 +1016,29 @@ Keine offenen Punkte mehr – Abend vollständig.
 | Bubensolo-Wert 9 = (Gew+K90+K60+K30)=4 ×2(Re) +1(DK); Sp zeigt 3×9 = „27 BS"; im Solo kein „Gegen die Alten" | 22.4.2026 |
 | Feigheits-Check für JEDES Spiel programmatisch (≥3 Level Ansage↔Ergebnis, „Gewonnen" zählt mit) – nicht nur stichprobenartig; am 22.4. gab es NULL Feigheiten | 22.4.2026 |
 | Beim Solo ist der Solopunkt ein eigener Grundpunkt, aber KEINE Augen-Stufe – beim Feigheits-Check nicht mitzählen (R4S3: Wert 9 = Gew+Solopunkt+K90+K60, nur Level 2) | 22.4.2026 |
+| **Grundpunkt-Sieger ≠ positives Delta:** Fangen die Verlierer genug Sonderpunkte, drehen sie das Netto und stehen trotz Niederlage im Plus. NIE „positives Delta = Gewinner-Team" als Skript-Annahme verdrahten – immer aus Ansagen/Spieltyp bestimmen, wer Re ist (R1S3: Re Ro+Ja gewinnt +1, aber Da fängt K+ und F+ → So+Da netto +1) | 25.3.2026 |
+| Robert kann einen kompletten Kontra-SIEG vergessen zu verzeichnen (leere Kürzel-Zelle) – fällt nur über Check B auf, sieht sonst wie ungesagte K30 (Feigheit) aus | 25.3.2026 |
+| Excel-Reiter-Format `JJMMTT` (z.B. `260325` = 25.03.26); Spalte „Spiel" ganz rechts = Sp-Wert (+ Solo-Marker), Kürzel-Spalte rechts neben jeder Personenspalte | 25.3.2026 |
+| Zeilenversatz auch in der digitalen Excel möglich (CK saß ein Spiel zu hoch); Paarigkeits- und Wert-Check finden ihn, dann richtige Zeile suchen – nicht erfinden | 25.3.2026 |
+| Mathematisch erzwungene Re/Kontra-Ansage war auch hier real (R2S2: Robert-Re beim ersten Lesen übersehen) – bestätigt das 10.6.-Learning | 25.3.2026 |
+| Reiter-Datum (JJMMTT) schlägt mündliche Datumsangabe – `260318`=18.3., nicht 18.6.; Konflikt sofort ansprechen | 18.3.2026 |
+| Zwei gegengleiche Nullsummen-Brüche (+10/−10, +9/−9) über zwei Zeilen = EIN verlesener Stand in der oberen Zeile; eine Korrektur repariert beide | 18.3.2026 |
+| Führende Ziffer 1↔2 verlesbar (−15↔−25); „0"/Schleife verlesbar (0↔−9) | 18.3.2026 |
+| „K" (Karlchen) bei einem Solo ist logisch unmöglich (Damensolo: keine Buben; Fleischlos: kein Karlchen) → Signal für Solo-Typ-Fehler, nicht Sonderpunkt | 18.3.2026 |
+| Fehlendes Paar-Gegenstück (F+ ohne F−, K ohne K−) = Leitsignal zum Nachfragen; mehrere „K" entpuppten sich als nicht existent (Robert-Schreibfehler) | 18.3.2026 |
+| „A" in der Spielerspalte = Armut (R2S3: Ro A); leicht mit R (Re) zu verwechseln – Spieltyp aus Delta-Muster gegenprüfen | 18.3.2026 |
+| Default „Re gewinnt" ist nur Default – Jan-Korrektur R2S5 zu Kontra ließ erst den Wert sauber aufgehen | 18.3.2026 |
+| Spaltenverrutscher in der Excel: ein Stand wird in die Nachbarzelle dupliziert (Ro −16 → Jans Zelle); zwei identische Nachbarwerte + gegengleicher Nullsummen-Bruch = Leitsignal | 4.3.2026 |
+| Ungerader Spielwert bei Re/Kontra-Ansage ist ohne Sonderpunkt unmöglich (×2 ⇒ gerade) – fehlt das SP-Kürzel, nachfragen, nicht raten (3× vergessener Doppelkopf) | 4.3.2026 |
+| Zwei gegenläufige Sp-Verleser am selben Abend möglich (3↔4 und 4↔3); Delta (Nullsumme + Anker) schlägt die Sp-Zahl | 4.3.2026 |
+| Sitzposition = Spaltenreihenfolge im Block; ganz links = erster Geber = seat_position 1 (immer determiniert, nie raten) | 4.3.2026 |
+| H-/A-Partner (eingeheiratet/Retter) determiniert aus dem Delta-Vorzeichen – kein ⚠️, keine Rückfrage | 4.3.2026 |
+| Rundenstruktur selbst durchzählen (n Basis + 1 je Solo), nie aus Trennstrichen (in Excel nicht übertragen) | 4.3.2026 |
+| Reiner Excel-Zahlendreher in einem kumulierten Stand (8↔0, −4↔−6) erzeugt gegengleiches +x/−x-Paar über zwei Zeilen; Anker (Zeile davor+danach) erzwingt den wahren Wert, Endstand unberührt – eigenmächtig korrigierbar | 11.2.2026 |
+| Gescheiterte Re-Absage: Re sagt Re + Keine 90 an, schafft K90 nicht → Kontra siegt mit (Gewonnen+GgdA+K90 gerissen+K90 angesagt)=4; die **Re-Ansage verdoppelt trotzdem** (×2), auch wenn Re verliert. Re-Augen-Range dann 91–120 (Re unter 120) | 11.2.2026 |
+| Bei verlorener Re-Partei steht das R-Kürzel bei der/dem Verlierer:in – nicht mit Kontra-Sieg verwechseln. Re-Team = wer R/Spieltyp hat, Sieger = Vorzeichen | 11.2.2026 |
+| Excel-Korrekturrunde von Jan: vergessene R-Ansagen können nachgereicht UND fehlplatzierte Kürzel (unpaariger F+) in die richtige Zeile verschoben werden – nach jeder Jan-Korrektur ALLE Checks neu fahren, auch unveränderte Zahlendreher bleiben sonst stehen | 11.2.2026 |
+| Null-Spiel ohne ableitbares Re-Team: Sieger-Mechanik (wer fängt den Fuchs) ist klar, aber party muss Jan setzen; Re kann an den Augen GEWINNEN (Range 121–150) und nur durch verlorenen Fuchs wertmäßig auf 0 fallen | 11.2.2026 |
 
 ---
 
@@ -900,11 +1046,15 @@ Keine offenen Punkte mehr – Abend vollständig.
 
 | Datum | Spieler | Spiele | Runden | Offene Fragen | Status |
 |-------|---------|--------|--------|---------------|--------|
-| 27.5.2026 | Ja, Ro, Da, So | 13 | 3 (inkl. 1 Solo) | Spiel 13: Ansage fehlt | Fast komplett |
+| 7.1.2026 | Ja, Ka, So, Da | 15 | 3 (R1: 4 Sp. · R2: 6 Sp. inkl. So-Bubensolo + Ja-Bubensolo · R3: 5 Sp. inkl. Ka-Bubensolo) | keine | ✓ Komplett – aus Excel `Roberts_Block2Excel.xlsx` (Reiter `220107` = Robert-Jahres-Tippfehler, korrekt 07.01.2026, von Jan bestätigt). Endstand Ja 35 / Ka 7 / So −3 / Da −39 = Büchlein, alle drei Checks (A/B/C) + JSON→Endstand-Gegencheck sauber. JSON erstellt (`dokorama_import_2026-01-07.json`). 1 eigenmächtige Lese-Korrektur (R3S3 Jan 21→31, führende Ziffer 2↔3; gegengleiches −10/+10-Paar, Anker-Methode, Endstand unberührt). 3 Jan-Korrekturen: R1S2 Sophias „K"(Karlchen) gestrichen (existierte nicht → Wert 9 = (Gew+K90g+K90a+K60g=4)×2 +Fuchs, kein Doppelkopf nötig); R2S1 Jan-Re ergänzt (löste Feigheitsverdacht: (Gew+K90)×2 −Karlchen = 3); R1S3 Kontra-Sieg (C von Robert vergessen) bestätigt (Gew+GgdA+K90+K60=4 +DK+Fuchs = 6). 2 Feigheits-Notizen (R1S3, R3S5: K60 ohne Ansage; Werte korrekt, Jan bestätigte „keine Ansage" für R3S5) |
 | 29.4.2026 | Ja, Jö, Ka, Ro | 18 | 4 (inkl. 2 Solos in R3, 1 Null-Spiel in R4) | keine | ✓ Komplett |
 | 3.6.2026 | Ka, Ja, Ro, Da | 13 | 3 (inkl. 1 Bubensolo in R1, 1 Null-Spiel in R3) | R3/S2: Re/Kontra bei Robert verifizieren | ⏳ Inhaltlich verifiziert (beide Abschluss-Checks ok), 1 Robert-Rückfrage offen; JSON wartet auf Roberts Antwort |
 | 10.6.2026 | Ja, Ro, Ka, So, Da (**5 Spieler:innen**) | 23 | 4 (R1: 6 Sp. inkl. Ja-Damensolo · R2: 5 Sp. · R3: 6 Sp. inkl. Ro-Damensolo + Hochzeit · R4: 6 Sp. inkl. Ja-Fleischlos-Solo + Hochzeit) | keine | ✓ Komplett – JSON erstellt (`dokorama_import_2026-06-10.json`), inkl. zwei korrigierter Robert-Schreibfehler (R1·S3 Personentausch, R4·S1 Wert 3→6) |
 | 22.4.2026 | So, Da, Ja, Ro | 19 | 4 (R1: 4 Sp. · R2: 5 Sp. inkl. So-Bubensolo · R3: 5 Sp. inkl. Ro-Damensolo · R4: 5 Sp. inkl. So-Bubensolo) | keine | ✓ Komplett – Endstand So 9 / Da −9 / Ja 13 / Ro −13 deckt sich exakt mit Büchlein (kein Robert-Fehler). R4 per Anker-Methode rekonstruiert; Sonderpunkte über Paarigkeitscheck (R4S1 F+F+/2×F−, R4S2 K+/K−, R4S4 K+/K− + F+/F−). R3S4 Damensolo mit Re-Ansage. R1S4 um Jan-K+/Ro-K− ergänzt. JSON ausstehend |
+| 25.3.2026 | So, Da, Ja, Ro | 19 | 4 (R1: 5 Sp. inkl. So-Damensolo · R2: 4 Sp. · R3: 4 Sp. · R4: 6 Sp. inkl. Ro-Farbsolo Herz + So-Damensolo) | keine | ✓ Komplett – aus Excel `Roberts_Block2Excel.xlsx` (Reiter `260325`). Endstand So 9 / Da 21 / Ja −15 / Ro −15 = Büchlein. Beide Abschluss-Checks ok, keine Feigheit. JSON erstellt (`import_2026-03-25.json`). 4 Excel-Korrekturen durch Jan (R4S2 DK→C, R4S3 CK-Zeilenversatz, R4S5 DK entfernt, R4S6 F+ ergänzt) + 2 nachgetragene Ansagen (R2S2 Robert-Re, R4S1 vergessener Kontra-Sieg) |
+| 18.3.2026 | Ja, Ro, Ka, Da | 14 | 3 (R1: 5 Sp. inkl. Ro-Fleischlos-Solo · R2: 5 Sp. inkl. Ja-Damensolo + Ro-Armut · R3: 4 Sp.) | keine | ✓ Komplett – aus Excel `Roberts_Block2Excel.xlsx` (Reiter `260318`). Endstand Ja −11 / Ro 35 / Ka −7 / Da −17 = Büchlein, beide Abschluss-Checks ok. JSON erstellt (`dokorama_import_2026-03-18.json`). 2 korrigierte Robert-Verschreiber (R2S2 Ja −15→−25, R3S1 Da 0→−9; gegengleiche Paare, Endstand unberührt). Jan-Korrekturen: R2S3 Fleischlos→Armut (Ro A), R2S4 Fleischlos→Damensolo (kein K), R2S5 Re→Kontra, mehrere nicht-existente „K"-Kürzel gestrichen. 3 Feigheiten (R1S4, R1S5, R2S5) nur als Notiz |
+| 4.3.2026 | So, Ka, Ro, Ja | 18 | 4 (R1: 5 Sp. inkl. Ja-Fleischlos-Solo · R2: 4 Sp. · R3: 4 Sp. · R4: 5 Sp. inkl. Ka-Damensolo) | keine | ✓ Komplett – aus Excel `Roberts_Block2Excel.xlsx` (Reiter `260304`). Endstand So 18 / Ka −4 / Ro −34 / Ja 20 = Büchlein, beide Abschluss-Checks exakt, keine Feigheit. JSON erstellt (`dokorama_import_2026-03-04.json`). 1 Excel-Spaltenverrutscher korrigiert (R2S1/Spiel 6: Roberts −16 war in Jans Zelle dupliziert → Jan +16; Anker-Methode + Karlchen-Logik). 2 gegenläufige Sp-Verleser (Spiel 3 Sp 3→4, Spiel 8 Sp 4→3; Delta schlägt Sp). 3 nicht übertragene Doppelköpfe ergänzt (von Jan bestätigt: S7 So, S12 Ja, S13 Ka) – nötig, weil ungerade/zu kleine Werte bei Verdopplungsansage sonst nicht aufgehen. S5 Null-Spiel: Re = Ja+Ka (einfach gewonnen, dann Karlchen an Ro verloren → netto 0). Rundenstruktur selbst durchgezählt (Solos in Spiel 2 + 15) |
+| 11.2.2026 | So, Ka, Ro, Ja | 17 | 4 (R1: 4 Sp. · R2: 4 Sp. · R3: 4 Sp. inkl. 1 Null-Spiel · R4: 5 Sp. inkl. Ja-Damensolo) | keine | ✓ Komplett – aus Excel `Roberts_Block2Excel.xlsx` (Reiter `260211`). Endstand So −2 / Ka −4 / Ro −8 / Ja 14 = Büchlein, beide Abschluss-Checks (A+B) exakt. JSON erstellt (`dokorama_import_2026-02-11.json`). seats So1/Ka2/Ro3/Ja4. 2 reine Excel-Zahlendreher eigenmächtig korrigiert (R1S3-Zeile So 8→0; R3S4-Zeile Ka −4→−6; beide gegengleiche Paare, Endstand unberührt). 1 Jan-Korrekturrunde löste 4 Flags: R1S3 Ja-Re nachgereicht (Wert 7 = (Gew+GgdA+K90 gerissen+K90 ang=4)×2 − So-Fuchs), R2S4 Ka-Re nachgereicht (analog Wert 9 + So-Fuchs), R3S2 unpaariger Ka-F+ in die richtige Zeile (Null-Spiel R3S1) verschoben → Wert 3 sauber, R4S5 R aus „RDK" entfernt → Wert 1 (Gew+GgdA − Ro-DK gegnerisch). R3S1 Null-Spiel: Re = Ja+So (Jan gesetzt), gewinnt augenmäßig, Ka(Kontra) fängt Jans Fuchs → wertmäßig 0. 1 Feigheit als reine Notiz (R4S1 Ja-Damensolo: K60 geschafft, nichts angesagt – Wert korrekt) |
 
 ---
 

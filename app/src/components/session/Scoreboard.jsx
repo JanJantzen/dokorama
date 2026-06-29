@@ -24,7 +24,9 @@ function partieLabel(date, venue) {
   return venue ? `Partie vom ${date} bei ${venue}` : `Partie vom ${date}`
 }
 
-export default function Scoreboard({ sessionId, roundNumber, gameNumber, date, venue, onClose }) {
+// refreshKey: wird von SessionPage hochgezählt wenn ein Spiel gespeichert wurde –
+// sorgt dafür dass der Spielstand aktuell bleibt wenn das Scoreboard offen ist.
+export default function Scoreboard({ sessionId, roundNumber, gameNumber, date, venue, onClose, refreshKey }) {
   const [standings, setStandings] = useState(null) // null = lädt noch
   const [error, setError] = useState(false)
 
@@ -34,7 +36,7 @@ export default function Scoreboard({ sessionId, roundNumber, gameNumber, date, v
       .then(s => { if (alive) setStandings(s) })
       .catch(() => { if (alive) setError(true) })
     return () => { alive = false }
-  }, [sessionId])
+  }, [sessionId, refreshKey])
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">

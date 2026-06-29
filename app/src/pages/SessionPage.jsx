@@ -723,6 +723,9 @@ function SessionPageInner() {
           onConfirm={handleConfirm}
           onBack={backToErfassung}
           saving={saving}
+          isWriter={isWriter}
+          onRequestTakeover={requestTakeover}
+          currentWriterName={currentWriterName}
         />
       )}
 
@@ -748,6 +751,8 @@ function SessionPageInner() {
           onEndSession={handleEndFromRound}
           busy={advancing}
           isWriter={isWriter}
+          onRequestTakeover={requestTakeover}
+          currentWriterName={currentWriterName}
         />
       )}
 

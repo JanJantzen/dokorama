@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ChevronRight, Trash2, PenLine } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Trash2, PenLine, Eye } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import StandingsList from '@/components/session/StandingsList'
@@ -17,7 +17,7 @@ import { deleteSession, formatSessionDate } from '@/lib/sessions'
 export default function SessionResultPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, player } = useAuth()
 
   const [session, setSession] = useState(null)
   const [standings, setStandings] = useState(null)
@@ -27,7 +27,7 @@ export default function SessionResultPage() {
 
   useEffect(() => {
     // Status muss mitgeladen werden um laufende von beendeten Partien zu unterscheiden
-    supabase.from('sessions').select('id, date, status, venues(name)').eq('id', id).single()
+    supabase.from('sessions').select('id, date, status, current_writer_id, venues(name)').eq('id', id).single()
       .then(({ data }) => setSession(data))
     loadStandings(id).then(setStandings).catch(() => setError(true))
   }, [id])
@@ -54,13 +54,9 @@ export default function SessionResultPage() {
     }
   }
 
-  // "Partie weiterschreiben" – führt zum Erfassungsscreen, Login erforderlich
+  // An den Tisch – ohne Login-Pflicht. Die SessionPage selbst entscheidet Schreiber vs. Zuschauer.
   function handleContinue() {
-    if (user) {
-      navigate(`/partie/${id}`)
-    } else {
-      navigate('/login', { state: { from: `/partie/${id}`, forced: true } })
-    }
+    navigate(`/partie/${id}`)
   }
 
   // "Partie löschen" – Login erforderlich
@@ -72,12 +68,17 @@ export default function SessionResultPage() {
     }
   }
 
-  const isRunning  = session?.status === 'laufend'
-  const venueName  = session?.venues?.name
-  const title      = session
+  const isRunning   = session?.status === 'laufend'
+  const venueName   = session?.venues?.name
+  const title       = session
     ? `${formatSessionDate(session.date)}${venueName ? ` · ${venueName}` : ''}`
     : ''
-  const pageTitle  = isRunning ? 'Aktueller Stand' : 'Endstand'
+  const pageTitle   = isRunning ? 'Aktueller Stand' : 'Endstand'
+
+  // Wer schreibt gerade? Name aus den geladenen Standings ableiten (haben player_id + name)
+  const writerName  = standings?.find(s => s.player_id === session?.current_writer_id)?.name ?? null
+  const iAmWriter   = !!player?.id && player.id === session?.current_writer_id
+  const hasWriter   = !!session?.current_writer_id
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -97,15 +98,25 @@ export default function SessionResultPage() {
 
         <StandingsList standings={standings} error={error} />
 
-        {/* Laufende Partie: "Weiterschreiben"-Button prominent oben */}
+        {/* Laufende Partie: Zum Tisch – kontextbewusst je nachdem wer gerade schreibt */}
         {isRunning && (
           <button
             onClick={handleContinue}
             className="w-full flex items-center justify-between rounded-xl border border-primary bg-primary/5 p-4 active:bg-primary/10"
           >
             <div className="flex items-center gap-2">
-              <PenLine size={18} className="text-primary" />
-              <span className="text-sm font-semibold text-primary">Partie weiterschreiben</span>
+              {hasWriter && !iAmWriter
+                ? <Eye size={18} className="text-primary" />
+                : <PenLine size={18} className="text-primary" />
+              }
+              <div className="text-left">
+                <p className="text-sm font-semibold text-primary">
+                  {hasWriter && !iAmWriter ? 'Partie verfolgen' : 'Partie weiterschreiben'}
+                </p>
+                {hasWriter && !iAmWriter && writerName && (
+                  <p className="text-xs text-primary/70">{writerName} schreibt gerade</p>
+                )}
+              </div>
             </div>
             <ChevronRight size={18} className="text-primary" />
           </button>
