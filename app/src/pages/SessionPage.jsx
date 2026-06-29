@@ -405,7 +405,7 @@ function SessionPageInner() {
     evalResult, saving, setSaving,
     showMenu, setShowMenu,
     setGameNumber, refreshSeatStatus, advanceToNextRound,
-    isWriter, currentWriterName,
+    isWriter, isParticipant, currentWriterName,
     showTakeoverDialog, requestTakeover, dismissTakeover, updateCurrentWriter,
     pendingActionRef, pendingActionKeyRef,
   } = useSession()
@@ -468,6 +468,7 @@ function SessionPageInner() {
   // Das .is('current_writer_id', null) auf DB-Ebene schützt zusätzlich gegen Race Conditions.
   useEffect(() => {
     if (!sessionData?.id || !player?.id) return
+    if (!isParticipant) return          // Nur Teilnehmer:innen dürfen Schreiber werden
     if (sessionData.current_writer_id) return
     async function setWriter() {
       const { error } = await supabase.from('sessions')
@@ -481,7 +482,7 @@ function SessionPageInner() {
       }
     }
     setWriter()
-  }, [sessionData?.id, player?.id])
+  }, [sessionData?.id, player?.id, isParticipant])
 
   // Live-Draft: aktuellen Spielerfassungs-Zustand in die DB schreiben (debounced).
   // Mitschauer:innen lesen diesen Stand über Supabase Realtime.
@@ -727,12 +728,14 @@ function SessionPageInner() {
           <span className="text-sm text-amber-800">
             {currentWriterName ? `${currentWriterName} schreibt – du schaust zu` : 'Zuschauer-Modus'}
           </span>
-          <button
-            onClick={requestTakeover}
-            className="text-xs font-medium text-amber-800 border border-amber-400 rounded-lg px-2.5 py-1 active:bg-amber-100 shrink-0 ml-3"
-          >
-            Übernehmen
-          </button>
+          {isParticipant && (
+            <button
+              onClick={requestTakeover}
+              className="text-xs font-medium text-amber-800 border border-amber-400 rounded-lg px-2.5 py-1 active:bg-amber-100 shrink-0 ml-3"
+            >
+              Übernehmen
+            </button>
+          )}
         </div>
       )}
 
@@ -750,6 +753,7 @@ function SessionPageInner() {
           onBack={backToErfassung}
           saving={saving}
           isWriter={isWriter}
+          isParticipant={isParticipant}
           onRequestTakeover={requestTakeover}
           currentWriterName={currentWriterName}
         />
@@ -777,6 +781,7 @@ function SessionPageInner() {
           onEndSession={handleEndFromRound}
           busy={advancing}
           isWriter={isWriter}
+          isParticipant={isParticipant}
           onRequestTakeover={requestTakeover}
           currentWriterName={currentWriterName}
         />
@@ -839,8 +844,6 @@ function SessionPageInner() {
                   <button onClick={() => {
                     const key = pendingActionKeyRef.current
                     dismissTakeover()
-                    // Action-Key via Router-State durch den Login schleusen –
-                    // nach dem Login zeigt SessionPage automatisch den Übernahme-Dialog.
                     navigate('/login', { state: { from: location.pathname, ...(key ? { pendingTakeover: key } : {}) } })
                   }}
                     className="flex-1 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium">
@@ -848,8 +851,20 @@ function SessionPageInner() {
                   </button>
                 </div>
               </>
+            ) : !isParticipant ? (
+              // Eingeloggt, aber kein Teilnehmer dieser Partie
+              <>
+                <p className="font-semibold text-base">Kein Mitspieler</p>
+                <p className="text-sm text-muted-foreground mt-1 mb-4">
+                  Du bist kein Spieler in dieser Partie und kannst nicht Schreiber sein.
+                </p>
+                <button onClick={dismissTakeover}
+                  className="w-full h-10 rounded-xl border border-border text-sm font-medium">
+                  OK
+                </button>
+              </>
             ) : (
-              // Eingeloggt → Übernahme bestätigen
+              // Eingeloggt und Teilnehmer → Übernahme bestätigen
               <>
                 <p className="font-semibold text-base">Kugelschreiber übernehmen?</p>
                 <p className="text-sm text-muted-foreground mt-1 mb-4">

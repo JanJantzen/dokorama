@@ -16,6 +16,7 @@ export default function RoundEndView({
   sessionId, roundNumber,
   onNextRound, onEndSession, busy,
   isWriter = true,
+  isParticipant = false,
   onRequestTakeover,
   currentWriterName,
 }) {
@@ -44,12 +45,14 @@ export default function RoundEndView({
           <span className="text-sm text-amber-800">
             {currentWriterName ? `${currentWriterName} schreibt – du schaust zu` : 'Zuschauer-Modus'}
           </span>
-          <button
-            onClick={onRequestTakeover}
-            className="text-xs font-medium text-amber-800 border border-amber-400 rounded-lg px-2.5 py-1 active:bg-amber-100 shrink-0 ml-3"
-          >
-            Übernehmen
-          </button>
+          {isParticipant && (
+            <button
+              onClick={onRequestTakeover}
+              className="text-xs font-medium text-amber-800 border border-amber-400 rounded-lg px-2.5 py-1 active:bg-amber-100 shrink-0 ml-3"
+            >
+              Übernehmen
+            </button>
+          )}
         </div>
       )}
 

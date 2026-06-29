@@ -158,9 +158,13 @@ export function SessionProvider({ children, sessionId }) {
     setSessionData(prev => prev ? { ...prev, current_writer_id: playerId } : prev)
   }, [])
 
+  // Ist die eingeloggte Person Teilnehmer:in dieser Partie?
+  // Nur Teilnehmer:innen dürfen den Kugelschreiber übernehmen.
+  const isParticipant = !!player?.id && participants.some(p => p.player_id === player.id)
+
   // Ist die aktuelle Person der aktive Schreiber?
-  // Wahr wenn eingeloggt UND (noch kein Schreiber gesetzt ODER man ist der Schreiber selbst).
-  const isWriter = !!player?.id && (
+  // Wahr wenn Teilnehmer:in UND (noch kein Schreiber gesetzt ODER man ist der Schreiber selbst).
+  const isWriter = isParticipant && (
     !sessionData?.current_writer_id ||
     sessionData?.current_writer_id === player?.id
   )
@@ -179,6 +183,7 @@ export function SessionProvider({ children, sessionId }) {
       showMenu, setShowMenu,
       setGameNumber, refreshSeatStatus, advanceToNextRound,
       isWriter, currentWriterName,
+      isParticipant,
       showTakeoverDialog, requestTakeover, dismissTakeover, updateCurrentWriter,
       pendingActionRef, pendingActionKeyRef,
     }}>

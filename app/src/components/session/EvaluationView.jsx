@@ -213,6 +213,7 @@ export default function EvaluationView({
   saving,              // boolean
   confirmLabel = 'Bestätigen – nächstes Spiel', // im Edit-Modus z.B. "Speichern"
   isWriter = true,     // false = Zuschauer:in → Bestätigen öffnet Übergabe-Dialog
+  isParticipant = false, // false = nicht Mitspieler → kein Übernehmen-Button im Banner
   onRequestTakeover,   // () → void – öffnet den Kugelschreiber-Dialog
   currentWriterName,   // string | null – Name des aktiven Schreibers (für Banner)
 }) {
@@ -279,12 +280,14 @@ export default function EvaluationView({
           <span className="text-sm text-amber-800">
             {currentWriterName ? `${currentWriterName} schreibt – du schaust zu` : 'Zuschauer-Modus'}
           </span>
-          <button
-            onClick={onRequestTakeover}
-            className="text-xs font-medium text-amber-800 border border-amber-400 rounded-lg px-2.5 py-1 active:bg-amber-100 shrink-0 ml-3"
-          >
-            Übernehmen
-          </button>
+          {isParticipant && (
+            <button
+              onClick={onRequestTakeover}
+              className="text-xs font-medium text-amber-800 border border-amber-400 rounded-lg px-2.5 py-1 active:bg-amber-100 shrink-0 ml-3"
+            >
+              Übernehmen
+            </button>
+          )}
         </div>
       )}
 
