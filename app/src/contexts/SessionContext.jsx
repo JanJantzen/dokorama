@@ -4,7 +4,7 @@
 // Hält: Partie-Daten, Teilnehmer, aktuelle Spielnummer, View-Steuerung.
 // GameContext ist innerhalb dieses Contexts verschachtelt.
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { calcSeatStatus } from '@/lib/seatUtils'
 import { loadRoundProgress } from '@/lib/rounds'
