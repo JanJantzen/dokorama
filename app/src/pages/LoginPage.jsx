@@ -44,7 +44,9 @@ export default function LoginPage() {
       setError(translateError(err.message))
       setLoading(false)
     } else {
-      navigate(from, { replace: true })
+      // pendingTakeover weitergeben (falls der Login durch einen Übernahme-Request ausgelöst wurde)
+      const pendingTakeover = location.state?.pendingTakeover
+      navigate(from, { replace: true, state: pendingTakeover ? { pendingTakeover } : undefined })
     }
   }
 

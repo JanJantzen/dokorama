@@ -61,14 +61,14 @@ export default function RoundEndView({
       {/* Aktionen: Schreiber:in handelt direkt, Zuschauer:in öffnet Übergabe-Dialog */}
       <div className="px-4 pt-3 pb-5 border-t border-border space-y-2">
         <button
-          onClick={isWriter ? onNextRound : onRequestTakeover}
+          onClick={isWriter ? onNextRound : () => onRequestTakeover(onNextRound, 'nextRound')}
           disabled={busy}
           className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold text-base disabled:opacity-50"
         >
           {busy ? 'Starte…' : `Runde ${roundNumber + 1} starten`}
         </button>
         <button
-          onClick={isWriter ? onEndSession : onRequestTakeover}
+          onClick={isWriter ? onEndSession : () => onRequestTakeover(onEndSession, 'endSession')}
           disabled={busy}
           className="w-full h-12 rounded-xl border border-border font-semibold text-base disabled:opacity-50"
         >

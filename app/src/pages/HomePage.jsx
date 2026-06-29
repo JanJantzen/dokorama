@@ -42,6 +42,9 @@ function SessionRow({ session, onClick }) {
       {secondLine && (
         <p className="text-xs text-muted-foreground mt-1">{secondLine}</p>
       )}
+      {!isDone && session.writerName && (
+        <p className="text-xs text-muted-foreground mt-1">Schreiber: {session.writerName}</p>
+      )}
     </button>
   )
 }

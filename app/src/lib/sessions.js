@@ -16,7 +16,7 @@ export function formatSessionDate(dateStr) {
 export async function loadSessions() {
   const { data, error } = await supabase
     .from('sessions')
-    .select('id, date, status, created_at, venues(name), rounds(number, status, games(id, game_results(player_id, zaehlopunkte)), round_participations(seat_position, players(id, name)))')
+    .select('id, date, status, current_writer_id, created_at, venues(name), rounds(number, status, games(id, game_results(player_id, zaehlopunkte)), round_participations(seat_position, players(id, name)))')
     .order('date', { ascending: false })
     .order('created_at', { ascending: false })
 
@@ -53,6 +53,9 @@ export async function loadSessions() {
       if (live) progress = { round: live.number, game: (live.games?.length ?? 0) + 1 }
     }
 
+    // Name des aktuellen Schreibers – aus den bereits geladenen Teilnehmer:innen ableiten
+    const writerName = s.current_writer_id ? (byId.get(s.current_writer_id) ?? null) : null
+
     return {
       id:        s.id,
       date:      s.date,
@@ -64,6 +67,7 @@ export async function loadSessions() {
       gamesCount,
       standings,
       progress,
+      writerName,
     }
   })
 }

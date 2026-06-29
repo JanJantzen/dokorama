@@ -327,7 +327,7 @@ export default function EvaluationView({
           Label bleibt identisch – der Klick entscheidet was passiert. */}
       <div className="px-4 pt-3 pb-5 border-t border-border">
         <button
-          onClick={isWriter ? onConfirm : onRequestTakeover}
+          onClick={isWriter ? onConfirm : () => onRequestTakeover(onConfirm, 'confirm')}
           disabled={saving}
           className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold text-base disabled:opacity-50"
         >

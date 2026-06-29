@@ -134,9 +134,24 @@ export function SessionProvider({ children, sessionId }) {
     setActiveView(erfassungsView)
   }, [erfassungsView])
 
-  // Kugelschreiber-Dialog öffnen/schließen
-  const requestTakeover = useCallback(() => setShowTakeoverDialog(true), [])
-  const dismissTakeover = useCallback(() => setShowTakeoverDialog(false), [])
+  // Ausstehende Aktion nach der Übernahme – Callback-Funktion + String-Key für den Login-Redirect.
+  // useRef statt useState weil die Werte keine Renders auslösen sollen.
+  const pendingActionRef    = useRef(null)
+  const pendingActionKeyRef = useRef(null)
+
+  // Kugelschreiber-Dialog öffnen (optional mit Aktion, die nach Übernahme ausgeführt werden soll).
+  // callback: Funktion die nach erfolgter Übernahme läuft (z.B. handleConfirm).
+  // actionKey: String-Identifier für den Login-Redirect ('confirm' | 'nextRound' | 'endSession').
+  const requestTakeover = useCallback((callback, actionKey) => {
+    pendingActionRef.current    = callback ?? null
+    pendingActionKeyRef.current = actionKey ?? null
+    setShowTakeoverDialog(true)
+  }, [])
+  const dismissTakeover = useCallback(() => {
+    pendingActionRef.current    = null
+    pendingActionKeyRef.current = null
+    setShowTakeoverDialog(false)
+  }, [])
 
   // Schreiber lokal wechseln (wird nach DB-Update + Broadcast aufgerufen)
   const updateCurrentWriter = useCallback((playerId) => {
@@ -165,6 +180,7 @@ export function SessionProvider({ children, sessionId }) {
       setGameNumber, refreshSeatStatus, advanceToNextRound,
       isWriter, currentWriterName,
       showTakeoverDialog, requestTakeover, dismissTakeover, updateCurrentWriter,
+      pendingActionRef, pendingActionKeyRef,
     }}>
       {children}
     </SessionContext.Provider>

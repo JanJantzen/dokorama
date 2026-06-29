@@ -407,6 +407,7 @@ function SessionPageInner() {
     setGameNumber, refreshSeatStatus, advanceToNextRound,
     isWriter, currentWriterName,
     showTakeoverDialog, requestTakeover, dismissTakeover, updateCurrentWriter,
+    pendingActionRef, pendingActionKeyRef,
   } = useSession()
   const { gameState, resetForNextGame, resetCurrentGame, setGameStateFromDraft } = useGame()
   const { player } = useAuth()
@@ -415,6 +416,22 @@ function SessionPageInner() {
   // ohne stale-closure-Probleme (Callbacks schließen über die Ref, nicht über isWriter selbst).
   const isWriterRef = useRef(isWriter)
   useEffect(() => { isWriterRef.current = isWriter })
+
+  // Nach einem Login-Redirect: Falls ein Übernahme-Request vor dem Login gestartet wurde,
+  // automatisch den Übernahme-Dialog öffnen (mit der ursprünglichen Aktion).
+  // Erkennung: router-state.pendingTakeover enthält den Action-Key ('confirm' | 'nextRound' | 'endSession').
+  const location = useLocation()
+  useEffect(() => {
+    const key = location.state?.pendingTakeover
+    if (!key || !player?.id) return
+    // State löschen damit der Effect nicht nochmal feuert (replace: true überschreibt history-Entry)
+    navigate(location.pathname, { replace: true, state: {} })
+    // Action-Key erst nach dem Löschen des States auflösen, damit handleConfirm etc. frisch sind
+    const actionMap = { confirm: handleConfirm, nextRound: handleNextRound, endSession: handleEndSession }
+    requestTakeover(actionMap[key] ?? null, key)
+  // Intentional: nur auf player-Änderung hören (Login-Event). location.state enthält den Key.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [player?.id])
 
   // Bildschirm-Sperre unterdrücken solange die Erfassung aktiv ist
   useWakeLock()
@@ -639,10 +656,14 @@ function SessionPageInner() {
   // alten Schreiber per Broadcast informieren.
   async function handleTakeoverConfirm() {
     if (!player?.id) return
+    // Ausstehende Aktion VOR dismissTakeover sichern – dismissTakeover löscht den Ref.
+    const pendingAction = pendingActionRef.current
     await supabase.from('sessions').update({ current_writer_id: player.id }).eq('id', sessionData.id)
     updateCurrentWriter(player.id)
     broadcastRef.current?.send({ type: 'broadcast', event: 'writer-changed', payload: { writerId: player.id } })
     dismissTakeover()
+    // Ursprüngliche Aktion sofort ausführen – der Nutzer muss nicht nochmal klicken.
+    if (pendingAction) pendingAction()
   }
 
   const dateStr   = formatDate(sessionData?.date)
@@ -810,7 +831,13 @@ function SessionPageInner() {
                     className="flex-1 h-10 rounded-xl border border-border text-sm font-medium">
                     Abbrechen
                   </button>
-                  <button onClick={() => { dismissTakeover(); navigate('/login') }}
+                  <button onClick={() => {
+                    const key = pendingActionKeyRef.current
+                    dismissTakeover()
+                    // Action-Key via Router-State durch den Login schleusen –
+                    // nach dem Login zeigt SessionPage automatisch den Übernahme-Dialog.
+                    navigate('/login', { state: { from: location.pathname, ...(key ? { pendingTakeover: key } : {}) } })
+                  }}
                     className="flex-1 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium">
                     Einloggen
                   </button>
