@@ -142,16 +142,13 @@ Angedachtes Tarif-Modell:
 
 > Dies ist die **einzige** blockübergreifende Priorisierung in diesem Dokument – bewusst kurz gehalten auf die nächsten Brocken, statt alle Punkte aller Blöcke in eine Gesamtreihenfolge zu pressen (die sich ohnehin laufend ändert). Reihenfolge:
 
-1. **Block B – Live-Mitsehen & Schreiber-Übergabe (Kugelschreiber-Modell).**
-   Steht aus gutem Grund vorne: Der erste Schritt darin – das Live-Mitsehen – ist die digitale Entsprechung dessen, was das Büchlein selbstverständlich konnte (jeder am Tisch sieht den aktuellen Stand). Solange das fehlt, ist die App beim gemeinsamen Erleben sogar schlechter als das Buch. Darauf baut die Schreiber-Übergabe für die realen Fälle auf (Robert geht rauchen, Handy leer → Jan übernimmt am eigenen Gerät).
-
-2. **Block C – Statistiken (eigene Session).**
+1. **Block C – Statistiken (eigene Session).**
    Der eigentliche Wert des Projekts und der Grund, warum Dokorama existiert. Bekommt eine eigene, gründliche Ausarbeitungs-Session.
 
-3. **Block D, Punkt 1 – 2026er Import.**
-   Läuft bereits parallel und wird weitergeführt (Foto-/JSON-Workflow, ROBERT_IMPORT.md).
+2. **Block D, Punkt 1 – 2026er Import.**
+   Läuft bereits parallel und wird weitergeführt (Foto-/JSON-Workflow, ROBERT_IMPORT.md). Stand 29.06.2026: alle 12 Spielabende 2026 (Januar–Juni) importiert, DB ist aktuell.
 
-4. **Block D, Punkt 2 – Jahr 2024 aus der Excel.**
+3. **Block D, Punkt 2 – Jahr 2024 aus der Excel.**
    Füllt die Statistiken (Block C) mit einem ganzen Jahr Substanz.
 
 ---
@@ -171,3 +168,6 @@ Architektur-Fundament (`SessionContext`/`GameContext`, `TableView`, View-Switche
 
 ## ✅ PWA-Setup – 27. Juni 2026
 `manifest.json`, App-Icons 192/512 + maskable (Safe-Zone-Padding auf Waldgrün-Canvas), Service Worker via `vite-plugin-pwa` (Workbox), `OfflineBanner`, Datenverlust-Schutz durch `draft.js`.
+
+## ✅ Block B: Live-Mitsehen & Kugelschreiber-Modell – 28.–29. Juni 2026
+Supabase Realtime: Watcher spiegeln Tischzustand live via Postgres Changes (`live_draft`); Broadcast-Events für `writer-changed`, `game-saved`, `round-complete`, `next-round`. Kugelschreiber-Modell: `current_writer_id` in `sessions`, DB-Migration 008; genau ein aktiver Schreiber zu jedem Zeitpunkt; Übernahme-Dialog für eingeloggte Mitspieler:innen. Watcher-Banner (gelb) auf Tisch-, Auswertungs- und Rundenende-Screen; Buttons sehen für Schreiber:in und Zuschauer:in identisch aus – Klick als Zuschauer:in öffnet Übergabe-Dialog statt direkt zu handeln. iOS-Fix: `generateId()`-Polyfill für `crypto.randomUUID` (crash auf http-Kontext). Wake Lock (Handy bleibt beim Schreiben wach).

@@ -2,8 +2,8 @@
 
 > Diese Datei ist das zentrale Briefing für jeden Claude-Assistenten, der an diesem Projekt arbeitet.
 > Sie wird bei jeder neuen Sitzung gelesen. Halte sie aktuell.
-> Letzte Aktualisierung: 27. Juni 2026 – Solo Hochzeit als neuer Solo-Typ ergänzt (Spec + Code + DB-Migration 006). PWA (Roadmap-Punkt 19) deployed: `manifest.json`, App-Icons 192/512 + maskable-Variante mit Safe-Zone-Padding, Service Worker via `vite-plugin-pwa` (Workbox), `OfflineBanner`-Komponente. Datenverlust-Schutz war bereits durch `draft.js` abgedeckt. Responsive Design Feinschliff (Punkt 20) noch offen.
-> Vorherige Aktualisierung: 25. Juni 2026 – Login (Auth-Stufe 1) deployed: `AuthContext`, `LoginPage`, alle Schreib-Aktionen geschützt, laufende Partie über Spielstand-Screen zugänglich, `created_by` in sessions und `writer_id` im Fallback-Log befüllt. DB-Migration 005 ausgeführt.
+> Letzte Aktualisierung: 29. Juni 2026 – Block B (Live-Mitsehen & Kugelschreiber-Modell) abgeschlossen: Supabase Realtime (Postgres Changes + Broadcast), `current_writer_id` in sessions, DB-Migration 008, Watcher-Banner, Übernahme-Dialog. iOS-Fix: `generateId()`-Polyfill (crash auf http-Kontext). Wake Lock. Import: alle 12 Spielabende Jan–Jun 2026 jetzt in der DB (5 neue heute: 07.01., 28.01., 11.02., 04.03., 18.03.). Block B und Import D.1 in Roadmap als ✅ vermerkt.
+> Vorherige Aktualisierung: 27. Juni 2026 – Solo Hochzeit als neuer Solo-Typ ergänzt (Spec + Code + DB-Migration 006). PWA deployed: `manifest.json`, App-Icons 192/512 + maskable, Service Worker via `vite-plugin-pwa` (Workbox), `OfflineBanner`-Komponente. DB-Migration 007 (Solo Hochzeit Rename).
 
 ---
 
