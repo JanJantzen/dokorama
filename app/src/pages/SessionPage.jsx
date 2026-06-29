@@ -466,8 +466,26 @@ function SessionPageInner() {
   // Kugelschreiber in die DB eintragen – aber nur wenn noch niemand anderes schreibt.
   // Ohne diese Prüfung würde jeder neu eingeloggte User den bisherigen Schreiber stumm überschreiben.
   // Das .is('current_writer_id', null) auf DB-Ebene schützt zusätzlich gegen Race Conditions.
+  //
+  // Sonderfall Ghost-Schreiber: Wenn current_writer_id auf eine Person zeigt, die kein
+  // Teilnehmer dieser Runde ist (kann durch Testreste entstehen), wird der Eintrag bereinigt
+  // bevor sich ein Teilnehmer neu eintragen kann.
   useEffect(() => {
     if (!sessionData?.id || !player?.id) return
+
+    // Ghost-Schreiber erkennen und löschen: Schreiber in DB ist kein Teilnehmer dieser Runde.
+    if (sessionData.current_writer_id && participants.length > 0) {
+      const writerIsParticipant = participants.some(p => p.player_id === sessionData.current_writer_id)
+      if (!writerIsParticipant) {
+        supabase.from('sessions')
+          .update({ current_writer_id: null })
+          .eq('id', sessionData.id)
+          .eq('current_writer_id', sessionData.current_writer_id)  // Optimistic-Lock
+          .then(({ error }) => { if (!error) updateCurrentWriter(null) })
+      }
+      return  // Auto-Set erst im nächsten Effect-Lauf (wenn current_writer_id null ist)
+    }
+
     if (!isParticipant) return          // Nur Teilnehmer:innen dürfen Schreiber werden
     if (sessionData.current_writer_id) return
     async function setWriter() {
@@ -482,7 +500,7 @@ function SessionPageInner() {
       }
     }
     setWriter()
-  }, [sessionData?.id, player?.id, isParticipant])
+  }, [sessionData?.id, sessionData?.current_writer_id, player?.id, isParticipant])
 
   // Live-Draft: aktuellen Spielerfassungs-Zustand in die DB schreiben (debounced).
   // Mitschauer:innen lesen diesen Stand über Supabase Realtime.
@@ -730,7 +748,7 @@ function SessionPageInner() {
           </span>
           {isParticipant && (
             <button
-              onClick={requestTakeover}
+              onClick={() => requestTakeover()}
               className="text-xs font-medium text-amber-800 border border-amber-400 rounded-lg px-2.5 py-1 active:bg-amber-100 shrink-0 ml-3"
             >
               Übernehmen

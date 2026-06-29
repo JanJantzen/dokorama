@@ -47,7 +47,7 @@ export default function RoundEndView({
           </span>
           {isParticipant && (
             <button
-              onClick={onRequestTakeover}
+              onClick={() => onRequestTakeover()}
               className="text-xs font-medium text-amber-800 border border-amber-400 rounded-lg px-2.5 py-1 active:bg-amber-100 shrink-0 ml-3"
             >
               Übernehmen
