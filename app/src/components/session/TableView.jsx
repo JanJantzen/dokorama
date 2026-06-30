@@ -10,8 +10,10 @@ import { useSession } from '@/contexts/SessionContext'
 import { calculateGameResult } from '@/lib/scoreCalculation'
 import { isComplete } from '@/lib/consistency'
 import { getDisplayPositions } from '@/lib/seatUtils'
+import { saveRedeal, deleteRedeal } from '@/lib/redeals'
 import PlayerAvatar from '@/components/ui/PlayerAvatar'
 import PlayerSheet from '@/components/session/PlayerSheet'
+import RedealSheet from '@/components/session/RedealSheet'
 import EyesBar from '@/components/session/EyesBar'
 
 import iconAnnRe  from '@/assets/icons/icon-ann-re.png'
@@ -145,8 +147,10 @@ function PartyLabel({ party, isLeft, isBottom }) {
   )
 }
 
-// Geber-Chip für aktive Eckspieler – transparent, flush an der inneren Ecke des Backdrops
-function CornerGebChip({ side, vertical }) {
+// Geber-Chip für aktive Eckspieler – tappbar für Neugeben-Erfassung.
+// onPointerDown stoppt Propagation damit der Backdrop-Gesture-Handler nicht anspringt.
+// Badge zeigt den aktuellen Gebeversuch (ab Versuch 2).
+function CornerGebChip({ side, vertical, redealCount, onChipTap, onBadgeTap }) {
   // translate(70%, -70%) = Chip überlappt die Backdrop-Ecke leicht, sitzt visuell direkt daran
   const posStyle = {
     'left-bottom':  { top: 0, right: 0,    transform: 'translate(70%, -70%)' },
@@ -156,12 +160,30 @@ function CornerGebChip({ side, vertical }) {
   }[`${side}-${vertical}`]
 
   return (
-    <span
-      className="absolute z-10"
+    <button
+      data-dealer-chip
+      className="absolute z-10 touch-none select-none"
       style={{ ...posStyle, width: 'var(--tisch-geb)', height: 'var(--tisch-geb)' }}
+      onPointerDown={e => e.stopPropagation()}
+      onClick={onChipTap}
     >
-      <img src={iconDealer} alt="Geber" className="w-full h-full object-contain" />
-    </span>
+      <img src={iconDealer} alt="Neu geben" className="w-full h-full object-contain" />
+
+      {/* Gebeversuch-Badge: zentriert auf dem Chip, ab dem 2. Versuch */}
+      {redealCount > 0 && (
+        <span
+          className="absolute inset-0 flex items-center justify-center"
+          onClick={e => { e.stopPropagation(); onBadgeTap() }}
+        >
+          <span
+            className="flex items-center justify-center rounded-full"
+            style={{ width: '1.7rem', height: '1.7rem', background: 'rgba(255,255,255,0.55)', fontSize: '0.9rem', fontWeight: 700, color: '#888', transform: 'translateY(-25%)' }}
+          >
+            {redealCount + 1}
+          </span>
+        </span>
+      )}
+    </button>
   )
 }
 
@@ -185,7 +207,7 @@ function CompactGebChip({ side }) {
 
 // ─── Spieler-Cluster (aktive Ecke) ────────────────────────────────────────────
 
-function CornerPlayer({ participant, layout, gameState, onGestureStart, drag }) {
+function CornerPlayer({ participant, layout, gameState, onGestureStart, drag, redealCount, onDealerChipTap, onDealerBadgeTap }) {
   const { side, vertical } = layout
   const isLeft    = side === 'left'
   const isBottom  = vertical === 'bottom'
@@ -365,7 +387,15 @@ function CornerPlayer({ participant, layout, gameState, onGestureStart, drag }) 
           WebkitTouchCallout: 'none',
         }}
       >
-        {participant.isDealer && <CornerGebChip side={side} vertical={vertical} />}
+        {participant.isDealer && (
+          <CornerGebChip
+            side={side}
+            vertical={vertical}
+            redealCount={redealCount}
+            onChipTap={onDealerChipTap}
+            onBadgeTap={onDealerBadgeTap}
+          />
+        )}
 
         {isBottom ? (
           <>
@@ -432,9 +462,16 @@ export default function TableView() {
     updateEyes, updateEyesFor,
     requestSwipe,
   } = useGame()
-  const { participants, showEvaluation, isWriter, requestTakeover } = useSession()
+  const { participants, roundData, gameNumber, showEvaluation, isWriter, requestTakeover } = useSession()
 
-  const [openSheetId, setOpenSheetId] = useState(null)
+  const [openSheetId,    setOpenSheetId]    = useState(null)
+  // Neugeben-Events des aktuellen Spielslots (lokaler State, wird bei Spielwechsel geleert)
+  const [currentRedeals,    setCurrentRedeals]    = useState([])
+  const [redealSheetMode,   setRedealSheetMode]   = useState('add') // 'add' | 'list'
+  const [showRedealSheet,   setShowRedealSheet]   = useState(false)
+
+  // Beim Spielwechsel (neue Spielnummer) Neugeben-Events zurücksetzen
+  useEffect(() => { setCurrentRedeals([]) }, [gameNumber])
 
   // ── Wisch-Geste (Teil 5, B.5.10/C.5.10) ────────────────────────────────────
   // drag = laufende Geste { fromId, fromX/Y (Avatar-Anker), x/y (Finger), overId }.
@@ -453,6 +490,9 @@ export default function TableView() {
   // Halten ODER >20px Bewegung → Team verbinden (requestSwipe). Pointer-Events decken
   // Touch UND Maus ab; Touch hat implizites Pointer-Capture → window-Listener genügen.
   function startGesture(e, playerId) {
+    // Dealer-Chip hat einen eigenen Click-Handler → Geste nicht starten,
+    // sonst fängt setPointerCapture alle Pointer-Events ab bevor onClick feuert.
+    if (e.target.closest('[data-dealer-chip]')) return
     if (e.pointerType === 'mouse' && e.button !== 0) return
     // Desktop: natives Bild-Drag/Textauswahl unterdrücken und den Pointer einfangen,
     // damit pointermove zuverlässig fließt (Touch hat implizites Capture, Maus nicht).
@@ -509,7 +549,48 @@ export default function TableView() {
 
   const activePlayers   = participants.filter(p => !p.isSitting)
   const openSheetPlayer = openSheetId ? participants.find(p => p.player_id === openSheetId) : null
+  const dealer          = participants.find(p => p.isDealer) ?? null
   const valid           = isGameValid(gameState, participants)
+
+  // Dealer-Chip getippt → Neugeben-Sheet öffnen (Typ auswählen)
+  function handleDealerChipTap() {
+    if (!isWriter) { requestTakeover(); return }
+    setRedealSheetMode('add')
+    setShowRedealSheet(true)
+  }
+
+  // Badge-Zahl getippt → Neugeben-Sheet im Listen-Modus
+  function handleDealerBadgeTap() {
+    if (!isWriter) { requestTakeover(); return }
+    setRedealSheetMode('list')
+    setShowRedealSheet(true)
+  }
+
+  // Neugeben-Event in DB speichern und zum lokalen State hinzufügen
+  async function handleRedealSave({ redealType, culpritId }) {
+    if (!roundData || !dealer) return
+    try {
+      const saved = await saveRedeal({
+        roundId:    roundData.id,
+        redealType,
+        dealerId:   dealer.player_id,
+        culpritId,
+      })
+      setCurrentRedeals(prev => [...prev, saved])
+    } catch (e) {
+      console.error('Neugeben speichern fehlgeschlagen:', e)
+    }
+  }
+
+  // Neugeben-Event löschen (aus DB und lokalem State)
+  async function handleRedealDelete(id) {
+    try {
+      await deleteRedeal(id)
+      setCurrentRedeals(prev => prev.filter(r => r.id !== id))
+    } catch (e) {
+      console.error('Neugeben löschen fehlgeschlagen:', e)
+    }
+  }
 
   function handleEvaluateClick() {
     const result = calculateGameResult(buildCalculationInput(gameState, participants))
@@ -559,6 +640,9 @@ export default function TableView() {
                   gameState={gameState}
                   onGestureStart={startGesture}
                   drag={drag}
+                  redealCount={p.isDealer ? currentRedeals.length : 0}
+                  onDealerChipTap={handleDealerChipTap}
+                  onDealerBadgeTap={handleDealerBadgeTap}
                 />
               )
             }
@@ -637,6 +721,19 @@ export default function TableView() {
           pendingLoserSelection={pendingLoserSelection}
           clearPendingLoserSelection={clearPendingLoserSelection}
           onClose={() => setOpenSheetId(null)}
+        />
+      )}
+
+      {showRedealSheet && dealer && (
+        <RedealSheet
+          initialMode={redealSheetMode}
+          redeals={currentRedeals}
+          dealer={dealer}
+          activePlayers={activePlayers}
+          participants={participants}
+          onSave={handleRedealSave}
+          onDelete={handleRedealDelete}
+          onClose={() => setShowRedealSheet(false)}
         />
       )}
     </>

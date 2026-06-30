@@ -2,7 +2,8 @@
 
 > Diese Datei ist das zentrale Briefing für jeden Claude-Assistenten, der an diesem Projekt arbeitet.
 > Sie wird bei jeder neuen Sitzung gelesen. Halte sie aktuell.
-> Letzte Aktualisierung: 29. Juni 2026 – Block B (Live-Mitsehen & Kugelschreiber-Modell) abgeschlossen: Supabase Realtime (Postgres Changes + Broadcast), `current_writer_id` in sessions, DB-Migration 008, Watcher-Banner, Übernahme-Dialog. iOS-Fix: `generateId()`-Polyfill (crash auf http-Kontext). Wake Lock. Import: alle 12 Spielabende Jan–Jun 2026 jetzt in der DB (5 neue heute: 07.01., 28.01., 11.02., 04.03., 18.03.). Block B und Import D.1 in Roadmap als ✅ vermerkt.
+> Letzte Aktualisierung: 30. Juni 2026 – Neugeben-Feature spezifiziert: neue Tabelle `round_redeals`, Dealer-Chip-Tap als UI-Auslöser, Gebeversuch-Badge, vier Typen (Fünf Neunen / Armut ohne Retter / Trumpfschwach / Vergeben). Statistik-Kategorie 7 ergänzt.
+> Vorherige Aktualisierung: 29. Juni 2026 – Block B (Live-Mitsehen & Kugelschreiber-Modell) abgeschlossen: Supabase Realtime (Postgres Changes + Broadcast), `current_writer_id` in sessions, DB-Migration 008, Watcher-Banner, Übernahme-Dialog. iOS-Fix: `generateId()`-Polyfill (crash auf http-Kontext). Wake Lock. Import: alle 12 Spielabende Jan–Jun 2026 jetzt in der DB (5 neue heute: 07.01., 28.01., 11.02., 04.03., 18.03.). Block B und Import D.1 in Roadmap als ✅ vermerkt.
 > Vorherige Aktualisierung: 27. Juni 2026 – Solo Hochzeit als neuer Solo-Typ ergänzt (Spec + Code + DB-Migration 006). PWA deployed: `manifest.json`, App-Icons 192/512 + maskable, Service Worker via `vite-plugin-pwa` (Workbox), `OfflineBanner`-Komponente. DB-Migration 007 (Solo Hochzeit Rename).
 
 ---
@@ -415,6 +416,25 @@ Ob die Ansage/Absage erreicht wurde, berechnet die App aus den Augen – wird ni
 | Typ             | ✓  | Fuchs gefangen / Karlchen gemacht / Karlchen gefangen / Doppelkopf               |
 | Verlierer:in-ID | ✓  | Optional: Wem wurde er abgenommen (nur bei Fuchs gefangen und Karlchen gefangen) |
 
+**Neugeben (RoundRedeal)**
+
+| Attribut       | V1 | Beschreibung                                                                                    |
+| -------------- | -- | ----------------------------------------------------------------------------------------------- |
+| ID             | ✓  | Eindeutige Kennung                                                                              |
+| Runden-ID      | ✓  | Zu welcher Runde gehört dieses Neugeben                                                         |
+| Typ            | ✓  | `fuenf_neunen` / `armut_abgelehnt` / `trumpfschwach` / `vergeben`                              |
+| Geber-ID       | ✓  | Wer hat gegeben (= derselbe gibt nochmal, Rotation schreitet NICHT vor)                         |
+| Verursacher-ID | ✓  | Wer hat das Neugeben ausgelöst (bei `vergeben` identisch mit Geber-ID)                         |
+| Timestamp      | ✓  | Zeitstempel                                                                                     |
+
+Hinweis: Ein Neugeben-Event ist KEIN Spiel – es hat keine Teams, keine Augen, kein Ergebnis. Die Runde benötigt weiterhin dieselbe Anzahl echter Spiele. Der Geber gibt nochmal (Rotation schreitet NICHT vor).
+
+Typ-Beschreibungen:
+- `fuenf_neunen` – Ein:e Spieler:in hat 5 oder mehr Neunen und schmeißt
+- `armut_abgelehnt` – Jemand hat eine Armut (≤3 Trümpfe), aber kein:e Mitspieler:in nimmt sie
+- `trumpfschwach` – Höchster Trumpf einer Person ist maximal das Karo-Ass (Fuchs) – kein Trumpf der einen Fuchs stechen könnte. Gilt unabhängig von der Gesamtzahl der Trümpfe. Bei ≤3 Trümpfen + Trumpfschwach besteht Wahlfreiheit zwischen Neugeben und Armut.
+- `vergeben` – Der/die Geber:in hat sich beim Austeilen vergeben (Karten falsch verteilt)
+
 ---
 
 ## 6. Erfassung (Eingabe-UI)
@@ -495,6 +515,30 @@ Diese Entscheidungen wurden im Dialog ausführlich besprochen und sind die Grund
 - Zurück-Option für Korrekturen ohne Verlust der Eingaben
 
 **Stand 22. Juni 2026:** Phase 2 abgeschlossen. Diese Design-Sektion beschreibt den umgesetzten Stand – bei zukünftigen UI-Änderungen aktualisieren.
+
+### Neugeben erfassen:
+
+Wenn die Karten ausgeteilt wurden und jemand sofort neu geben muss (Schmeißen), wird das über den Dealer-Chip erfasst – noch bevor Teams zugeordnet oder Augen eingegeben wurden.
+
+**Auslöser:** Tap auf den Dealer-Chip (das Poker-Dealer-Button-Symbol auf dem Avatar) – nicht auf den Avatar selbst. Avatar-Tap öffnet weiterhin das Spieler-Sheet.
+
+**Bottom Sheet nach Dealer-Chip-Tap:**
+- Vier Optionen:
+  - **Fünf Neunen** → Spieler-Picker (wer hat die 5 Neunen?) → Speichern
+  - **Armut ohne Retter** → Spieler-Picker (wer hatte die Armut?) → Speichern
+  - **Trumpfschwach** → Spieler-Picker (wer ist trumpfschwach?) → Speichern
+  - **Vergeben** → sofort gespeichert, kein weiterer Klick (Geber = Verursacher, bereits bekannt)
+
+**Visuelle Quittung – Gebeversuch-Badge:**
+- Ab dem 2. Versuch erscheint eine kleine Zahl neben dem Dealer-Chip (= aktueller Gebeversuch, z.B. „2" nach erstem Neugeben, „3" nach zweitem usw.)
+- Tap auf die Zahl → Bottom Sheet mit Liste aller Gebeversuche für diesen Spielslot:
+  - z.B. „1. Fünf Neunen – Jan" / „2. Vergeben – Robert"
+  - Jeder Eintrag einzeln löschbar (kein separates Editieren – löschen und neu erfassen reicht)
+- Neugeben-Events vergangener Spiele sind NICHT über die normale Spielhistorie editierbar
+
+**Auswirkung auf Rundenlogik:**
+- Ein Neugeben zählt NICHT als Spiel – die Runde braucht weiterhin gleich viele echte Spiele
+- Der Geber bleibt gleich (Rotation schreitet nicht vor)
 
 ### Runden-Logik:
 
@@ -606,6 +650,14 @@ Hinweis zu Streaks: Werden pro Spieler:in über Partien hinweg berechnet. Abwese
 - Gespaltener Arsch: Wie oft als glückliche:r Gewinner:in / unglückliche:r Verlierer:in
 
 Alle jeweils absolut und pro 4 Runden.
+
+#### 7. Neugeben & Schmeißer
+
+- Neugeben gesamt (absolut und pro 4 Runden)
+- Aufschlüsselung nach Typ: Fünf Neunen / Armut ohne Retter / Trumpfschwach / Vergeben
+- Schmeißer-Ranking: wer hat am häufigsten Neugeben ausgelöst (als Verursacher:in)?
+- Deppen-Statistik: wer hat sich am häufigsten vergeben? (nur Typ `vergeben`, Geber = Verursacher)
+- Durchschnittliche Neugebens pro Partie
 
 ### Perspektive (nicht V1):
 
