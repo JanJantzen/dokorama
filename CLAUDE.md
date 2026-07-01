@@ -2,7 +2,8 @@
 
 > Diese Datei ist das zentrale Briefing für jeden Claude-Assistenten, der an diesem Projekt arbeitet.
 > Sie wird bei jeder neuen Sitzung gelesen. Halte sie aktuell.
-> Letzte Aktualisierung: 30. Juni 2026 – Neugeben-Feature spezifiziert: neue Tabelle `round_redeals`, Dealer-Chip-Tap als UI-Auslöser, Gebeversuch-Badge, vier Typen (Fünf Neunen / Armut ohne Retter / Trumpfschwach / Vergeben). Statistik-Kategorie 7 ergänzt.
+> Letzte Aktualisierung: 1. Juli 2026 – Neugeben-Feature fertig gebaut: `round_redeals` mit `game_id` FK (statt `round_id`), Redeals im GameContext/live_draft (Zuschauer sehen sie live), Speichern mit echter game_id beim Bestätigen, Cascade-Delete.
+> Vorherige Aktualisierung: 30. Juni 2026 – Neugeben-Feature spezifiziert: neue Tabelle `round_redeals`, Dealer-Chip-Tap als UI-Auslöser, Gebeversuch-Badge, vier Typen (Fünf Neunen / Armut ohne Retter / Trumpfschwach / Vergeben). Statistik-Kategorie 7 ergänzt.
 > Vorherige Aktualisierung: 29. Juni 2026 – Block B (Live-Mitsehen & Kugelschreiber-Modell) abgeschlossen: Supabase Realtime (Postgres Changes + Broadcast), `current_writer_id` in sessions, DB-Migration 008, Watcher-Banner, Übernahme-Dialog. iOS-Fix: `generateId()`-Polyfill (crash auf http-Kontext). Wake Lock. Import: alle 12 Spielabende Jan–Jun 2026 jetzt in der DB (5 neue heute: 07.01., 28.01., 11.02., 04.03., 18.03.). Block B und Import D.1 in Roadmap als ✅ vermerkt.
 > Vorherige Aktualisierung: 27. Juni 2026 – Solo Hochzeit als neuer Solo-Typ ergänzt (Spec + Code + DB-Migration 006). PWA deployed: `manifest.json`, App-Icons 192/512 + maskable, Service Worker via `vite-plugin-pwa` (Workbox), `OfflineBanner`-Komponente. DB-Migration 007 (Solo Hochzeit Rename).
 
@@ -421,7 +422,7 @@ Ob die Ansage/Absage erreicht wurde, berechnet die App aus den Augen – wird ni
 | Attribut       | V1 | Beschreibung                                                                                    |
 | -------------- | -- | ----------------------------------------------------------------------------------------------- |
 | ID             | ✓  | Eindeutige Kennung                                                                              |
-| Runden-ID      | ✓  | Zu welcher Runde gehört dieses Neugeben                                                         |
+| Spiel-ID       | ✓  | Zu welchem Spiel gehört dieses Neugeben (game_id FK, Cascade-Delete)                           |
 | Typ            | ✓  | `fuenf_neunen` / `armut_abgelehnt` / `trumpfschwach` / `vergeben`                              |
 | Geber-ID       | ✓  | Wer hat gegeben (= derselbe gibt nochmal, Rotation schreitet NICHT vor)                         |
 | Verursacher-ID | ✓  | Wer hat das Neugeben ausgelöst (bei `vergeben` identisch mit Geber-ID)                         |
