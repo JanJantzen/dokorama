@@ -1,31 +1,21 @@
 // redeals.js – Datenbankzugriffe für Neugeben-Events
 //
-// Neugeben-Events werden in round_redeals gespeichert.
-// Sie sind keine Spiele – kein Score, keine Teams, nur Typ + Geber + Verursacher.
+// Redeals leben während der Erfassung im GameContext-State (und damit im live_draft).
+// Erst beim Bestätigen des Spiels werden sie gemeinsam mit der dann bekannten game_id
+// in round_redeals geschrieben. Cascade-Delete auf games.id räumt sie automatisch auf.
 
 import { supabase } from '@/lib/supabase'
 
-// Speichert ein Neugeben-Event in der DB. Gibt den gespeicherten Datensatz zurück.
-export async function saveRedeal({ roundId, redealType, dealerId, culpritId }) {
-  const { data, error } = await supabase
-    .from('round_redeals')
-    .insert({
-      round_id:    roundId,
-      redeal_type: redealType,
-      dealer_id:   dealerId,
-      culprit_id:  culpritId,
-    })
-    .select()
-    .single()
-  if (error) throw error
-  return data
-}
-
-// Löscht ein einzelnes Neugeben-Event (z.B. wenn falsch erfasst).
-export async function deleteRedeal(id) {
-  const { error } = await supabase
-    .from('round_redeals')
-    .delete()
-    .eq('id', id)
+// Schreibt alle Redeals eines Spiels auf einmal in die DB.
+// Wird in handleConfirm (SessionPage) aufgerufen, nachdem die game_id bekannt ist.
+export async function saveRedealsForGame(gameId, redeals, dealerId) {
+  if (!redeals || redeals.length === 0) return
+  const rows = redeals.map(r => ({
+    game_id:     gameId,
+    redeal_type: r.redealType,
+    dealer_id:   dealerId,
+    culprit_id:  r.culpritId,
+  }))
+  const { error } = await supabase.from('round_redeals').insert(rows)
   if (error) throw error
 }

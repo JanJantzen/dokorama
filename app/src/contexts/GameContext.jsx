@@ -49,6 +49,7 @@ function initGameState(participants) {
     parties, announcements,
     specialRoles: {}, soloType: null, soloColor: null,
     specialPoints: [], eyesInput: '', eyesFor: null,
+    redeals: [], // Neugeben-Events dieses Spielslots (werden beim Bestätigen mit game_id gespeichert)
   }
 }
 
@@ -529,6 +530,17 @@ export function GameProvider({ children, initialParticipants, initialGameState }
   const updateEyes    = useCallback((val)   => commitAction({ type: 'setEyes', value: val }),    [commitAction])
   const updateEyesFor = useCallback((party) => commitAction({ type: 'setEyesFor', party }),      [commitAction])
 
+  // Neugeben-Events: direkt auf gameState.redeals operieren, kein Konsistenz-Check nötig.
+  // tempId ist ein client-seitiger Schlüssel für das Löschen vor dem Bestätigen.
+  const addRedeal = useCallback(({ redealType, culpritId }) => {
+    const tempId = `${Date.now()}-${Math.random()}`
+    setGameState(prev => ({ ...prev, redeals: [...(prev.redeals ?? []), { tempId, redealType, culpritId }] }))
+  }, [])
+
+  const removeRedeal = useCallback((tempId) => {
+    setGameState(prev => ({ ...prev, redeals: (prev.redeals ?? []).filter(r => r.tempId !== tempId) }))
+  }, [])
+
   return (
     <GameContext.Provider value={{
       gameState,
@@ -561,6 +573,9 @@ export function GameProvider({ children, initialParticipants, initialGameState }
       // „von wem"-Nachfassen (Teil 4)
       pendingLoserSelection,
       clearPendingLoserSelection,
+      // Neugeben-Events
+      addRedeal,
+      removeRedeal,
     }}>
       {children}
     </GameContext.Provider>

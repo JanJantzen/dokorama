@@ -25,6 +25,7 @@ import Scoreboard from '@/components/session/Scoreboard'
 import RoundEndView from '@/components/session/RoundEndView'
 import ConsistencyDialog from '@/components/session/ConsistencyDialog'
 import { loadRoundProgress } from '@/lib/rounds'
+import { saveRedealsForGame } from '@/lib/redeals'
 import { saveDraft, clearDraft } from '@/lib/draft'
 import { useWakeLock } from '@/hooks/useWakeLock'
 
@@ -603,6 +604,10 @@ function SessionPageInner() {
       }))
       if (spInsert.length > 0)
         await supabase.from('special_points').insert(spInsert)
+
+      // Neugeben-Events: jetzt mit game_id in die DB schreiben
+      const dealer = participants.find(p => p.isDealer)
+      if (dealer) await saveRedealsForGame(game.id, gameState.redeals ?? [], dealer.player_id)
 
       // Runde fertig? (Ziel = Teilnehmerzahl + angesagte Solos) → Übergangs-Screen
       // statt direkt das nächste Spiel. Das Spiel ist gespeichert; wie es weitergeht

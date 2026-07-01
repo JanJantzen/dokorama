@@ -10,7 +10,6 @@ import { useSession } from '@/contexts/SessionContext'
 import { calculateGameResult } from '@/lib/scoreCalculation'
 import { isComplete } from '@/lib/consistency'
 import { getDisplayPositions } from '@/lib/seatUtils'
-import { saveRedeal, deleteRedeal } from '@/lib/redeals'
 import PlayerAvatar from '@/components/ui/PlayerAvatar'
 import PlayerSheet from '@/components/session/PlayerSheet'
 import RedealSheet from '@/components/session/RedealSheet'
@@ -461,17 +460,13 @@ export default function TableView() {
     pendingLoserSelection, clearPendingLoserSelection,
     updateEyes, updateEyesFor,
     requestSwipe,
+    addRedeal, removeRedeal,
   } = useGame()
-  const { participants, roundData, gameNumber, showEvaluation, isWriter, requestTakeover } = useSession()
+  const { participants, showEvaluation, isWriter, requestTakeover } = useSession()
 
   const [openSheetId,    setOpenSheetId]    = useState(null)
-  // Neugeben-Events des aktuellen Spielslots (lokaler State, wird bei Spielwechsel geleert)
-  const [currentRedeals,    setCurrentRedeals]    = useState([])
   const [redealSheetMode,   setRedealSheetMode]   = useState('add') // 'add' | 'list'
   const [showRedealSheet,   setShowRedealSheet]   = useState(false)
-
-  // Beim Spielwechsel (neue Spielnummer) Neugeben-Events zurücksetzen
-  useEffect(() => { setCurrentRedeals([]) }, [gameNumber])
 
   // ── Wisch-Geste (Teil 5, B.5.10/C.5.10) ────────────────────────────────────
   // drag = laufende Geste { fromId, fromX/Y (Avatar-Anker), x/y (Finger), overId }.
@@ -566,30 +561,14 @@ export default function TableView() {
     setShowRedealSheet(true)
   }
 
-  // Neugeben-Event in DB speichern und zum lokalen State hinzufügen
-  async function handleRedealSave({ redealType, culpritId }) {
-    if (!roundData || !dealer) return
-    try {
-      const saved = await saveRedeal({
-        roundId:    roundData.id,
-        redealType,
-        dealerId:   dealer.player_id,
-        culpritId,
-      })
-      setCurrentRedeals(prev => [...prev, saved])
-    } catch (e) {
-      console.error('Neugeben speichern fehlgeschlagen:', e)
-    }
+  // Neugeben-Event zum GameContext-State hinzufügen (wird beim Bestätigen mit game_id gespeichert)
+  function handleRedealSave({ redealType, culpritId }) {
+    addRedeal({ redealType, culpritId })
   }
 
-  // Neugeben-Event löschen (aus DB und lokalem State)
-  async function handleRedealDelete(id) {
-    try {
-      await deleteRedeal(id)
-      setCurrentRedeals(prev => prev.filter(r => r.id !== id))
-    } catch (e) {
-      console.error('Neugeben löschen fehlgeschlagen:', e)
-    }
+  // Neugeben-Event aus GameContext-State entfernen (via tempId)
+  function handleRedealDelete(tempId) {
+    removeRedeal(tempId)
   }
 
   function handleEvaluateClick() {
@@ -640,7 +619,7 @@ export default function TableView() {
                   gameState={gameState}
                   onGestureStart={startGesture}
                   drag={drag}
-                  redealCount={p.isDealer ? currentRedeals.length : 0}
+                  redealCount={p.isDealer ? (gameState.redeals?.length ?? 0) : 0}
                   onDealerChipTap={handleDealerChipTap}
                   onDealerBadgeTap={handleDealerBadgeTap}
                 />
@@ -727,7 +706,7 @@ export default function TableView() {
       {showRedealSheet && dealer && (
         <RedealSheet
           initialMode={redealSheetMode}
-          redeals={currentRedeals}
+          redeals={gameState.redeals ?? []}
           dealer={dealer}
           activePlayers={activePlayers}
           participants={participants}
