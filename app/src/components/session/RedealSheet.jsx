@@ -171,17 +171,17 @@ export default function RedealSheet({
             <>
               {redeals.map((r, i) => (
                 <div
-                  key={r.id}
+                  key={r.tempId}
                   className="flex items-center justify-between px-4 py-3 rounded-xl border border-border bg-background"
                 >
                   <span className="text-sm text-foreground">
                     <span className="text-muted-foreground mr-2">{i + 1}.</span>
-                    {REDEAL_LABELS[r.redeal_type]}
+                    {REDEAL_LABELS[r.redealType]}
                     {' – '}
-                    <span className="font-medium">{getName(r.culprit_id)}</span>
+                    <span className="font-medium">{getName(r.culpritId)}</span>
                   </span>
                   <button
-                    onClick={() => onDelete(r.id)}
+                    onClick={() => onDelete(r.tempId)}
                     className="text-destructive/60 active:text-destructive ml-4 p-1"
                   >
                     <Trash2 size={16} />

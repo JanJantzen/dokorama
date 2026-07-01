@@ -164,19 +164,16 @@ function CornerGebChip({ side, vertical, redealCount, onChipTap, onBadgeTap }) {
       className="absolute z-10 touch-none select-none"
       style={{ ...posStyle, width: 'var(--tisch-geb)', height: 'var(--tisch-geb)' }}
       onPointerDown={e => e.stopPropagation()}
-      onClick={onChipTap}
+      onClick={redealCount > 0 ? onBadgeTap : onChipTap}
     >
       <img src={iconDealer} alt="Neu geben" className="w-full h-full object-contain" />
 
-      {/* Gebeversuch-Badge: zentriert auf dem Chip, ab dem 2. Versuch */}
+      {/* Gebeversuch-Badge: zentriert auf dem Chip, ab dem 2. Versuch (rein visuell, Klick läuft über den Button) */}
       {redealCount > 0 && (
-        <span
-          className="absolute inset-0 flex items-center justify-center"
-          onClick={e => { e.stopPropagation(); onBadgeTap() }}
-        >
+        <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <span
             className="flex items-center justify-center rounded-full"
-            style={{ width: '1.7rem', height: '1.7rem', background: 'rgba(255,255,255,0.55)', fontSize: '0.9rem', fontWeight: 700, color: '#888', transform: 'translateY(-25%)' }}
+            style={{ width: '1.7rem', height: '1.7rem', background: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', fontWeight: 700, color: '#555', transform: 'translateY(-25%)' }}
           >
             {redealCount + 1}
           </span>
