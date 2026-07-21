@@ -48,14 +48,56 @@ Wer darf eine laufende Partie sehen, und wer darf gerade hineinschreiben? Das Le
 
 Das große Wertversprechen des ganzen Projekts – der ursprüngliche Grund, warum Dokorama existiert („alle wollen die Statistiken zurück, niemand will den Aufwand"). Der Erfassungs-Aufwand ist gelöst, der Wert steht noch aus.
 
-> **Dieser Block bekommt eine eigene, gründliche Session** und wird hier bewusst nur grob umrissen. Er ist zu groß und zu wichtig für ein Nebenbei.
+> **Das vollständige Statistik-Konzept ist fertig ausgearbeitet und lebt in [STATISTIK_KONZEPT.md](STATISTIK_KONZEPT.md)** – dem eigenständigen, maßgeblichen Referenzdokument (analog KONSISTENZREGELN.md und ROBERT_IMPORT.md) für alle Details: kompletter, nummerierter Kennzahlen-Vorrat, die Querschnitts-Achsen (Ebenen, Zeitraum, Normierung, Datenqualität, Stichprobe, Personen-Filter), die Navigationsstruktur mit sechs Einstiegen und drei Steckbrief-Typen sowie die Priorisierung. Die eigene, gründliche Ausarbeitungs-Session dazu ist abgeschlossen. Block C hier bleibt – wie alle Blöcke – bewusst schlank und gibt nur die Bau-Reihenfolge wieder; für das „Warum" und „Wie genau" jeder Kennzahl gilt STATISTIK_KONZEPT.md.
 
-Grobe, noch nicht final sortierte Bestandteile (aus der bisherigen Roadmap):
+Die Reihenfolge folgt den vier Tiers aus STATISTIK_KONZEPT.md (Schritt 4). Leitprinzip: **Die Navigation wächst mit dem tatsächlich Fertigen – kein „Coming Soon" für Ungebautes.** Ob die Werte live aus den Rohdaten oder aus einer aggregierten Tabelle berechnet werden, ist eine spätere Backend-/Performance-Frage, keine Konzeptfrage (bei dieser Gruppengröße reicht Live-Berechnung mit hoher Wahrscheinlichkeit).
 
-- **Basis:** Gesamtscore / Rangliste; Leistung (Siegquoten, Durchschnitte, Streaks – auf allen drei Ebenen Spiel/Runde/Partie); Ausdauer & Engagement (Teilnahme, Anwesenheitsquote); Zeitraum-Filter (Total, Kalenderjahr).
-- **Verlauf:** Zwischenstand je Rundenende + Verlaufskurve pro Spieler:in (Charts via Recharts).
-- **Erweitert:** Risikofreude (Ansagen-Statistiken); Einzelkämpfer (Solo-Statistiken); Sonderpunkte & Sonderspiele; Normierung auf „pro 4 Runden".
-- **Weiter hinten:** Head-to-Head-Statistiken; Ortsstatistik; Fun Stats / Rekorde.
+1. **Tier 1 – sofort:** Gesamtscore-Startbildschirm und die Ranglisten-Basis (Blöcke Leistung + Ausdauer). Dazu die Infrastruktur, die ab hier zwingend stehen muss: der P6-Mindest-Stichprobe-Filter (schon für Siegquoten nötig), der Zeitraum-Filter (Total / Kalenderjahr) und der Nerd-Modus-Schalter (schon für die Streuungs-Kennzahl L8 nötig).
+2. **Tier 2 – direkt danach:** Personen-Verzeichnis + Spieler-Steckbrief (der Konvergenzpunkt, der die Ranglisten erst richtig nutzbar macht); die restlichen Ranglisten-Blöcke (Risiko, Solo, Sonderspiele, Sonderpunkte); der Partie-Steckbrief-Kern (Verlaufskurve inkl. Endstand, bester/schlechtester Einzelspielwert, Streak des Abends, Solo-/Sonderpunkte-Zahlen mit Benchmark, HOF/KUR-Ereignisse des Abends – hoher Gameflow-Wert direkt nach Partie-Abschluss, günstig zu bauen, weil reines Filtern vorhandener Daten). Neue Infrastruktur: der Personen-Filter (Achse 5).
+3. **Tier 3 – später:** Orte + Ort-Steckbrief; Hall of Fame; Kuriositätenkabinett (strukturell ein Ranglisten-Block, aber mit Vitrinen-/Fun-Charakter statt ernster Leistungsmessung).
+4. **Tier 4 – deutlich später:** das komplette Teamplay (Team-Chemie, Übermut, Partner-Glück/Gegner-Pech, Karlchen-/Fuchs-Battle, Gegner-Bilanz) sowie das rechnerisch teure Partie-Steckbrief-Feature „Neue Rekorde/Ranking-Veränderungen durch diese Partie".
+
+### Tier 1 – Bauplan (in Arbeit)
+
+> Detail-Checkliste zum Abarbeiten (überlebt `/clear`). Fachliche Grundlage: STATISTIK_KONZEPT.md – die Kennzahl-Nummern (L…/A…/G1) sind dort erklärt. Reihenfolge-Kniff: erst die **punkt-basierten** Kennzahlen (brauchen nur `zaehlpunkte`-Summen, auf jeder Datenqualität verfügbar), dann die **gewinner-basierten** (L1/L5/L9), weil der Gewinner ≠ „Punkte > 0" ist.
+>
+> **Getroffene Entscheidungen (20.07.2026):** (1) Rechenweg = **JS live** (wie `lib/standings.js`; SQL-Views erst später für einzelne teure Kennzahlen, z. B. G2). (2) Zeitraum-Default = **laufendes Kalenderjahr**. (3) P6-Schwelle = **in Phase 4 festlegen**. (4) Gewinner-Bestimmung (L1/L5/L9) = **Winner-Flag in der DB** (Umsetzung in Phase 5, inkl. Backfill der Bestandsspiele).
+
+**Phase 0 – Fundament (unsichtbar, trägt alles)**
+- [x] 0.1 Stats-Datenschicht `lib/stats.js`: Ladefunktion analog `standings.js`, aber über die ganze Gruppe (nur abgeschlossene Partien). Liefert Rohzeilen + abgeleitete Grundgrößen: Saldo je Spieler:in pro Spiel/Runde/Partie, Zähler gespielte Spiele/Runden/Partien (Basis für „pro 4 Runden"). — *erledigt 20.07.2026; `loadStatsData()` + `playerTotals()` + `playedRoundsByPlayer()`. Per-Runde/Partie-Salden folgen mit Phase 3.*
+- [x] 0.2 StatsPage-Grundgerüst: Platzhalter durch zwei wachsende Bereiche ersetzen (Gesamtscore + Ranglisten) – minimaler Behälter, wächst mit. — *erledigt 21.07.2026; `StatsPage.jsx` lädt via `loadStatsData()`, Bereich „Gesamtscore".*
+
+**Phase 1 – Gesamtscore (G1)**
+- [x] 1.1 Gesamtscore-Rangliste absolut (Summe `zaehlpunkte`, absteigend). — *erledigt 21.07.2026; rendert via wiederverwendeter `StandingsList`.*
+- [x] 1.2 Normierung „pro 4 Runden" (Summe ÷ eigene gespielte Runden × 4) – als **zweite, sortierbare Spalte** neben „Gesamt" (beide Werte immer sichtbar, Default-Sortierung absolut), über die neue generische Komponente `StatsRankingList`. (Entscheidung 21.07.2026: zweispaltig statt Umschalter.) — *erledigt 21.07.2026; Spalte heißt „Schnitt"; Erklärung per ⓘ-Button in `SectionTitle` (wiederverwendbares `info`-Prop).*
+- [x] 1.3 Kumulierte Verlaufskurve (Recharts) als Default-Ansicht + Umschalter Liste/Kurve. Tier 1: fester Top-5/6-Default; die interaktive Linien-Auswahl (Personen-Filter) und „Klick auf Person → Spieler-Steckbrief" kommen erst in Tier 2. — *erledigt 22.07.2026; `ScoreCurve.jsx` (nur absolut, pro Partie), Umschalter Verlauf|Tabelle (Default Verlauf). Statt Legende: rechte Rang-Liste (Rang·Name·Punkte in Linienfarbe) + Tooltip in Rangfolge. Eigene distinkte Linien-Palette statt Avatarfarben (die kollidierten). Recharts ^3.10.0.*
+
+**Phase 2 – Infrastruktur: Zeitraum-Filter**
+- [ ] 2.1 Globaler, persistenter Zustand Total / Kalenderjahr (React Context), in die Datenschicht eingehängt (Filter auf `sessions.date`-Jahr). **Default = laufendes Kalenderjahr.**
+
+**Phase 3 – Leistung, punkt-basierte Kennzahlen (kein Gewinner-Flag nötig)**
+- [ ] 3.1 L6 Durchschnittsscore (Spiel/Runde/Partie, + pro 4R).
+- [ ] 3.2 L7 Bester/schlechtester Wert (Spiel/Runde/Partie).
+- [ ] 3.3 L2/L3/L4 Erster / Letzter / Netto-pos-neutral-neg (Runde + Partie, aus Salden-Rang je Einheit).
+
+**Phase 4 – Infrastruktur: P6 + Nerd-Modus**
+- [ ] 4.1 P6-Mindeststichprobe-Filter für Quoten (**Schwelle hier festlegen**) – dämpft/blendet zu dünne Quoten.
+- [ ] 4.2 Nerd-Modus-Schalter (global) – erste Nutzlast: σ neben dem Box-Plot (L8).
+
+**Phase 5 – Leistung, restliche Kennzahlen (Winner-Flag + Nerd-Modus)**
+- [ ] 5.1 Winner-Flag umsetzen: Gewinner-Partei-Spalte an `games`, via `scoreCalculation.js` befüllt – beim Speichern **und** Bearbeiten **und** Import; einmaliger Backfill für die Bestandsspiele (Migration + Skript).
+- [ ] 5.2 L1 Sieg/Niederlage (absolut + Quote, P6).
+- [ ] 5.3 L5 Streaks (aktueller + längster, je Zustand L1–L4).
+- [ ] 5.4 L9 Deutlichkeit der Siege (Verteilung über Absage-Stufen).
+- [ ] 5.5 L8 Streuung/Konstanz (Box-Plot; σ im Nerd-Modus) – punkt-basiert, aber hängt an 4.2.
+
+**Phase 6 – Ausdauer-Block (A1–A7)**
+- [ ] 6.1 A1 Mengen (Spiele/Runden/Partien), A2 Dichte, A3 Teilnahmequote – voll verfügbar.
+- [ ] 6.2 A4 Anwesenheits-Timeline.
+- [ ] 6.3 A5 Gebeversuche + A6/A7 Spielzeit – mit P2-Lückenhinweis (für Importe großteils leer → „erst ab App-Erfassung" statt falscher 0).
+
+**Phase 7 – Feinschliff Navigation**
+- [ ] 7.1 Ranglisten-Zwischenebene (Umschalter Leistung/Ausdauer) + Kompakt-Kacheln (Top 3) → Klick = Vollliste. (Spieler-Steckbrief bleibt Tier 2.)
 
 ---
 
@@ -142,8 +184,8 @@ Angedachtes Tarif-Modell:
 
 > Dies ist die **einzige** blockübergreifende Priorisierung in diesem Dokument – bewusst kurz gehalten auf die nächsten Brocken, statt alle Punkte aller Blöcke in eine Gesamtreihenfolge zu pressen (die sich ohnehin laufend ändert). Reihenfolge:
 
-1. **Block C – Statistiken (eigene Session).**
-   Der eigentliche Wert des Projekts und der Grund, warum Dokorama existiert. Bekommt eine eigene, gründliche Ausarbeitungs-Session.
+1. **Block C – Statistiken bauen (Tier 1).**
+   Der eigentliche Wert des Projekts und der Grund, warum Dokorama existiert. Die Konzept-Session ist abgeschlossen (Ergebnis: STATISTIK_KONZEPT.md); als Nächstes wird Tier 1 gebaut – Gesamtscore-Startbildschirm und Ranglisten-Basis (Leistung, Ausdauer) samt P6-, Zeitraum- und Nerd-Modus-Infrastruktur.
 
 2. **Block D, Punkt 1 – 2026er Import.**
    Läuft bereits parallel und wird weitergeführt (Foto-/JSON-Workflow, ROBERT_IMPORT.md). Stand 29.06.2026: alle 12 Spielabende 2026 (Januar–Juni) importiert, DB ist aktuell.

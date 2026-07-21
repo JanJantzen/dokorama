@@ -1,7 +1,7 @@
 // recompute_points.mjs – Zählpunkte app-erfasster Spiele neu berechnen und korrigieren
 //
 // Nutzt die (gefixte) calculateGameResult und vergleicht mit den gespeicherten
-// zaehlopunkte. Nur Spiele mit exakten Augen (augen_re) – historische Importe
+// zaehlpunkte. Nur Spiele mit exakten Augen (augen_re) – historische Importe
 // (Augen-Range, Werte aus Roberts Buch) bleiben unangetastet.
 //
 // Aufruf (aus dem Repo-Root):
@@ -20,7 +20,7 @@ const sb = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY)
 const commit = process.argv.includes('--commit')
 
 const { data: games, error } = await sb.from('games')
-  .select('id, number, game_type, augen_re, rounds(number, sessions(date)), game_results(player_id, partei, sonderrolle, zaehlopunkte, players(name)), announcements(player_id, typ), special_points(player_id, typ, loser_id)')
+  .select('id, number, game_type, augen_re, rounds(number, sessions(date)), game_results(player_id, partei, sonderrolle, zaehlpunkte, players(name)), announcements(player_id, typ), special_points(player_id, typ, loser_id)')
   .not('augen_re', 'is', null)
 if (error) { console.error('DB-Fehler:', error.message); process.exit(1) }
 
@@ -42,14 +42,14 @@ for (const g of games) {
     reEyes: g.augen_re, gameType: g.game_type, announcements, specialPoints, playerResults,
   })
 
-  const diffs = g.game_results.filter(r => (perPlayer[r.player_id] ?? 0) !== r.zaehlopunkte)
+  const diffs = g.game_results.filter(r => (perPlayer[r.player_id] ?? 0) !== r.zaehlpunkte)
   if (diffs.length) {
     changedGames++
     const date = g.rounds?.sessions?.date
     console.log(`\n${date} · Runde ${g.rounds?.number} · Spiel ${g.number} (${g.game_type})`)
     for (const r of diffs) {
       changedRows++
-      console.log(`   ${nameOf(r.player_id).padEnd(10)} ${r.zaehlopunkte}  →  ${perPlayer[r.player_id] ?? 0}`)
+      console.log(`   ${nameOf(r.player_id).padEnd(10)} ${r.zaehlpunkte}  →  ${perPlayer[r.player_id] ?? 0}`)
       updates.push({ gameId: g.id, playerId: r.player_id, points: perPlayer[r.player_id] ?? 0 })
     }
   }
@@ -60,7 +60,7 @@ if (!updates.length) { console.log('Nichts zu korrigieren.'); process.exit(0) }
 if (!commit) { console.log('\nDry-Run – nichts geschrieben. Zum Korrigieren: --commit anhängen.'); process.exit(0) }
 
 for (const u of updates) {
-  const { error: e } = await sb.from('game_results').update({ zaehlopunkte: u.points })
+  const { error: e } = await sb.from('game_results').update({ zaehlpunkte: u.points })
     .eq('game_id', u.gameId).eq('player_id', u.playerId)
   if (e) { console.error('Update-Fehler:', e.message); process.exit(1) }
 }

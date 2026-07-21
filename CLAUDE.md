@@ -2,7 +2,8 @@
 
 > Diese Datei ist das zentrale Briefing für jeden Claude-Assistenten, der an diesem Projekt arbeitet.
 > Sie wird bei jeder neuen Sitzung gelesen. Halte sie aktuell.
-> Letzte Aktualisierung: 1. Juli 2026 – Neugeben-Feature fertig gebaut: `round_redeals` mit `game_id` FK (statt `round_id`), Redeals im GameContext/live_draft (Zuschauer sehen sie live), Speichern mit echter game_id beim Bestätigen, Cascade-Delete.
+> Letzte Aktualisierung: 20. Juli 2026 – Statistik-Konzept (Block C) fertig ausgearbeitet und als eigenständiges Referenzdokument STATISTIK_KONZEPT.md abgelegt (analog KONSISTENZREGELN.md / ROBERT_IMPORT.md). Abschnitt 7 auf knappen Überblick gekürzt und auf STATISTIK_KONZEPT.md verwiesen (alte Kategorien-Liste 1–7 dorthin überführt/überholt); Roadmap Block C durch priorisierte Bau-Reihenfolge (Tier 1–4) ersetzt.
+> Vorherige Aktualisierung: 1. Juli 2026 – Neugeben-Feature fertig gebaut: `round_redeals` mit `game_id` FK (statt `round_id`), Redeals im GameContext/live_draft (Zuschauer sehen sie live), Speichern mit echter game_id beim Bestätigen, Cascade-Delete.
 > Vorherige Aktualisierung: 30. Juni 2026 – Neugeben-Feature spezifiziert: neue Tabelle `round_redeals`, Dealer-Chip-Tap als UI-Auslöser, Gebeversuch-Badge, vier Typen (Fünf Neunen / Armut ohne Retter / Trumpfschwach / Vergeben). Statistik-Kategorie 7 ergänzt.
 > Vorherige Aktualisierung: 29. Juni 2026 – Block B (Live-Mitsehen & Kugelschreiber-Modell) abgeschlossen: Supabase Realtime (Postgres Changes + Broadcast), `current_writer_id` in sessions, DB-Migration 008, Watcher-Banner, Übernahme-Dialog. iOS-Fix: `generateId()`-Polyfill (crash auf http-Kontext). Wake Lock. Import: alle 12 Spielabende Jan–Jun 2026 jetzt in der DB (5 neue heute: 07.01., 28.01., 11.02., 04.03., 18.03.). Block B und Import D.1 in Roadmap als ✅ vermerkt.
 > Vorherige Aktualisierung: 27. Juni 2026 – Solo Hochzeit als neuer Solo-Typ ergänzt (Spec + Code + DB-Migration 006). PWA deployed: `manifest.json`, App-Icons 192/512 + maskable, Service Worker via `vite-plugin-pwa` (Workbox), `OfflineBanner`-Komponente. DB-Migration 007 (Solo Hochzeit Rename).
@@ -573,99 +574,17 @@ Wenn die Karten ausgeteilt wurden und jemand sofort neu geben muss (Schmeißen),
 
 ## 7. Auswertungen und Statistiken
 
-### Grundprinzip
+> **Maßgebliche Quelle: [STATISTIK_KONZEPT.md](STATISTIK_KONZEPT.md).** Alle Details – der vollständige, nummerierte Kennzahlen-Vorrat, die Querschnitts-Achsen (Ebenen, Zeitraum, Normierung, Datenqualität, Stichprobe, Personen-Filter), die Navigationsstruktur mit den sechs Einstiegen und den drei Steckbrief-Typen sowie die Priorisierung (Tier 1–4) – stehen dort. STATISTIK_KONZEPT.md ist ein eigenständiges Referenzdokument neben CLAUDE.md, genau wie KONSISTENZREGELN.md und ROBERT_IMPORT.md. Dieser Abschnitt gibt nur den Überblick; bei jeder Statistik-Arbeit gilt das Konzeptdokument, nicht diese Zusammenfassung.
 
-Alles auswerten, was die Daten hergeben. Die Runde ist statistik-verrückt. Die Datenerfassung ist von Anfang an granular genug, um auch später noch neue Auswertungen zu ermöglichen, ohne das Datenmodell zu ändern. Welche Stats prominent angezeigt, welche hinter einem „Nerd-Modus" versteckt und welche erst später gebaut werden, ist eine UI-Entscheidung bei der Implementierung. Die Daten sind vollständig – dieser Abschnitt beschreibt was wir **anzeigen**, nicht was wir erfassen.
+**Grundprinzip:** Alles auswerten, was die Daten hergeben – die Runde ist statistik-verrückt. Die Erfassung ist von Anfang an granular genug, um auch später neue Auswertungen zu ermöglichen, ohne das Datenmodell zu ändern.
 
-### „Stats of the Party" (pro Partie)
+**Nerd-Modus:** Ein globaler Ein/Aus-Schalter blendet zusätzliche technische Tiefe ein (z.B. Standardabweichung neben dem Box-Plot), ohne den normalen Klickpfad zu verlängern. Welche Kennzahl prominent steht und welche hinter dem Schalter liegt, klärt das Konzept.
 
-Zusätzlich zu den gruppenweiten Auswertungen soll es eine **Mini-Statistik pro einzelner Partie** geben (im Partie-Details-Screen, hinter „Details" beim Endstand). Eine kompakte Auswahl der unten stehenden Kennzahlen, aber **auf eine Partie/einen Abend bezogen** statt über alle Daten – z.B. Endstand, bester/schlechtester Einzelspielwert des Abends, Anzahl Solos/Sonderpunkte/Sonderspiele, ggf. Verlaufskurve über die Spiele (siehe Roadmap-Punkt 21). Welche Kennzahlen genau, ist Teil des Statistik-Konzepts.
+**Zeiträume:** Ein universeller Filter über alle Auswertungen – **Total** (gesamte Historie) und **Kalenderjahr** (inkl. laufendem); feinere Zeiträume (Quartal/Monat/frei) sind im Vorrat.
 
-### Zeiträume
+**Normierung:** Wo absolute Zahlen durch unterschiedliche Teilnahme verzerren, wird **„pro 4 Runden"** ausgewiesen (ein normierter Standard-Abend, Basis = Runde). In V1 ist die 4 hardcoded, perspektivisch pro Gruppe konfigurierbar.
 
-Alle Auswertungen sind filterbar nach:
-- **Total** (über alle Daten)
-- **Kalenderjahr** (inkl. laufendes Jahr)
-
-**Perspektive:** Quartale, Monate, benutzerdefinierte Zeiträume.
-
-### Normierung
-
-Wo absolute Zahlen durch unterschiedliche Teilnahme verzerrt werden (z.B. Gesamtpunktestand), werden Durchschnittswerte pro Spiel, pro Runde oder **pro 4 Runden** (als normierter Standard-Abend) ausgewiesen. 4 Runden ist der Referenzwert, da dies einer typischen/turniermäßigen Abendlänge entspricht. In V1 hardcoded auf 4, perspektivisch pro Gruppe konfigurierbar.
-
-### Statistik-Kategorien
-
-#### 1. Gesamtscore (Königskennzahl)
-
-Die prominenteste Zahl – belohnt die Kombination aus Leistung und Ausdauer. Wird als erstes angezeigt, ist aber eigentlich die am wenigsten aussagekräftige Kennzahl, da sie durch häufige Teilnahme allein steigen kann.
-
-- Gesamtpunktestand (Rangliste)
-- Punkteverlauf über Zeit (Chart)
-
-#### 2. Leistung – Wie gut spiele ich?
-
-Auf jeder Ebene (Spiel / Runde / Partie):
-- Siegquote
-- Bester Score
-- Schlechtester Score (Negativrekorde sind auch interessant!)
-- Durchschnittsscore
-- Längste Siegserie
-- Längste Niederlagenserie
-
-Hinweis zu Streaks: Werden pro Spieler:in über Partien hinweg berechnet. Abwesenheit unterbricht einen Streak nicht – nur eine Niederlage (bzw. das Gegenteil des Streak-Kriteriums) bricht ihn.
-
-#### 3. Ausdauer / Engagement – Wie viel spiele ich?
-
-- Anzahl Spiele / Runden / Partien
-- Gewonnen / Verloren (absolute Zahlen)
-- Anteil an Gesamtpartien (Teilnahmequote)
-- Perspektive: Spielstunden (aus Timestamps ableitbar)
-
-#### 4. Risikofreude – Ansagen
-
-- Ansagenhäufigkeit total und je Typ (Re, Kontra, Keine 90, Keine 60, Keine 30, Schwarz)
-- Davon gewonnen / Gewinnquote (total und je Typ)
-- Durchschnittliche Ansagen pro Spiel und pro Runde (total und je Typ)
-- Perspektive: Aufschlüsselung ob Absagen als Re-, Kontra- oder Solo-Spieler:in gemacht wurden
-
-#### 5. Einzelkämpfer – Solos
-
-- Solos total und je Typ (Fleischlos, Buben-Solo, Damen-Solo, Farb-Solo, Stilles Solo, Solo Hochzeit)
-- Gewonnen / Verloren / Gewinnquote (total und je Typ)
-- Durchschnitt Solos pro Runde
-- Durchschnittlicher Punkteertrag pro Solo
-- Solo-Anteil (wie viel Prozent meiner Spiele sind Solos)
-- Perspektive: Farb-Solo Aufschlüsselung nach Farbe
-
-#### 6. Sonderpunkte & Sonderspiele
-
-**Sonderpunkte:**
-- Karlchen gemacht / Karlchen gefangen / Karlchen verloren – absolut und pro 4 Runden (Karlchen ist die echte Skill-Kennzahl bei den Sonderpunkten)
-- Doppelkopf – absolut und pro 4 Runden
-- Fuchs gefangen / Fuchs verloren – absolut und pro 4 Runden
-- Sonderpunkte-Bilanz (gefangen minus verloren – wer hat netto die meisten?)
-
-**Sonderspiele:**
-- Hochzeit: Häufigkeit, davon als Hochzeiter:in / Eingeheiratet
-- Armut: Häufigkeit, davon als Armut / Retter:in
-- Gespaltener Arsch: Wie oft als glückliche:r Gewinner:in / unglückliche:r Verlierer:in
-
-Alle jeweils absolut und pro 4 Runden.
-
-#### 7. Neugeben & Schmeißer
-
-- Neugeben gesamt (absolut und pro 4 Runden)
-- Aufschlüsselung nach Typ: Fünf Neunen / Armut ohne Retter / Trumpfschwach / Vergeben
-- Schmeißer-Ranking: wer hat am häufigsten Neugeben ausgelöst (als Verursacher:in)?
-- Deppen-Statistik: wer hat sich am häufigsten vergeben? (nur Typ `vergeben`, Geber = Verursacher)
-- Durchschnittliche Neugebens pro Partie
-
-### Perspektive (nicht V1):
-
-- **Head-to-Head:** Bilanz Spieler:in A vs. Spieler:in B
-- **Ortsstatistik:** Wo gewinnt wer am meisten?
-- **Fun Stats / Rekorde:** Sammelkategorie für alles Kuriose
-- **Gruppenübergreifende Statistiken:** Wenn die App für mehrere Gruppen offen ist
+**Stats of the Party:** Zusätzlich zu den gruppenweiten Auswertungen gibt es pro einzelner Partie einen kompakten **Partie-Steckbrief** (im Partie-Details-Screen, hinter „Details" beim Endstand) – kuratierte Kennzahlen bezogen auf einen Abend. Details im Konzeptdokument.
 
 ---
 

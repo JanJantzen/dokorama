@@ -8,7 +8,7 @@
 //   - Slugs (jan, robert, …) → echte player-UUIDs (über den Namen)
 //   - group "jan-runde" → Gruppe "Dokorama"; venue null
 //   - alte Enum-Namen → aktuelles Schema (hochzeiter→hochzeit, armut→arm, retter→reich; completed→abgeschlossen)
-//   - Feldnamen (party→partei, points→zaehlopunkte, type→typ, solo_color→farbe)
+//   - Feldnamen (party→partei, points→zaehlpunkte, type→typ, solo_color→farbe)
 // Fehlende Werte bleiben null. Bei Fehlern wird NICHT importiert.
 
 import { createClient } from '@supabase/supabase-js'
@@ -112,11 +112,11 @@ const rounds = (data.rounds ?? []).map(r => {
         player_id:    resolvePlayer(res.player_id, `R${r.number} S${g.number} Ergebnis`),
         partei:       res.party,
         sonderrolle:  res.special_role != null ? ROLE_MAP[res.special_role] : null,
-        zaehlopunkte: res.points ?? 0,
+        zaehlpunkte: res.points ?? 0,
       }
     })
     // Nullsummen-Check über die gelisteten (aktiven) Spieler
-    const sum = results.reduce((a, x) => a + (x.zaehlopunkte ?? 0), 0)
+    const sum = results.reduce((a, x) => a + (x.zaehlpunkte ?? 0), 0)
     if (sum !== 0) warn(`R${r.number} S${g.number}: Summe der Punkte ist ${sum}, nicht 0.`)
 
     const announcements = (g.announcements ?? []).map(a => {
@@ -161,7 +161,7 @@ console.log(`Partie: ${session.date}  ·  Status: ${session.status}  ·  Runden:
 for (const r of rounds) {
   console.log(`  Runde ${r.number} (${r.games.length} Spiele, ${r.participations.length} Teilnehmer)`)
   for (const g of r.games) {
-    const rePts = g.results.find(x => x.partei === 're')?.zaehlopunkte ?? 0
+    const rePts = g.results.find(x => x.partei === 're')?.zaehlpunkte ?? 0
     const win = rePts >= 0 ? 'Re' : 'Kontra'
     const extra = g.game_type !== 'normal' ? ` [${g.game_type}]` : ''
     console.log(`    Spiel ${g.number}: ${win} ${rePts >= 0 ? '+' : ''}${rePts}${extra}`)

@@ -16,7 +16,7 @@ export function formatSessionDate(dateStr) {
 export async function loadSessions() {
   const { data, error } = await supabase
     .from('sessions')
-    .select('id, date, status, current_writer_id, created_at, venues(name), rounds(number, status, games(id, game_results(player_id, zaehlopunkte)), round_participations(seat_position, players(id, name)))')
+    .select('id, date, status, current_writer_id, created_at, venues(name), rounds(number, status, games(id, game_results(player_id, zaehlpunkte)), round_participations(seat_position, players(id, name)))')
     .order('date', { ascending: false })
     .order('created_at', { ascending: false })
 
@@ -41,7 +41,7 @@ export async function loadSessions() {
     for (const r of rounds)
       for (const g of (r.games ?? []))
         for (const gr of (g.game_results ?? []))
-          totals.set(gr.player_id, (totals.get(gr.player_id) ?? 0) + (gr.zaehlopunkte ?? 0))
+          totals.set(gr.player_id, (totals.get(gr.player_id) ?? 0) + (gr.zaehlpunkte ?? 0))
     const standings = [...totals.entries()]
       .map(([pid, total]) => ({ name: byId.get(pid) ?? '?', total }))
       .sort((a, b) => b.total - a.total)
@@ -78,7 +78,7 @@ export async function loadSessions() {
 export async function loadSessionGames(sessionId) {
   const { data, error } = await supabase
     .from('rounds')
-    .select('number, games(id, number, game_type, farbe, augen_re, game_results(player_id, partei, zaehlopunkte, sonderrolle, players(name, avatar_url)), announcements(player_id, typ), special_points(player_id, typ, loser_id))')
+    .select('number, games(id, number, game_type, farbe, augen_re, game_results(player_id, partei, zaehlpunkte, sonderrolle, players(name, avatar_url)), announcements(player_id, typ), special_points(player_id, typ, loser_id))')
     .eq('session_id', sessionId)
     .order('number')
 
@@ -98,7 +98,7 @@ export async function loadSessionGames(sessionId) {
             name:      gr.players?.name ?? '?',
             avatarUrl: gr.players?.avatar_url ?? null,
             party:     gr.partei,
-            points:    gr.zaehlopunkte ?? 0,
+            points:    gr.zaehlpunkte ?? 0,
             role:      gr.sonderrolle ?? null,
             anns:      anns.filter(a => a.player_id === gr.player_id).map(a => a.typ),
             earnedSp:  sps.filter(s => s.player_id === gr.player_id),

@@ -96,7 +96,7 @@ export async function updateGame(gameId, { gameState, participants, perPlayer })
     const { error } = await supabase.from('game_results').update({
       partei:       gameState.parties[p.player_id] ?? 'ausgesetzt',
       sonderrolle:  gameState.specialRoles[p.player_id] ?? null,
-      zaehlopunkte: perPlayer[p.player_id] ?? 0,
+      zaehlpunkte:  perPlayer[p.player_id] ?? 0,
     }).eq('game_id', gameId).eq('player_id', p.player_id)
     if (error) throw error
   }

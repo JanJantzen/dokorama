@@ -588,7 +588,7 @@ function SessionPageInner() {
           player_id:    p.player_id,
           partei:       gameState.parties[p.player_id] ?? 'ausgesetzt',
           sonderrolle:  gameState.specialRoles[p.player_id] ?? null,
-          zaehlopunkte: evalResult.perPlayer[p.player_id] ?? 0,
+          zaehlpunkte:  evalResult.perPlayer[p.player_id] ?? 0,
         }))
       )
 

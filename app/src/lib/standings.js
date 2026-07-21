@@ -17,7 +17,7 @@ export async function loadStandings(sessionId) {
   // Über die verschachtelte Beziehung filtern wir auf die session_id.
   const { data, error } = await supabase
     .from('game_results')
-    .select('player_id, zaehlopunkte, players(name, avatar_url), games!inner(rounds!inner(session_id))')
+    .select('player_id, zaehlpunkte, players(name, avatar_url), games!inner(rounds!inner(session_id))')
     .eq('games.rounds.session_id', sessionId)
 
   if (error) throw error
@@ -31,7 +31,7 @@ export async function loadStandings(sessionId) {
       avatar_url: row.players?.avatar_url ?? null,
       total:      0,
     }
-    entry.total += row.zaehlopunkte ?? 0
+    entry.total += row.zaehlpunkte ?? 0
     byPlayer.set(row.player_id, entry)
   }
 

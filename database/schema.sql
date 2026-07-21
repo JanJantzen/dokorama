@@ -110,7 +110,7 @@ CREATE TABLE game_results (
   player_id    UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
   partei       partei NOT NULL,
   sonderrolle  sonderrolle,
-  zaehlopunkte INTEGER NOT NULL DEFAULT 0,                     -- berechnet, aber gespeichert
+  zaehlpunkte  INTEGER NOT NULL DEFAULT 0,                     -- berechnet, aber gespeichert
   UNIQUE (game_id, player_id)
 );
 
