@@ -5,15 +5,26 @@
 //   - Phase 1.1: Gesamtscore-Rangliste (absolut)
 //   - Phase 1.2: zweite Spalte „Schnitt" (pro 4 Runden), per Spaltenkopf sortierbar
 //   - Phase 1.3: Verlaufskurve (kumuliert, absolut) + Umschalter Verlauf | Tabelle
+//   - Phase 2:   globaler Zeitraum-Filter (Total / Jahr / freier Zeitraum)
 //
 // Die Daten kommen aus der Statistik-Datenschicht lib/stats.js: einmal beim
-// Öffnen laden, dann live in JavaScript verrechnen.
+// Öffnen laden, dann live in JavaScript verrechnen. Der Zeitraum-Filter schneidet
+// die geladenen Daten vor der Berechnung zu (filterByPeriod) – kein neuer DB-Zugriff.
 
 import { useEffect, useMemo, useState } from 'react'
 import { Info } from 'lucide-react'
-import { loadStatsData, playerTotals, playedRoundsByPlayer, buildScoreCurve } from '@/lib/stats'
+import {
+  loadStatsData,
+  playerTotals,
+  playedRoundsByPlayer,
+  buildScoreCurve,
+  filterByPeriod,
+  availableYears,
+} from '@/lib/stats'
+import { StatsFilterProvider, useStatsFilter } from '@/contexts/StatsFilterContext'
 import StatsRankingList from '@/components/stats/StatsRankingList'
 import ScoreCurve from '@/components/stats/ScoreCurve'
+import PeriodFilter from '@/components/stats/PeriodFilter'
 
 // Kleiner Abschnitts-Titel im selben Stil wie auf der Startseite.
 // Optionales `info`: zeigt ein ⓘ neben dem Titel; Tap blendet den Erklärtext
@@ -105,10 +116,15 @@ const GESAMTSCORE_COLUMNS = [
   { key: 'per4',    label: 'Schnitt', format: fmtPer4 },
 ]
 
-export default function StatsPage() {
-  const [data, setData] = useState(null)          // null = lädt noch
+// Die eigentliche Seite – lebt INNERHALB des StatsFilterProvider (s. Default-Export
+// unten), damit sie den gewählten Zeitraum über useStatsFilter() lesen kann.
+function StatsPageInner() {
+  const [data, setData] = useState(null)          // null = lädt noch (ungefilterte Rohdaten)
   const [error, setError] = useState(false)
   const [view, setView] = useState('verlauf')     // 'verlauf' | 'tabelle'
+
+  // Der aktive Zeitraum als Datumsgrenzen (kommt aus dem globalen Filter-Context).
+  const { range } = useStatsFilter()
 
   // Einmal beim Öffnen der Seite alle abgeschlossenen Partien laden.
   useEffect(() => {
@@ -119,9 +135,23 @@ export default function StatsPage() {
     return () => { alive = false }
   }, [])
 
-  // Abgeleitete Ansichten nur neu berechnen, wenn sich die Daten ändern.
-  const gesamtscore = useMemo(() => (data ? buildGesamtscore(data) : null), [data])
-  const curve       = useMemo(() => (data ? buildScoreCurve(data) : null), [data])
+  // Welche Jahre gibt es überhaupt? (Für die Jahres-Chips – aus den VOLLEN Daten,
+  // nicht aus den gefilterten, sonst verschwänden Chips beim Umschalten.)
+  const years = useMemo(() => (data ? availableYears(data) : []), [data])
+
+  // Rohdaten auf den gewählten Zeitraum zuschneiden; darauf rechnen alle Kennzahlen.
+  // Neu, sobald sich die Daten ODER der Zeitraum ändern.
+  const filtered = useMemo(
+    () => (data ? filterByPeriod(data, range) : null),
+    [data, range],
+  )
+
+  // Abgeleitete Ansichten aus den GEFILTERTEN Daten.
+  const gesamtscore = useMemo(() => (filtered ? buildGesamtscore(filtered) : null), [filtered])
+  const curve       = useMemo(() => (filtered ? buildScoreCurve(filtered) : null), [filtered])
+
+  // Enthält der gewählte Zeitraum überhaupt Partien?
+  const isEmpty = filtered && filtered.sessions.length === 0
 
   return (
     <div className="flex flex-col min-h-screen pb-20">
@@ -131,6 +161,9 @@ export default function StatsPage() {
       </header>
 
       <div className="px-4 flex flex-col gap-8">
+        {/* Globaler Zeitraum-Filter – gilt für alle Bereiche darunter */}
+        {data && <PeriodFilter years={years} />}
+
         <section>
           <SectionTitle
             info={
@@ -150,10 +183,14 @@ export default function StatsPage() {
             <p className="text-sm text-muted-foreground text-center mt-8">
               Statistiken konnten nicht geladen werden.
             </p>
+          ) : !filtered ? (
+            <p className="text-sm text-muted-foreground text-center mt-8">Lädt…</p>
+          ) : isEmpty ? (
+            <p className="text-sm text-muted-foreground text-center mt-8">
+              In diesem Zeitraum gibt es keine Partien.
+            </p>
           ) : view === 'verlauf' ? (
-            curve
-              ? <ScoreCurve points={curve.points} players={curve.players} />
-              : <p className="text-sm text-muted-foreground text-center mt-8">Lädt…</p>
+            <ScoreCurve points={curve.points} players={curve.players} />
           ) : (
             <StatsRankingList
               entries={gesamtscore}
@@ -164,5 +201,15 @@ export default function StatsPage() {
         </section>
       </div>
     </div>
+  )
+}
+
+// Default-Export: umhüllt die Seite mit dem Zeitraum-Filter-Provider, damit die
+// Wahl (und ihre Persistenz) an EINER Stelle für die ganze Statistik-Seite lebt.
+export default function StatsPage() {
+  return (
+    <StatsFilterProvider>
+      <StatsPageInner />
+    </StatsFilterProvider>
   )
 }

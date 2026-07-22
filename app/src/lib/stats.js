@@ -129,6 +129,47 @@ export async function loadStatsData() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// 1b. Zeitraum-Filter (Tier 1, Phase 2)
+// ────────────────────────────────────────────────────────────────────────────
+// Die Rohdaten werden EINMAL geladen (loadStatsData) und danach nur noch im
+// Speicher auf den gewählten Zeitraum zugeschnitten – kein erneuter DB-Zugriff
+// beim Umschalten. Das passt zur Architektur "einmal laden, live in JS rechnen".
+
+// Schneidet den geladenen Datensatz auf einen Zeitraum zu und gibt einen NEUEN,
+// gleich geformten Datensatz zurück (die Berechnungs-Helfer darunter merken den
+// Unterschied nicht – sie bekommen einfach weniger Partien/Runden/Spiele).
+//
+// bounds = { from, to } als ISO 'YYYY-MM-DD' (kommt aus resolveRange im
+// StatsFilterContext). null = offene Grenze. Der Vergleich funktioniert direkt
+// auf den ISO-Strings, weil dieses Format lexikografisch = chronologisch ist.
+export function filterByPeriod(data, { from, to }) {
+  const inRange = (date) => (from == null || date >= from) && (to == null || date <= to)
+
+  const sessions = data.sessions.filter(s => inRange(s.date))
+  const keptSessionIds = new Set(sessions.map(s => s.id))
+  const rounds = data.rounds.filter(r => keptSessionIds.has(r.sessionId))
+  const games  = data.games.filter(g => keptSessionIds.has(g.sessionId))
+
+  // Spieler:innen auf die einschränken, die im Zeitraum überhaupt gespielt haben.
+  // Sonst zöge z. B. die Verlaufskurve für Abwesende eine platte Null-Linie.
+  const activeIds = new Set()
+  for (const g of games) for (const res of g.results) activeIds.add(res.playerId)
+  const players = new Map()
+  for (const id of activeIds) {
+    if (data.players.has(id)) players.set(id, data.players.get(id))
+  }
+
+  return { sessions, rounds, games, players }
+}
+
+// Welche Kalenderjahre kommen in den Daten überhaupt vor? Absteigend sortiert
+// (neuestes zuerst) – Grundlage für die Jahres-Chips im Zeitraum-Umschalter.
+export function availableYears(data) {
+  const years = new Set(data.sessions.map(s => Number(s.date.slice(0, 4))))
+  return [...years].sort((a, b) => b - a)
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // 2. Grundgrößen (pure Hilfsfunktionen)
 // ────────────────────────────────────────────────────────────────────────────
 // "Pur" heißt: gleiche Eingabe → gleiche Ausgabe, keine Datenbank, keine
