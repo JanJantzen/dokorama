@@ -53,6 +53,7 @@ export async function loadStatsData() {
       id,
       date,
       created_at,
+      venues ( name ),
       rounds (
         id,
         number,
@@ -86,7 +87,7 @@ export async function loadStatsData() {
   const players = new Map()
 
   for (const s of data ?? []) {
-    sessions.push({ id: s.id, date: s.date, createdAt: s.created_at })
+    sessions.push({ id: s.id, date: s.date, createdAt: s.created_at, venue: s.venues?.name ?? null })
 
     for (const r of s.rounds ?? []) {
       // Wer hat an dieser Runde teilgenommen? (Basis für "pro 4 Runden".)
@@ -112,10 +113,11 @@ export async function loadStatsData() {
         })
 
         games.push({
-          id:          g.id,
-          sessionId:   s.id,
-          sessionDate: s.date,
-          roundId:     r.id,
+          id:           g.id,
+          sessionId:    s.id,
+          sessionDate:  s.date,
+          sessionVenue: s.venues?.name ?? null,
+          roundId:      r.id,
           roundNumber: r.number,
           number:      g.number,
           gameType:    g.game_type,
@@ -202,6 +204,150 @@ export function playedRoundsByPlayer(data) {
     }
   }
   return counts
+}
+
+// Gespielte SPIELE je Spieler:in – Nenner für den Durchschnittsscore "pro Spiel".
+// Gezählt werden nur Spiele, in denen die Person wirklich MITGESPIELT hat
+// (partei ≠ 'ausgesetzt'). Ausgesetzt-Zeilen tragen 0 Punkte bei und dürfen den
+// Schnitt nicht verwässern.
+// Rückgabe: Map(playerId → anzahl spiele)
+export function playedGamesByPlayer(data) {
+  const counts = new Map()
+  for (const game of data.games) {
+    for (const res of game.results) {
+      if (res.partei === 'ausgesetzt') continue
+      counts.set(res.playerId, (counts.get(res.playerId) ?? 0) + 1)
+    }
+  }
+  return counts
+}
+
+// Gespielte PARTIEN je Spieler:in – Nenner für den Durchschnittsscore "pro Partie".
+// Eine Partie zählt, wenn die Person an mindestens einer ihrer Runden teilnahm.
+// Rückgabe: Map(playerId → anzahl partien)
+export function playedSessionsByPlayer(data) {
+  const sessionsByPlayer = new Map() // playerId → Set(sessionId)
+  for (const round of data.rounds) {
+    for (const playerId of round.participantIds) {
+      let set = sessionsByPlayer.get(playerId)
+      if (!set) { set = new Set(); sessionsByPlayer.set(playerId, set) }
+      set.add(round.sessionId)
+    }
+  }
+  const counts = new Map()
+  for (const [playerId, set] of sessionsByPlayer) counts.set(playerId, set.size)
+  return counts
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 3. Saldo pro Einheit (gemeinsame Grundgröße für L7 und L2/L3/L4)
+// ────────────────────────────────────────────────────────────────────────────
+// Bisher hatten wir nur Summen PRO SPIELER:IN. Für „bester/schlechtester Wert"
+// und für „Erster/Letzter" brauchen wir aber den Saldo JE EINHEIT: Was hat jede
+// Person in DIESEM einen Spiel / DIESER einen Runde / DIESER einen Partie geholt?
+
+// Liefert für eine Ebene je Einheit deren Kontext (Datum/Ort) samt der
+// Salden je Spieler:in.
+//   level = 'game'    → ein Eintrag je Spiel (nur Mitspielende, kein Ausgesetzt)
+//   level = 'round'   → ein Eintrag je Runde  (Spiele der Runde aufsummiert)
+//   level = 'session' → ein Eintrag je Partie (Spiele der Partie aufsummiert)
+// Datum/Ort stammen aus der Partie, zu der die Einheit gehört (bei Runde/Partie
+// aus einem beliebigen Spiel der Einheit – alle teilen dieselbe Partie).
+// Rückgabe: [{ date, venue, players: Map(playerId → saldo) }, …]
+export function unitSaldi(data, level) {
+  if (level === 'game') {
+    // Je Spiel: die Zählpunkte direkt aus den Ergebniszeilen. Ausgesetzt-Zeilen
+    // überspringen – wer nicht mitspielte, hat für dieses Spiel keinen Wert
+    // (eine 0 würde „bester/schlechtester Wert" verfälschen).
+    return data.games.map(g => {
+      const players = new Map()
+      for (const res of g.results) {
+        if (res.partei === 'ausgesetzt') continue
+        players.set(res.playerId, (players.get(res.playerId) ?? 0) + res.zaehlpunkte)
+      }
+      return { date: g.sessionDate, venue: g.sessionVenue, players }
+    })
+  }
+
+  // 'round' oder 'session': alle Spiele der Einheit je Spieler:in aufsummieren.
+  // Hier zählen Ausgesetzt-Zeilen als 0 mit – der Saldo einer Runde/Partie
+  // schließt das ausgesetzte Spiel korrekt als Nullbeitrag ein.
+  const key = level === 'round' ? 'roundId' : 'sessionId'
+  const byUnit = new Map() // unitId → { date, venue, players: Map(playerId → saldo) }
+  for (const g of data.games) {
+    const unitId = g[key]
+    let unit = byUnit.get(unitId)
+    if (!unit) {
+      unit = { date: g.sessionDate, venue: g.sessionVenue, players: new Map() }
+      byUnit.set(unitId, unit)
+    }
+    for (const res of g.results) {
+      unit.players.set(res.playerId, (unit.players.get(res.playerId) ?? 0) + res.zaehlpunkte)
+    }
+  }
+  return [...byUnit.values()]
+}
+
+// L7 Bester/schlechtester Wert: durchläuft alle Einheiten einer Ebene und merkt
+// sich je Spieler:in den höchsten und tiefsten Einzelsaldo – samt Datum/Ort der
+// Einheit, in der er erzielt wurde (für die Rekord-Anzeige). Bei Gleichstand
+// bleibt der zuerst gefundene Rekord stehen.
+// Rückgabe: { best: Map(pid → {value,date,venue}), worst: Map(pid → {value,date,venue}) }
+export function bestWorstSaldo(data, level) {
+  const units = unitSaldi(data, level)
+  const best = new Map()
+  const worst = new Map()
+  for (const u of units) {
+    for (const [pid, saldo] of u.players) {
+      const b = best.get(pid)
+      if (!b || saldo > b.value)  best.set(pid,  { value: saldo, date: u.date, venue: u.venue })
+      const w = worst.get(pid)
+      if (!w || saldo < w.value)  worst.set(pid, { value: saldo, date: u.date, venue: u.venue })
+    }
+  }
+  return { best, worst }
+}
+
+// L2/L3/L4 in EINEM Durchgang: zählt je Spieler:in über alle Einheiten einer
+// Ebene, wie oft sie Erste:r bzw. Letzte:r wurde und wie ihr Netto-Saldo ausfiel.
+//
+// Regeln (aus STATISTIK_KONZEPT.md):
+//   • Erster = höchster Saldo der Einheit, Letzter = tiefster. Geteilte Plätze
+//     gelten VOLL für alle Beteiligten (zwei punktgleich vorn = beide Erster).
+//   • Sind ALLE gleich (kein Abstand zwischen höchstem und tiefstem), gibt es
+//     keine:n klare:n Erste:n/Letzte:n → niemand bekommt hier einen Zähler.
+//   • Netto: eigener Saldo > 0 positiv, < 0 negativ, exakt 0 neutral.
+//   • 'units' ist der Nenner für die Quoten (Einheiten, an denen man teilnahm).
+//
+// level = 'round' | 'session' (auf Spielebene gibt es das nicht – dort zählt
+// Sieg/Niederlage, L1, das das Gewinner-Flag braucht → Phase 5).
+// Rückgabe: Map(playerId → { units, erster, letzter, pos, neutral, neg })
+export function placementStats(data, level) {
+  const acc = new Map()
+  const bump = (pid) => {
+    let a = acc.get(pid)
+    if (!a) { a = { units: 0, erster: 0, letzter: 0, pos: 0, neutral: 0, neg: 0 }; acc.set(pid, a) }
+    return a
+  }
+
+  for (const u of unitSaldi(data, level)) {
+    const saldi = [...u.players.values()]
+    if (saldi.length === 0) continue
+    const max = Math.max(...saldi)
+    const min = Math.min(...saldi)
+    const spread = max !== min   // nur bei echtem Abstand gibt es Erste:n/Letzte:n
+
+    for (const [pid, s] of u.players) {
+      const a = bump(pid)
+      a.units += 1
+      if (spread && s === max) a.erster += 1
+      if (spread && s === min) a.letzter += 1
+      if (s > 0) a.pos += 1
+      else if (s < 0) a.neg += 1
+      else a.neutral += 1
+    }
+  }
+  return acc
 }
 
 // Bereitet die Daten für die kumulierte Verlaufskurve auf: Gesamtscore ABSOLUT

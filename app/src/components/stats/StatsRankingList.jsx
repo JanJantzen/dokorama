@@ -11,15 +11,45 @@ import { useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import PlayerAvatar from '@/components/ui/PlayerAvatar'
 
+// Textfarbe einer Wertzahl nach Spalten-Tönung. Fehlende Werte (null) sind immer
+// gedämpft. 'sign' färbt nach Vorzeichen (grün ≥0 / rot <0), die anderen fest.
+function colorFor(v, tone = 'sign') {
+  if (v === null) return 'text-muted-foreground'
+  switch (tone) {
+    case 'plain': return 'text-foreground'
+    case 'good':  return 'text-green-700'
+    case 'bad':   return 'text-destructive'
+    case 'muted': return 'text-muted-foreground'
+    case 'sign':
+    default:      return v >= 0 ? 'text-green-700' : 'text-destructive'
+  }
+}
+
 // Erwartete Props:
-//   entries: [{ id, name, avatarUrl, values: { <spaltenKey>: number | null } }]
-//            (null = Wert liegt nicht vor → wird als „–" gezeigt und ans Ende sortiert)
-//   columns: [{ key, label, format }]   – genau zwei Spalten erwartet
+//   entries: [{ id, name, avatarUrl,
+//               values: { <spaltenKey>: number | null },   // null → „–", ans Ende sortiert
+//               meta?:  { <spaltenKey>: { sublabel } } }]   // optional: kleine Zeile unter dem Wert
+//   columns: [{ key, label, format, sortDir?, tone? }]
+//            sortDir: Start-Richtung beim WECHSEL auf diese Spalte ('asc' | 'desc',
+//                     Standard 'desc'). Für „kleiner ist interessanter"-Spalten
+//                     (z. B. Tiefstwert) auf 'asc' setzen → negativster oben.
+//            tone:    Farbe der Zahl. 'sign' (Standard) = grün bei ≥0, rot bei <0
+//                     (passt für Punktesalden). Für Zähler/Quoten stattdessen:
+//                     'plain' (neutral), 'good' (grün), 'bad' (rot), 'muted' (grau).
 //   defaultSortKey: nach welcher Spalte anfangs sortiert wird (Standard: erste Spalte)
-export default function StatsRankingList({ entries, columns, defaultSortKey }) {
+//   topN: wie viele Zeilen im zusammengeklappten Zustand sichtbar sind (Standard 3).
+//         Bei mehr Einträgen erscheint „Alle anzeigen (N)" zum Aufklappen. Die
+//         sichtbaren Zeilen sind immer die Top N der AKTIVEN Sortierspalte.
+export default function StatsRankingList({ entries, columns, defaultSortKey, topN = 3 }) {
+  // Anfangsspalte und -richtung: die Start-Richtung richtet sich nach der
+  // sortDir der Anfangsspalte (Standard 'desc' = größter Wert oben).
+  const initialKey = defaultSortKey ?? columns[0].key
+  const initialDir = columns.find(c => c.key === initialKey)?.sortDir ?? 'desc'
   // Sortier-Zustand lebt LOKAL in der Komponente (rein Anzeige, nicht global).
-  const [sortKey, setSortKey] = useState(defaultSortKey ?? columns[0].key)
-  const [dir, setDir] = useState('desc') // 'desc' = größter Wert oben
+  const [sortKey, setSortKey] = useState(initialKey)
+  const [dir, setDir] = useState(initialDir)
+  // Aufgeklappt (alle Zeilen) vs. zusammengeklappt (nur Top N).
+  const [expanded, setExpanded] = useState(false)
 
   // Lade-/Leerzustände (analog StandingsList)
   if (entries === null) {
@@ -30,10 +60,11 @@ export default function StatsRankingList({ entries, columns, defaultSortKey }) {
   }
 
   // Klick auf einen Spaltenkopf: gleiche Spalte → Richtung umdrehen;
-  // andere Spalte → dorthin wechseln und absteigend sortieren.
+  // andere Spalte → dorthin wechseln und in ihrer Start-Richtung sortieren
+  // (sortDir der Spalte, Standard 'desc').
   function toggleSort(key) {
     if (key === sortKey) setDir(d => (d === 'desc' ? 'asc' : 'desc'))
-    else { setSortKey(key); setDir('desc') }
+    else { setSortKey(key); setDir(columns.find(c => c.key === key)?.sortDir ?? 'desc') }
   }
 
   // Nach der aktiven Spalte sortieren. Fehlende Werte (null) landen IMMER am Ende,
@@ -46,6 +77,10 @@ export default function StatsRankingList({ entries, columns, defaultSortKey }) {
     if (bv === null) return -1
     return dir === 'desc' ? bv - av : av - bv
   })
+
+  // Nur die Top N zeigen, solange nicht aufgeklappt ist.
+  const collapsible = sorted.length > topN
+  const visible = expanded || !collapsible ? sorted : sorted.slice(0, topN)
 
   return (
     <div>
@@ -72,9 +107,9 @@ export default function StatsRankingList({ entries, columns, defaultSortKey }) {
         })}
       </div>
 
-      {/* Ranglisten-Zeilen */}
+      {/* Ranglisten-Zeilen (nur Top N, solange zusammengeklappt) */}
       <div className="space-y-2">
-        {sorted.map((e, i) => (
+        {visible.map((e, i) => (
           <div
             key={e.id}
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border bg-card"
@@ -85,20 +120,36 @@ export default function StatsRankingList({ entries, columns, defaultSortKey }) {
             {columns.map(col => {
               const v = e.values[col.key]
               const active = col.key === sortKey
-              // Farbe nach Vorzeichen (grün = Plus, rot = Minus), fehlend = neutral.
-              const color = v === null ? 'text-muted-foreground' : v >= 0 ? 'text-green-700' : 'text-destructive'
+              // Farbe: fehlend immer neutral; sonst nach der Spalten-Tönung.
+              const color = colorFor(v, col.tone)
+              // Optionale kleine Zusatzzeile (z. B. Datum des Rekords).
+              const sub = e.meta?.[col.key]?.sublabel
               return (
-                <span
-                  key={col.key}
-                  className={`w-16 text-right text-sm tabular-nums ${active ? 'font-bold' : 'font-normal'} ${color}`}
-                >
-                  {col.format(v)}
-                </span>
+                <div key={col.key} className="w-16 flex flex-col items-end leading-tight">
+                  <span className={`text-right text-sm tabular-nums ${active ? 'font-bold' : 'font-normal'} ${color}`}>
+                    {col.format(v)}
+                  </span>
+                  {sub && (
+                    <span className="text-[10px] text-muted-foreground font-normal tabular-nums">
+                      {sub}
+                    </span>
+                  )}
+                </div>
               )
             })}
           </div>
         ))}
       </div>
+
+      {/* Aufklappen/Zuklappen – nur wenn es mehr als Top N gibt */}
+      {collapsible && (
+        <button
+          onClick={() => setExpanded(x => !x)}
+          className="mt-2 w-full text-center text-xs text-muted-foreground hover:text-foreground py-1"
+        >
+          {expanded ? 'Weniger anzeigen' : `Alle anzeigen (${sorted.length})`}
+        </button>
+      )}
     </div>
   )
 }

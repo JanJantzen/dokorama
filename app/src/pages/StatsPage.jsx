@@ -17,6 +17,10 @@ import {
   loadStatsData,
   playerTotals,
   playedRoundsByPlayer,
+  playedGamesByPlayer,
+  playedSessionsByPlayer,
+  bestWorstSaldo,
+  placementStats,
   buildScoreCurve,
   filterByPeriod,
   availableYears,
@@ -80,6 +84,42 @@ function ViewToggle({ view, onChange }) {
   )
 }
 
+// Kleine Unterüberschrift innerhalb eines Bereichs (z. B. „Erster" / „Letzter"
+// / „Netto-Saldo" unter dem gemeinsamen Ebenen-Umschalter).
+function SubTitle({ children }) {
+  return (
+    <h3 className="text-xs font-semibold text-foreground/80 mb-2 mt-6 first:mt-0">
+      {children}
+    </h3>
+  )
+}
+
+// Mehrwertiger Umschalter (z. B. Spiel | Runde | Partie) – gleiches kleines
+// Segmented Control wie ViewToggle, nur mit frei übergebenen Optionen.
+function LevelToggle({ level, onChange, options }) {
+  return (
+    <div className="inline-flex rounded-lg border border-border p-0.5 mb-4 text-sm">
+      {options.map(o => (
+        <button
+          key={o.key}
+          onClick={() => onChange(o.key)}
+          className={`px-3 py-1 rounded-md transition-colors ${
+            level === o.key ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground'
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+const LEVEL_OPTIONS = [
+  { key: 'game',    label: 'Spiel' },
+  { key: 'round',   label: 'Runde' },
+  { key: 'session', label: 'Partie' },
+]
+
 // ── Wert-Formatierungen (Anzeige) ──
 // Ganzzahl mit Vorzeichen: +120 / −162 (fehlend → „–").
 const fmtInt = (n) => (n === null ? '–' : n > 0 ? `+${n}` : `${n}`)
@@ -89,6 +129,10 @@ const fmtPer4 = (n) => {
   const s = n.toFixed(1).replace('.', ',')
   return n > 0 ? `+${s}` : s // negative Zahl trägt ihr Minus schon selbst
 }
+// Reiner Zähler ohne Vorzeichen: 12 / 0 (für Anzahlen wie „wie oft Erster").
+const fmtCount = (n) => (n === null ? '–' : `${n}`)
+// Quote als Prozent ohne Nachkommastelle: 63 % (Eingabe ist ein Anteil 0…1).
+const fmtQuote = (n) => (n === null ? '–' : `${Math.round(n * 100)} %`)
 
 // Baut die Gesamtscore-Einträge für StatsRankingList: pro Person zwei Werte –
 // absolut (Summe Zählpunkte) und pro 4 Runden (Summe ÷ eigene gespielte Runden × 4).
@@ -116,12 +160,155 @@ const GESAMTSCORE_COLUMNS = [
   { key: 'per4',    label: 'Schnitt', format: fmtPer4 },
 ]
 
+// L6 Durchschnittsscore: der mittlere Punktestand je Spiel / Runde / Partie.
+// Für jede Ebene teilen wir die Gesamtsumme durch die eigene Anzahl gespielter
+// Einheiten – so ist der Schnitt fair unabhängig davon, wer wie oft dabei war.
+// Alle drei Ebenen stehen nebeneinander; jede Spalte ist per Kopf sortierbar.
+function buildDurchschnittsscore(data) {
+  const totals   = playerTotals(data)
+  const games    = playedGamesByPlayer(data)
+  const rounds   = playedRoundsByPlayer(data)
+  const sessions = playedSessionsByPlayer(data)
+  return [...totals.entries()].map(([id, total]) => {
+    const p = data.players.get(id)
+    const g = games.get(id) ?? 0
+    const r = rounds.get(id) ?? 0
+    const s = sessions.get(id) ?? 0
+    return {
+      id,
+      name:      p?.name ?? '?',
+      avatarUrl: p?.avatarUrl ?? null,
+      values: {
+        // Ohne gespielte Einheiten kein sinnvoller Schnitt → null (zeigt „–").
+        avgGame:    g > 0 ? total / g : null,
+        avgRound:   r > 0 ? total / r : null,
+        avgSession: s > 0 ? total / s : null,
+      },
+    }
+  })
+}
+
+const DURCHSCHNITT_COLUMNS = [
+  { key: 'avgGame',    label: 'Ø Spiel',  format: fmtPer4 },
+  { key: 'avgRound',   label: 'Ø Runde',  format: fmtPer4 },
+  { key: 'avgSession', label: 'Ø Partie', format: fmtPer4 },
+]
+
+// Kurzes Rekord-Datum „TT.MM.JJ" mit fester Stellenzahl (führende Nullen bleiben,
+// damit die Datumszeilen sauber untereinander stehen). ISO ist schon 2-stellig.
+function recordDate(iso) {
+  if (!iso) return ''
+  const [y, m, d] = iso.split('-')
+  return `${d}.${m}.${y.slice(2)}`
+}
+
+// L7 Bester/schlechtester Wert: pro Person der höchste und der tiefste
+// Einzelsaldo auf der gewählten Ebene (Spiel/Runde/Partie). „Höchster" = das
+// beste Einzelergebnis, „Tiefster" = das schlechteste. Unter jedem Wert steht
+// als Zusatzzeile (meta.sublabel) das Datum, an dem der Rekord fiel.
+function buildBestWorst(data, level) {
+  const { best, worst } = bestWorstSaldo(data, level)
+  // Alle Personen einsammeln, die auf dieser Ebene überhaupt einen Wert haben.
+  const ids = new Set([...best.keys(), ...worst.keys()])
+  return [...ids].map(id => {
+    const p = data.players.get(id)
+    const b = best.get(id)
+    const w = worst.get(id)
+    return {
+      id,
+      name:      p?.name ?? '?',
+      avatarUrl: p?.avatarUrl ?? null,
+      values: {
+        best:  b ? b.value : null,
+        worst: w ? w.value : null,
+      },
+      meta: {
+        best:  b ? { sublabel: recordDate(b.date) } : undefined,
+        worst: w ? { sublabel: recordDate(w.date) } : undefined,
+      },
+    }
+  })
+}
+
+const BESTWORST_COLUMNS = [
+  { key: 'best',  label: 'Höchster', format: fmtInt },
+  // Start-Sortierung aufsteigend → beim ersten Klick steht der negativste oben.
+  { key: 'worst', label: 'Tiefster', format: fmtInt, sortDir: 'asc' },
+]
+
+// L2/L3/L4: aus placementStats drei fertige Ranglisten je gewählter Ebene bauen.
+// Ein gemeinsamer Helfer wandelt die roh gezählten Werte in Anzeige-Einträge um.
+function toEntries(acc, data, pick) {
+  return [...acc.entries()].map(([id, a]) => {
+    const p = data.players.get(id)
+    return { id, name: p?.name ?? '?', avatarUrl: p?.avatarUrl ?? null, values: pick(a) }
+  })
+}
+// Erster (L2): wie oft ganz vorn + Quote (Anzahl ÷ gespielte Einheiten).
+function buildErster(data, level) {
+  const acc = placementStats(data, level)
+  return toEntries(acc, data, a => ({
+    anzahl: a.erster,
+    quote:  a.units > 0 ? a.erster / a.units : null,
+  }))
+}
+// Letzter (L3): wie oft ganz hinten + Quote.
+function buildLetzter(data, level) {
+  const acc = placementStats(data, level)
+  return toEntries(acc, data, a => ({
+    anzahl: a.letzter,
+    quote:  a.units > 0 ? a.letzter / a.units : null,
+  }))
+}
+// Netto-Saldo (L4): Anzahl Einheiten mit positivem / neutralem / negativem Saldo.
+// Unter jeder Anzahl steht klein die zugehörige Quote (Anteil an gespielten Einheiten).
+function buildNetto(data, level) {
+  const acc = placementStats(data, level)
+  return [...acc.entries()].map(([id, a]) => {
+    const p = data.players.get(id)
+    const q = (n) => (a.units > 0 ? fmtQuote(n / a.units) : '')
+    return {
+      id,
+      name:      p?.name ?? '?',
+      avatarUrl: p?.avatarUrl ?? null,
+      values: { pos: a.pos, neutral: a.neutral, neg: a.neg },
+      meta: {
+        pos:     { sublabel: q(a.pos) },
+        neutral: { sublabel: q(a.neutral) },
+        neg:     { sublabel: q(a.neg) },
+      },
+    }
+  })
+}
+
+const ERSTER_COLUMNS = [
+  { key: 'anzahl', label: 'Anzahl', format: fmtCount, tone: 'good' },
+  { key: 'quote',  label: 'Quote',  format: fmtQuote, tone: 'good' },
+]
+const LETZTER_COLUMNS = [
+  { key: 'anzahl', label: 'Anzahl', format: fmtCount, tone: 'bad' },
+  { key: 'quote',  label: 'Quote',  format: fmtQuote, tone: 'bad' },
+]
+const NETTO_COLUMNS = [
+  { key: 'pos',     label: 'Positiv', format: fmtCount, tone: 'good' },
+  { key: 'neutral', label: 'Neutral', format: fmtCount, tone: 'muted' },
+  { key: 'neg',     label: 'Negativ', format: fmtCount, tone: 'bad' },
+]
+
+// Ebenen-Optionen für L2/L3/L4: nur Runde und Partie (auf Spielebene greift L1).
+const LEVEL_OPTIONS_RP = [
+  { key: 'round',   label: 'Runde' },
+  { key: 'session', label: 'Partie' },
+]
+
 // Die eigentliche Seite – lebt INNERHALB des StatsFilterProvider (s. Default-Export
 // unten), damit sie den gewählten Zeitraum über useStatsFilter() lesen kann.
 function StatsPageInner() {
   const [data, setData] = useState(null)          // null = lädt noch (ungefilterte Rohdaten)
   const [error, setError] = useState(false)
-  const [view, setView] = useState('verlauf')     // 'verlauf' | 'tabelle'
+  const [view, setView] = useState('verlauf')     // 'verlauf' | 'tabelle' (Gesamtscore)
+  const [l7Level, setL7Level] = useState('game')  // 'game' | 'round' | 'session' (L7-Ebene)
+  const [placementLevel, setPlacementLevel] = useState('round') // 'round' | 'session' (L2/L3/L4)
 
   // Der aktive Zeitraum als Datumsgrenzen (kommt aus dem globalen Filter-Context).
   const { range } = useStatsFilter()
@@ -147,8 +334,18 @@ function StatsPageInner() {
   )
 
   // Abgeleitete Ansichten aus den GEFILTERTEN Daten.
-  const gesamtscore = useMemo(() => (filtered ? buildGesamtscore(filtered) : null), [filtered])
-  const curve       = useMemo(() => (filtered ? buildScoreCurve(filtered) : null), [filtered])
+  const gesamtscore   = useMemo(() => (filtered ? buildGesamtscore(filtered) : null), [filtered])
+  const curve         = useMemo(() => (filtered ? buildScoreCurve(filtered) : null), [filtered])
+  const durchschnitt  = useMemo(() => (filtered ? buildDurchschnittsscore(filtered) : null), [filtered])
+  // Bester/schlechtester Wert hängt zusätzlich an der gewählten Ebene (l7Level).
+  const bestWorst     = useMemo(
+    () => (filtered ? buildBestWorst(filtered, l7Level) : null),
+    [filtered, l7Level],
+  )
+  // Erster/Letzter/Netto hängen an der gewählten Ebene (Runde/Partie).
+  const erster  = useMemo(() => (filtered ? buildErster(filtered, placementLevel)  : null), [filtered, placementLevel])
+  const letzter = useMemo(() => (filtered ? buildLetzter(filtered, placementLevel) : null), [filtered, placementLevel])
+  const netto   = useMemo(() => (filtered ? buildNetto(filtered, placementLevel)   : null), [filtered, placementLevel])
 
   // Enthält der gewählte Zeitraum überhaupt Partien?
   const isEmpty = filtered && filtered.sessions.length === 0
@@ -164,41 +361,110 @@ function StatsPageInner() {
         {/* Globaler Zeitraum-Filter – gilt für alle Bereiche darunter */}
         {data && <PeriodFilter years={years} />}
 
-        <section>
-          <SectionTitle
-            info={
-              <>
-                Gesamt = Summe aller Punkte
-                <br />
-                Schnitt = Durchschnitt je „Standard Partie" (4 Runden)
-              </>
-            }
-          >
-            Gesamtscore
-          </SectionTitle>
+        {/* Fehler-/Lade-/Leer-Zustand einmal zentral; die Bereiche erscheinen
+            nur, wenn es im gewählten Zeitraum wirklich etwas anzuzeigen gibt. */}
+        {error ? (
+          <p className="text-sm text-muted-foreground text-center mt-8">
+            Statistiken konnten nicht geladen werden.
+          </p>
+        ) : !filtered ? (
+          <p className="text-sm text-muted-foreground text-center mt-8">Lädt…</p>
+        ) : isEmpty ? (
+          <p className="text-sm text-muted-foreground text-center mt-8">
+            In diesem Zeitraum gibt es keine Partien.
+          </p>
+        ) : (
+          <>
+            {/* ── Gesamtscore (G1) ── */}
+            <section>
+              <SectionTitle
+                info={
+                  <>
+                    Gesamt = Summe aller Punkte
+                    <br />
+                    Schnitt = Durchschnitt je „Standard Partie" (4 Runden)
+                  </>
+                }
+              >
+                Gesamtscore
+              </SectionTitle>
 
-          <ViewToggle view={view} onChange={setView} />
+              <ViewToggle view={view} onChange={setView} />
 
-          {error ? (
-            <p className="text-sm text-muted-foreground text-center mt-8">
-              Statistiken konnten nicht geladen werden.
-            </p>
-          ) : !filtered ? (
-            <p className="text-sm text-muted-foreground text-center mt-8">Lädt…</p>
-          ) : isEmpty ? (
-            <p className="text-sm text-muted-foreground text-center mt-8">
-              In diesem Zeitraum gibt es keine Partien.
-            </p>
-          ) : view === 'verlauf' ? (
-            <ScoreCurve points={curve.points} players={curve.players} />
-          ) : (
-            <StatsRankingList
-              entries={gesamtscore}
-              columns={GESAMTSCORE_COLUMNS}
-              defaultSortKey="absolut"
-            />
-          )}
-        </section>
+              {view === 'verlauf' ? (
+                <ScoreCurve points={curve.points} players={curve.players} />
+              ) : (
+                <StatsRankingList
+                  entries={gesamtscore}
+                  columns={GESAMTSCORE_COLUMNS}
+                  defaultSortKey="absolut"
+                />
+              )}
+            </section>
+
+            {/* ── Durchschnittsscore (L6) ── */}
+            <section>
+              <SectionTitle
+                info="Mittlerer Punktestand je Spiel, Runde bzw. Partie (Gesamtsumme geteilt durch die eigene Anzahl gespielter Einheiten). Spaltenkopf antippen zum Sortieren."
+              >
+                Durchschnittsscore
+              </SectionTitle>
+
+              <StatsRankingList
+                entries={durchschnitt}
+                columns={DURCHSCHNITT_COLUMNS}
+                defaultSortKey="avgSession"
+              />
+            </section>
+
+            {/* ── Bester/schlechtester Wert (L7) ── */}
+            <section>
+              <SectionTitle
+                info="Das höchste und das tiefste Einzelergebnis je Person auf der gewählten Ebene – der beste und der schlechteste einzelne Spiel-, Runden- bzw. Partie-Saldo."
+              >
+                Bester &amp; schlechtester Wert
+              </SectionTitle>
+
+              <LevelToggle level={l7Level} onChange={setL7Level} options={LEVEL_OPTIONS} />
+
+              <StatsRankingList
+                entries={bestWorst}
+                columns={BESTWORST_COLUMNS}
+                defaultSortKey="best"
+              />
+            </section>
+
+            {/* ── Erster / Letzter / Netto-Saldo (L2/L3/L4) ── */}
+            <section>
+              <SectionTitle
+                info={
+                  <>
+                    Pro Runde bzw. Partie:
+                    <br />
+                    Erste:r = höchster Punktesaldo, Letzte:r = tiefster (Gleichstand zählt für alle).
+                    <br />
+                    Netto-Saldo = wie oft die eigene Bilanz positiv, ausgeglichen oder negativ war.
+                    <br />
+                    Quote = Anteil an den eigenen gespielten Einheiten.
+                  </>
+                }
+              >
+                Erster · Letzter · Saldo
+              </SectionTitle>
+
+              <LevelToggle level={placementLevel} onChange={setPlacementLevel} options={LEVEL_OPTIONS_RP} />
+
+              <SubTitle>Erster</SubTitle>
+              <StatsRankingList entries={erster} columns={ERSTER_COLUMNS} defaultSortKey="anzahl" />
+
+              <SubTitle>Letzter</SubTitle>
+              <StatsRankingList entries={letzter} columns={LETZTER_COLUMNS} defaultSortKey="anzahl" />
+
+              <SubTitle>Netto-Saldo</SubTitle>
+              <StatsRankingList entries={netto} columns={NETTO_COLUMNS} defaultSortKey="pos" />
+            </section>
+          </>
+        )}
       </div>
     </div>
   )
