@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { AuthProvider } from '@/contexts/AuthContext'
 import TabBar from '@/components/layout/TabBar'
 import OfflineBanner from '@/components/OfflineBanner'
+import PWAUpdatePrompt from '@/components/PWAUpdatePrompt'
 import HomePage from '@/pages/HomePage'
 import StatsPage from '@/pages/StatsPage'
 import PlayersPage from '@/pages/PlayersPage'
@@ -29,6 +30,8 @@ function AppLayout() {
     <div className="min-h-screen bg-muted flex justify-center">
       {/* Offline-Banner liegt über allem – fixed, geht durch alle Ebenen */}
       <OfflineBanner />
+      {/* Update-Banner: erscheint, wenn ein neuer Deploy bereitsteht */}
+      <PWAUpdatePrompt />
       <div className="w-full max-w-[500px] bg-background relative min-h-screen">
         <Routes>
           <Route path="/"               element={<HomePage />}         />

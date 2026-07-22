@@ -13,8 +13,13 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      // Der Service Worker wird automatisch registriert und bei neuer Version aktualisiert
-      registerType: 'autoUpdate',
+      // 'prompt' statt 'autoUpdate': Eine neue Version wird NICHT still im
+      // Hintergrund aktiviert (das würde die App ggf. mitten in der Erfassung
+      // neu laden), sondern der Service Worker wartet. Unsere Komponente
+      // PWAUpdatePrompt bemerkt das, zeigt ein Banner und lädt erst auf Tippen
+      // neu. Die aktive Update-Suche (nötig, weil iOS-PWAs von selbst kaum
+      // nachschauen) passiert ebenfalls dort.
+      registerType: 'prompt',
       // manifest: false – wir verwenden public/manifest.json direkt (liegt im Repository,
       // ist lesbar, und wird von index.html manuell verlinkt). Das Plugin kümmert sich
       // nur um den Service Worker, nicht um ein eigenes Manifest.
