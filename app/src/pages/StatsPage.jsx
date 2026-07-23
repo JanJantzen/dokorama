@@ -24,6 +24,7 @@ import {
   buildScoreCurve,
   filterByPeriod,
   availableYears,
+  isWeakSample,
 } from '@/lib/stats'
 import { StatsFilterProvider, useStatsFilter } from '@/contexts/StatsFilterContext'
 import StatsRankingList from '@/components/stats/StatsRankingList'
@@ -151,6 +152,9 @@ function buildGesamtscore(data) {
         // Ohne gespielte Runden keine sinnvolle Normierung → null (zeigt „–").
         per4: r > 0 ? (total / r) * 4 : null,
       },
+      // P6: „Schnitt" ist ein Durchschnitt → bei < 8 gespielten Runden dämpfen.
+      // „Gesamt" ist eine Absolutzahl und bleibt immun (kein weak-Eintrag).
+      weak: { per4: isWeakSample(r) },
     }
   })
 }
@@ -183,6 +187,14 @@ function buildDurchschnittsscore(data) {
         avgGame:    g > 0 ? total / g : null,
         avgRound:   r > 0 ? total / r : null,
         avgSession: s > 0 ? total / s : null,
+      },
+      // P6: alle drei sind Durchschnitte → je Ebene mit dem EIGENEN Nenner
+      // (Spiele/Runden/Partien) dämpfen. So kann jemand bei „Ø Spiel" solide
+      // und bei „Ø Partie" dünn sein.
+      weak: {
+        avgGame:    isWeakSample(g),
+        avgRound:   isWeakSample(r),
+        avgSession: isWeakSample(s),
       },
     }
   })
@@ -238,27 +250,31 @@ const BESTWORST_COLUMNS = [
 
 // L2/L3/L4: aus placementStats drei fertige Ranglisten je gewählter Ebene bauen.
 // Ein gemeinsamer Helfer wandelt die roh gezählten Werte in Anzeige-Einträge um.
-function toEntries(acc, data, pick) {
+// pick(a)     → die anzuzeigenden Werte; weakPick(a) → optional die P6-Flags.
+function toEntries(acc, data, pick, weakPick) {
   return [...acc.entries()].map(([id, a]) => {
     const p = data.players.get(id)
-    return { id, name: p?.name ?? '?', avatarUrl: p?.avatarUrl ?? null, values: pick(a) }
+    const entry = { id, name: p?.name ?? '?', avatarUrl: p?.avatarUrl ?? null, values: pick(a) }
+    if (weakPick) entry.weak = weakPick(a)
+    return entry
   })
 }
 // Erster (L2): wie oft ganz vorn + Quote (Anzahl ÷ gespielte Einheiten).
+// P6: nur die Quote dämpfen; „Anzahl" ist eine Absolutzahl und bleibt immun.
 function buildErster(data, level) {
   const acc = placementStats(data, level)
-  return toEntries(acc, data, a => ({
-    anzahl: a.erster,
-    quote:  a.units > 0 ? a.erster / a.units : null,
-  }))
+  return toEntries(acc, data,
+    a => ({ anzahl: a.erster, quote: a.units > 0 ? a.erster / a.units : null }),
+    a => ({ quote: isWeakSample(a.units) }),
+  )
 }
 // Letzter (L3): wie oft ganz hinten + Quote.
 function buildLetzter(data, level) {
   const acc = placementStats(data, level)
-  return toEntries(acc, data, a => ({
-    anzahl: a.letzter,
-    quote:  a.units > 0 ? a.letzter / a.units : null,
-  }))
+  return toEntries(acc, data,
+    a => ({ anzahl: a.letzter, quote: a.units > 0 ? a.letzter / a.units : null }),
+    a => ({ quote: isWeakSample(a.units) }),
+  )
 }
 // Netto-Saldo (L4): Anzahl Einheiten mit positivem / neutralem / negativem Saldo.
 // Unter jeder Anzahl steht klein die zugehörige Quote (Anteil an gespielten Einheiten).
@@ -267,15 +283,18 @@ function buildNetto(data, level) {
   return [...acc.entries()].map(([id, a]) => {
     const p = data.players.get(id)
     const q = (n) => (a.units > 0 ? fmtQuote(n / a.units) : '')
+    // P6: Die Zähler (pos/neutral/neg) sind Absolutzahlen und bleiben voll
+    // sichtbar; nur die Quoten-Unterzeilen werden bei dünner Stichprobe kursiv.
+    const weak = isWeakSample(a.units)
     return {
       id,
       name:      p?.name ?? '?',
       avatarUrl: p?.avatarUrl ?? null,
       values: { pos: a.pos, neutral: a.neutral, neg: a.neg },
       meta: {
-        pos:     { sublabel: q(a.pos) },
-        neutral: { sublabel: q(a.neutral) },
-        neg:     { sublabel: q(a.neg) },
+        pos:     { sublabel: q(a.pos),     weak },
+        neutral: { sublabel: q(a.neutral), weak },
+        neg:     { sublabel: q(a.neg),     weak },
       },
     }
   })

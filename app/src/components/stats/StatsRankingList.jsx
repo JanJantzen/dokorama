@@ -28,7 +28,10 @@ function colorFor(v, tone = 'sign') {
 // Erwartete Props:
 //   entries: [{ id, name, avatarUrl,
 //               values: { <spaltenKey>: number | null },   // null → „–", ans Ende sortiert
-//               meta?:  { <spaltenKey>: { sublabel } } }]   // optional: kleine Zeile unter dem Wert
+//               weak?:  { <spaltenKey>: boolean },          // P6: dünne Stichprobe →
+//                                                           //   Wert grau+kursiv + ans Ende
+//               meta?:  { <spaltenKey>: { sublabel, weak? } } }]  // kleine Zeile unter dem
+//                                                           //   Wert; weak → Zeile kursiv
 //   columns: [{ key, label, format, sortDir?, tone? }]
 //            sortDir: Start-Richtung beim WECHSEL auf diese Spalte ('asc' | 'desc',
 //                     Standard 'desc'). Für „kleiner ist interessanter"-Spalten
@@ -67,14 +70,26 @@ export default function StatsRankingList({ entries, columns, defaultSortKey, top
     else { setSortKey(key); setDir(columns.find(c => c.key === key)?.sortDir ?? 'desc') }
   }
 
-  // Nach der aktiven Spalte sortieren. Fehlende Werte (null) landen IMMER am Ende,
-  // egal in welche Richtung sortiert wird (sonst stünden „keine Daten" ganz oben).
+  // Sortier-Rang einer Zeile für die aktive Spalte:
+  //   0 = solider Wert · 1 = dünne Stichprobe (P6) · 2 = kein Wert (null).
+  // Dünne und fehlende Werte rutschen so IMMER ans Ende – unabhängig von der
+  // Sortierrichtung –, damit keine statistisch bedeutungslose Quote (z. B.
+  // „100 % aus 1 Runde") die Liste anführt.
+  function tierFor(e) {
+    const v = e.values[sortKey]
+    if (v === null || v === undefined) return 2
+    if (e.weak?.[sortKey]) return 1
+    return 0
+  }
+  // Nach der aktiven Spalte sortieren: erst nach Rang (solide vor dünn vor
+  // fehlend), innerhalb desselben Rangs nach dem Wert in der gewählten Richtung.
   const sorted = [...entries].sort((a, b) => {
+    const ta = tierFor(a)
+    const tb = tierFor(b)
+    if (ta !== tb) return ta - tb
     const av = a.values[sortKey]
     const bv = b.values[sortKey]
-    if (av === null && bv === null) return 0
-    if (av === null) return 1
-    if (bv === null) return -1
+    if (av === null || av === undefined) return 0 // beide ohne Wert → gleichrangig
     return dir === 'desc' ? bv - av : av - bv
   })
 
@@ -120,17 +135,23 @@ export default function StatsRankingList({ entries, columns, defaultSortKey, top
             {columns.map(col => {
               const v = e.values[col.key]
               const active = col.key === sortKey
-              // Farbe: fehlend immer neutral; sonst nach der Spalten-Tönung.
-              const color = colorFor(v, col.tone)
-              // Optionale kleine Zusatzzeile (z. B. Datum des Rekords).
+              // P6: dünne Stichprobe? Dann Wert grau + kursiv (überschreibt die
+              // normale Tönung) – aber nur bei echtem Wert, nicht beim „–".
+              const weak = !!e.weak?.[col.key] && v !== null
+              const color = weak ? 'text-muted-foreground italic' : colorFor(v, col.tone)
+              // Optionale kleine Zusatzzeile (z. B. Datum des Rekords oder eine
+              // Quote unter einem Zähler). meta.weak → Zeile kursiv, wenn die
+              // Quote auf zu dünner Stichprobe beruht (der Zähler darüber bleibt
+              // als Absolutzahl voll sichtbar und immun).
               const sub = e.meta?.[col.key]?.sublabel
+              const subWeak = !!e.meta?.[col.key]?.weak
               return (
                 <div key={col.key} className="w-16 flex flex-col items-end leading-tight">
                   <span className={`text-right text-sm tabular-nums ${active ? 'font-bold' : 'font-normal'} ${color}`}>
                     {col.format(v)}
                   </span>
                   {sub && (
-                    <span className="text-[10px] text-muted-foreground font-normal tabular-nums">
+                    <span className={`text-[10px] text-muted-foreground font-normal tabular-nums ${subWeak ? 'italic' : ''}`}>
                       {sub}
                     </span>
                   )}

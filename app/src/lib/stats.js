@@ -172,6 +172,33 @@ export function availableYears(data) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// 1c. P6 – Mindest-Stichprobe (statistische Belastbarkeit)
+// ────────────────────────────────────────────────────────────────────────────
+// Quoten und Durchschnitte von Spieler:innen mit sehr wenigen Einheiten sind
+// exakt erfasst, aber statistisch bedeutungslos (Beispiel: 1 Partie gespielt,
+// Siegquote 100 %). Deshalb DER EINE globale Filter (STATISTIK_KONZEPT.md, P6):
+// Eine Quote/ein Durchschnitt gilt erst ab dieser Anzahl zugrunde liegender
+// Einheiten als belastbar; darunter wird sie in der UI gedämpft (grau + kursiv)
+// und beim Sortieren nach hinten gerückt – aber NICHT versteckt (die absolute
+// Zahl daneben, z. B. „1 von 1", bleibt der Ehrlichkeits-Anker).
+//
+// Absolute Zahlen (Summen, Zähler, Extremwerte) sind immun – sie stimmen immer,
+// egal aus wie wenigen Einheiten sie stammen.
+//
+// Die Schwelle steht bewusst an EINER Stelle. Statistisch gibt es keine exakte
+// Grenze (die Unsicherheit sinkt glatt mit wachsendem n); 8 ist eine runde,
+// gut kommunizierbare Rausch-Schwelle, die nur das offensichtlich Sinnlose
+// (n = 1…7) aussiebt. Perspektivisch pro Gruppe konfigurierbar.
+export const P6_MIN_SAMPLE = 8
+
+// Ist eine Stichprobe von n Einheiten zu dünn, um belastbar zu sein?
+// n == null (unbekannt) gilt NICHT als dünn – dann liegt gar kein Wert vor,
+// und der Null-Fall wird anderswo schon als „–" behandelt.
+export function isWeakSample(n) {
+  return n != null && n < P6_MIN_SAMPLE
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // 2. Grundgrößen (pure Hilfsfunktionen)
 // ────────────────────────────────────────────────────────────────────────────
 // "Pur" heißt: gleiche Eingabe → gleiche Ausgabe, keine Datenbank, keine
