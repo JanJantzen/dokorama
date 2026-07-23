@@ -75,10 +75,12 @@ Die Reihenfolge folgt den vier Tiers aus STATISTIK_KONZEPT.md (Schritt 4). Leitp
 **Phase 2 – Infrastruktur: Zeitraum-Filter**
 - [x] 2.1 Globaler, persistenter Zustand (React Context), in die Datenschicht eingehängt (Filter auf `sessions.date`). **Default = laufendes Kalenderjahr.** — *erledigt & abgenommen 22.07.2026.* Vier Modi (Jan-Entscheidung): **Total / laufendes Jahr / bestimmtes Jahr / freier Zeitraum von–bis** (Halbjahre/Quartale/Monate bewusst später). `contexts/StatsFilterContext.jsx` speichert den **Modus** (nicht die Jahreszahl) in localStorage → „laufendes Jahr" folgt automatisch dem Jahreswechsel. `lib/stats.js`: `filterByPeriod(data, {from,to})` (schneidet im Speicher zu, kein neuer DB-Zugriff) + `availableYears(data)`. `components/stats/PeriodFilter.jsx`: Chip-Leiste `[Total][2026][2025]…[Zeitraum…]` + native von/bis-Datumsfelder + Kontextzeile in Worten („Zeitraum: 2026 (laufendes Jahr)" – dort steht der laufend-Hinweis). Rangliste UND Kurve ziehen mit; leerer Zeitraum zeigt Hinweis. „Alle Filter zurücksetzen" erst wenn es mehr als Zeit-Filter gibt (Tier 2).
 
-**Phase 3 – Leistung, punkt-basierte Kennzahlen (kein Gewinner-Flag nötig)**
-- [ ] 3.1 L6 Durchschnittsscore (Spiel/Runde/Partie, + pro 4R).
-- [ ] 3.2 L7 Bester/schlechtester Wert (Spiel/Runde/Partie).
-- [ ] 3.3 L2/L3/L4 Erster / Letzter / Netto-pos-neutral-neg (Runde + Partie, aus Salden-Rang je Einheit).
+**Phase 3 – Leistung, punkt-basierte Kennzahlen (kein Gewinner-Flag nötig)** — *erledigt, abgenommen & DEPLOYED 22.07.2026 (Commit 2ed6043)*
+- [x] 3.1 L6 Durchschnittsscore — *drei sortierbare Spalten Ø Spiel / Ø Runde / Ø Partie (Summe ÷ eigene gespielte Einheiten). Nenner `playedGamesByPlayer` (überspringt Ausgesetzt), `playedRoundsByPlayer`, `playedSessionsByPlayer`.*
+- [x] 3.2 L7 Bester/schlechtester Wert — *Ebenen-Umschalter Spiel/Runde/Partie; Spalten „Höchster/Tiefster", „Tiefster" sortiert per Start-Klick aufsteigend (negativster oben). Unter jedem Rekord das Datum (dd.mm.yy). Ort (`venues.name`) ist mitgeladen, aber bewusst NICHT im engen Ranking angezeigt → kommt später im HOF-Rekord-Screen (Jan-Entscheidung B).*
+- [x] 3.3 L2/L3/L4 Erster / Letzter / Netto — *ein gemeinsamer Umschalter Runde/Partie steuert drei Unter-Ranglisten. Erster/Letzter = höchster/tiefster Saldo der Einheit (Gleichstand zählt für alle; bei Null-Abstand niemand), je Anzahl + Quote. Netto = pos/neutral/neg-Anzahl, Quote als kleine Zusatzzeile darunter. Grundgröße `placementStats` (ein Durchgang).*
+
+> **Querschnitts-Verbesserungen an `StatsRankingList` (Phase 3):** beliebig viele Spalten; spaltenspezifische Start-Sortierrichtung (`sortDir`); Farbtönung pro Spalte (`tone`: sign/plain/good/bad/muted – Zähler/Quoten färben nicht mehr nach Vorzeichen); optionale kleine Zusatzzeile pro Wert (`meta.sublabel`, z. B. Datum/Quote); **Top-3-Ansicht mit „Alle anzeigen (N)"** (Standard `topN=3`, gilt für ALLE Listen; sichtbar sind die Top N der aktiven Sortierspalte). Offen/optional: falls sich das wechselnde Top-3 beim Sortieren unruhig anfühlt → Alternative „erster Sortier-Klick klappt auf alle auf" (Einzeiler).
 
 **Phase 4 – Infrastruktur: P6 + Nerd-Modus**
 - [ ] 4.1 P6-Mindeststichprobe-Filter für Quoten (**Schwelle hier festlegen**) – dämpft/blendet zu dünne Quoten.
