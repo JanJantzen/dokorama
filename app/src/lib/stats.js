@@ -33,7 +33,8 @@ import { supabase } from './supabase'
 //     sessions: [{ id, date }],
 //     rounds:   [{ id, sessionId, number, participantIds: [playerId, …] }],
 //     games:    [{ id, sessionId, sessionDate, roundId, roundNumber, number,
-//                  gameType, results: [{ playerId, partei, sonderrolle, zaehlpunkte }] }],
+//                  gameType, winner: 're'|'kontra'|null,
+//                  results: [{ playerId, partei, sonderrolle, zaehlpunkte }] }],
 //     players:  Map(playerId → { id, name, avatarUrl }),
 //   }
 export async function loadStatsData() {
@@ -68,7 +69,8 @@ export async function loadStatsData() {
             sonderrolle,
             zaehlpunkte,
             players ( name, avatar_url )
-          )
+          ),
+          special_points ( player_id )
         )
       )
     `)
@@ -121,6 +123,7 @@ export async function loadStatsData() {
           roundNumber: r.number,
           number:      g.number,
           gameType:    g.game_type,
+          winner:      deriveWinner(g, results),   // 're' | 'kontra' | null (Basis für L1/L5/L9)
           results,
         })
       }
@@ -128,6 +131,38 @@ export async function loadStatsData() {
   }
 
   return { sessions, rounds, games, players }
+}
+
+// Leitet für ein geladenes Spiel den Gewinner ('re' | 'kontra' | null) ab –
+// aus den gespeicherten Zählpunkten, NICHT aus den Augen. Grund (Phase-5-Verifikation):
+// die Augen sind in manchen Altimporten unvollständig/platzhalterhaft, die gebuchten
+// Punkte dagegen sind überall Roberts belastbare Realität. Und: alle anderen Kennzahlen
+// vertrauen ohnehin den Punkten – so bleibt der Gewinner widerspruchsfrei zum Rest.
+//
+// Der Trick ("Auspacken"): Gewinner ist, wer den positiven SPIELWERT hat. Sonderpunkte
+// werden NACH dem Spielwert draufgerechnet und können das Vorzeichen der Zählpunkte
+// kippen (Testfall 13: Gewinner mit Minuspunkten). Rechnet man den Sonderpunkte-Saldo
+// wieder heraus, bleibt der reine Spielwert übrig – und dessen Vorzeichen ist eindeutig.
+//
+// Für eine:n KONTRA-Spieler:in (die sind nie der ×3-Solist, also kein Skalierungs-Faktor):
+//   u = zaehlpunkte + reSpecialNet   ( = ±Spielwert, nie 0 )
+//   u < 0 → Re hat gewonnen, sonst Kontra.
+// reSpecialNet = Sonderpunkte der Re-Seite minus die der Kontra-Seite.
+function deriveWinner(g, results) {
+  const parteiOf = (pid) => results.find(r => r.playerId === pid)?.partei
+  let reSp = 0, koSp = 0
+  for (const sp of g.special_points ?? []) {
+    const partei = parteiOf(sp.player_id)
+    if (partei === 're') reSp++
+    else if (partei === 'kontra') koSp++
+  }
+  const reSpecialNet = reSp - koSp
+
+  const kontra = results.find(r => r.partei === 'kontra')
+  if (!kontra) return null // kein Kontra-Team (dürfte nie vorkommen) → nicht bestimmbar
+
+  const u = kontra.zaehlpunkte + reSpecialNet
+  return u < 0 ? 're' : 'kontra'
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -372,6 +407,34 @@ export function placementStats(data, level) {
       if (s > 0) a.pos += 1
       else if (s < 0) a.neg += 1
       else a.neutral += 1
+    }
+  }
+  return acc
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 3b. Sieg/Niederlage je Spieler:in (L1, Spielebene, binär)
+// ────────────────────────────────────────────────────────────────────────────
+// Auf Spielebene gibt es nur Sieg oder Niederlage (kein „Erster/Letzter" wie bei
+// Runde/Partie): Man hat gewonnen, wenn die EIGENE Partei die Gewinner-Partei des
+// Spiels ist (game.winner, oben aus den Punkten abgeleitet). Aussetzer und Spiele
+// mit unbekanntem Gewinner (winner == null, dürfte nicht vorkommen) zählen nicht.
+//
+//   games        = gespielte, entschiedene Spiele (Nenner der Siegquote)
+//   siege        = Partei === winner
+//   niederlagen  = games − siege
+// Rückgabe: Map(playerId → { games, siege, niederlagen })
+export function winLossStats(data) {
+  const acc = new Map()
+  for (const g of data.games) {
+    if (g.winner == null) continue
+    for (const res of g.results) {
+      if (res.partei === 'ausgesetzt') continue
+      let a = acc.get(res.playerId)
+      if (!a) { a = { games: 0, siege: 0, niederlagen: 0 }; acc.set(res.playerId, a) }
+      a.games += 1
+      if (res.partei === g.winner) a.siege += 1
+      else a.niederlagen += 1
     }
   }
   return acc

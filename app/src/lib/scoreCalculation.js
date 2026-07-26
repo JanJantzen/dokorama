@@ -49,6 +49,26 @@ function getAchievedDeclarations(party, reEyes) {
     .map(([type]) => type)
 }
 
+// Wer hat das Spiel gewonnen – 're' oder 'kontra'?
+//
+// Grundregel: Wer ≥ 121 Augen hat, gewinnt (120:120 → Kontra, "Gespaltener Arsch").
+// Die EINE echte Ausnahme: eine gescheiterte Absage kippt den Sieg. Wer eine Absage
+// (Keine 90/60/30/Schwarz) angesagt und augenmäßig NICHT geschafft hat, verliert –
+// egal wie viele Augen. Deshalb braucht die Bestimmung die Ansagen, nicht nur die Augen.
+//
+// Diese Funktion kapselt die Gewinner-Entscheidung für calculateGameResult (eine
+// Quelle der Wahrheit). Die Statistik-Datenschicht (stats.js) leitet den Gewinner
+// hingegen aus den gespeicherten Zählpunkten ab (robuster gegen Altimporte mit
+// lückenhaften Augen) – siehe deriveWinner dort.
+//
+//   reEyes:        Augen der Re-Partei (0–240)
+//   announcements: [{ party: 're'|'kontra', type: 're'|'kontra'|'keine_90'|… }]
+export function determineWinner(reEyes, announcements) {
+  if (getFailedDeclarations('re', announcements, reEyes).length > 0)     return 'kontra'
+  if (getFailedDeclarations('kontra', announcements, reEyes).length > 0) return 're'
+  return reEyes >= 121 ? 're' : 'kontra'
+}
+
 // Hauptfunktion: Berechnet das komplette Spielergebnis
 //
 // Parameter:
@@ -68,12 +88,10 @@ export function calculateGameResult({ reEyes, gameType, announcements, specialPo
   const kontraFailed = getFailedDeclarations('kontra', announcements, reEyes)
 
   // --- 2. Gewinner bestimmen ---
-  // Gescheiterte Absage = sofortige Niederlage der ansagenden Partei, egal wie viele Augen
+  // Gescheiterte Absage = sofortige Niederlage der ansagenden Partei, egal wie viele Augen.
+  // Die eigentliche Entscheidung lebt in determineWinner (eine Quelle der Wahrheit).
   const isTie = reEyes === 120 // Gespaltener Arsch: genau 120:120 → Kontra gewinnt, aber nur "Gegen die Alten"
-  let winner
-  if (reFailed.length > 0)        winner = 'kontra'
-  else if (kontraFailed.length > 0) winner = 're'
-  else                              winner = reEyes >= 121 ? 're' : 'kontra'
+  const winner = determineWinner(reEyes, announcements)
 
   // --- 3. Augenmäßig erreichte Absagen beider Parteien ---
   const reAchieved    = getAchievedDeclarations('re',    reEyes)

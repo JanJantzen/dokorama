@@ -11,7 +11,7 @@
 // Öffnen laden, dann live in JavaScript verrechnen. Der Zeitraum-Filter schneidet
 // die geladenen Daten vor der Berechnung zu (filterByPeriod) – kein neuer DB-Zugriff.
 
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Info } from 'lucide-react'
 import {
   loadStatsData,
@@ -21,6 +21,7 @@ import {
   playedSessionsByPlayer,
   bestWorstSaldo,
   placementStats,
+  winLossStats,
   buildScoreCurve,
   filterByPeriod,
   availableYears,
@@ -52,14 +53,43 @@ function SectionTitle({ children, info }) {
           </button>
         )}
       </div>
-      {/* Erklärtext: normal-case, damit er nicht wie der Titel in Großbuchstaben steht */}
+      {/* Erklärtext: normal-case, damit er nicht wie der Titel in Großbuchstaben steht.
+          <div> (nicht <p>), weil InfoDefs ein Grid rendert – ein Grid darf nicht in ein <p>. */}
       {info && open && (
-        <p className="text-xs text-muted-foreground mt-1.5 normal-case font-normal tracking-normal">
+        <div className="text-xs text-muted-foreground mt-1.5 normal-case font-normal tracking-normal">
           {info}
-        </p>
+        </div>
       )}
     </div>
   )
+}
+
+// Erklärungs-Definitionsliste für die ⓘ-Kästen: Zeilen „Begriff = Erklärung", wobei
+// die „="-Zeichen über ein Grid exakt untereinander stehen (col 1 = Begriff, col 2 =
+// „=", col 3 = Erklärung, die bei Bedarf umbricht). items:
+//   { t, d } → eine Zeile „t = d"
+//   { n }    → freie Hinweiszeile über die volle Breite (ohne „=")
+function InfoDefs({ items }) {
+  return (
+    <div className="grid grid-cols-[auto_auto_1fr] gap-x-1.5 gap-y-0.5 items-baseline">
+      {items.map((it, i) =>
+        it.n ? (
+          <div key={i} className="col-span-3">{it.n}</div>
+        ) : (
+          <Fragment key={i}>
+            <span className="whitespace-nowrap">{it.t}</span>
+            <span>=</span>
+            <span>{it.d}</span>
+          </Fragment>
+        ),
+      )}
+    </div>
+  )
+}
+
+// Fette Zwischenüberschrift innerhalb eines ⓘ-Kastens (z. B. „Spiel" / „…Platzierung").
+function InfoHeading({ children }) {
+  return <p className="font-semibold text-foreground mt-2 first:mt-0">{children}</p>
 }
 
 // Zweiwertiger Umschalter (Verlauf | Tabelle) – kleines Segmented Control.
@@ -164,6 +194,32 @@ const GESAMTSCORE_COLUMNS = [
   { key: 'per4',    label: 'Schnitt', format: fmtPer4 },
 ]
 
+// L1 Sieg/Niederlage (Spielebene, binär): pro Person die Anzahl gewonnener Spiele
+// und die Siegquote (Siege ÷ eigene gespielte, entschiedene Spiele).
+// P6: nur die Quote dämpfen; „Siege" ist eine Absolutzahl und bleibt immun.
+function buildSiegNiederlage(data) {
+  const acc = winLossStats(data)
+  return [...acc.entries()].map(([id, a]) => {
+    const p = data.players.get(id)
+    return {
+      id,
+      name:      p?.name ?? '?',
+      avatarUrl: p?.avatarUrl ?? null,
+      values: {
+        siege: a.siege,
+        // Ohne gespielte Spiele keine sinnvolle Quote → null (zeigt „–").
+        quote: a.games > 0 ? a.siege / a.games : null,
+      },
+      weak: { quote: isWeakSample(a.games) },
+    }
+  })
+}
+
+const SIEG_COLUMNS = [
+  { key: 'siege', label: 'Siege',     format: fmtCount, tone: 'good' },
+  { key: 'quote', label: 'Siegquote', format: fmtQuote, tone: 'plain' },
+]
+
 // L6 Durchschnittsscore: der mittlere Punktestand je Spiel / Runde / Partie.
 // Für jede Ebene teilen wir die Gesamtsumme durch die eigene Anzahl gespielter
 // Einheiten – so ist der Schnitt fair unabhängig davon, wer wie oft dabei war.
@@ -248,34 +304,31 @@ const BESTWORST_COLUMNS = [
   { key: 'worst', label: 'Tiefster', format: fmtInt, sortDir: 'asc' },
 ]
 
-// L2/L3/L4: aus placementStats drei fertige Ranglisten je gewählter Ebene bauen.
-// Ein gemeinsamer Helfer wandelt die roh gezählten Werte in Anzeige-Einträge um.
-// pick(a)     → die anzuzeigenden Werte; weakPick(a) → optional die P6-Flags.
-function toEntries(acc, data, pick, weakPick) {
+// L2/L3 Platzierung: Erster + Letzter in EINER Tabelle (wie oft ganz vorn / ganz
+// hinten), die Quote je als kleine Zeile darunter (meta.sublabel) – analog zur
+// Netto-Tabelle. Erster und Letzter sind zwei getrennte Auszeichnungen, keine
+// Aufteilung (dazwischen liegt das Mittelfeld) – sie müssen sich also nicht zu
+// 100 % summieren. P6: die Quoten-Zeilen werden bei dünner Stichprobe kursiv;
+// die Zähler bleiben als Absolutzahlen voll sichtbar und sortierbar.
+function buildPlatzierung(data, level) {
+  const acc = placementStats(data, level)
   return [...acc.entries()].map(([id, a]) => {
     const p = data.players.get(id)
-    const entry = { id, name: p?.name ?? '?', avatarUrl: p?.avatarUrl ?? null, values: pick(a) }
-    if (weakPick) entry.weak = weakPick(a)
-    return entry
+    const q = (n) => (a.units > 0 ? fmtQuote(n / a.units) : '')
+    const weak = isWeakSample(a.units)
+    return {
+      id,
+      name:      p?.name ?? '?',
+      avatarUrl: p?.avatarUrl ?? null,
+      values: { erster: a.erster, letzter: a.letzter },
+      meta: {
+        erster:  { sublabel: q(a.erster),  weak },
+        letzter: { sublabel: q(a.letzter), weak },
+      },
+    }
   })
 }
-// Erster (L2): wie oft ganz vorn + Quote (Anzahl ÷ gespielte Einheiten).
-// P6: nur die Quote dämpfen; „Anzahl" ist eine Absolutzahl und bleibt immun.
-function buildErster(data, level) {
-  const acc = placementStats(data, level)
-  return toEntries(acc, data,
-    a => ({ anzahl: a.erster, quote: a.units > 0 ? a.erster / a.units : null }),
-    a => ({ quote: isWeakSample(a.units) }),
-  )
-}
-// Letzter (L3): wie oft ganz hinten + Quote.
-function buildLetzter(data, level) {
-  const acc = placementStats(data, level)
-  return toEntries(acc, data,
-    a => ({ anzahl: a.letzter, quote: a.units > 0 ? a.letzter / a.units : null }),
-    a => ({ quote: isWeakSample(a.units) }),
-  )
-}
+
 // Netto-Saldo (L4): Anzahl Einheiten mit positivem / neutralem / negativem Saldo.
 // Unter jeder Anzahl steht klein die zugehörige Quote (Anteil an gespielten Einheiten).
 function buildNetto(data, level) {
@@ -300,24 +353,14 @@ function buildNetto(data, level) {
   })
 }
 
-const ERSTER_COLUMNS = [
-  { key: 'anzahl', label: 'Anzahl', format: fmtCount, tone: 'good' },
-  { key: 'quote',  label: 'Quote',  format: fmtQuote, tone: 'good' },
-]
-const LETZTER_COLUMNS = [
-  { key: 'anzahl', label: 'Anzahl', format: fmtCount, tone: 'bad' },
-  { key: 'quote',  label: 'Quote',  format: fmtQuote, tone: 'bad' },
+const PLATZIERUNG_COLUMNS = [
+  { key: 'erster',  label: 'Erster',  format: fmtCount, tone: 'good' },
+  { key: 'letzter', label: 'Letzter', format: fmtCount, tone: 'bad' },
 ]
 const NETTO_COLUMNS = [
   { key: 'pos',     label: 'Positiv', format: fmtCount, tone: 'good' },
   { key: 'neutral', label: 'Neutral', format: fmtCount, tone: 'muted' },
   { key: 'neg',     label: 'Negativ', format: fmtCount, tone: 'bad' },
-]
-
-// Ebenen-Optionen für L2/L3/L4: nur Runde und Partie (auf Spielebene greift L1).
-const LEVEL_OPTIONS_RP = [
-  { key: 'round',   label: 'Runde' },
-  { key: 'session', label: 'Partie' },
 ]
 
 // Die eigentliche Seite – lebt INNERHALB des StatsFilterProvider (s. Default-Export
@@ -327,7 +370,7 @@ function StatsPageInner() {
   const [error, setError] = useState(false)
   const [view, setView] = useState('verlauf')     // 'verlauf' | 'tabelle' (Gesamtscore)
   const [l7Level, setL7Level] = useState('game')  // 'game' | 'round' | 'session' (L7-Ebene)
-  const [placementLevel, setPlacementLevel] = useState('round') // 'round' | 'session' (L2/L3/L4)
+  const [placementLevel, setPlacementLevel] = useState('game') // 'game' (L1) | 'round' | 'session' (L2/L3/L4)
 
   // Der aktive Zeitraum als Datumsgrenzen (kommt aus dem globalen Filter-Context).
   const { range } = useStatsFilter()
@@ -361,10 +404,17 @@ function StatsPageInner() {
     () => (filtered ? buildBestWorst(filtered, l7Level) : null),
     [filtered, l7Level],
   )
-  // Erster/Letzter/Netto hängen an der gewählten Ebene (Runde/Partie).
-  const erster  = useMemo(() => (filtered ? buildErster(filtered, placementLevel)  : null), [filtered, placementLevel])
-  const letzter = useMemo(() => (filtered ? buildLetzter(filtered, placementLevel) : null), [filtered, placementLevel])
-  const netto   = useMemo(() => (filtered ? buildNetto(filtered, placementLevel)   : null), [filtered, placementLevel])
+  // Platzierungs-Block, gesteuert vom gemeinsamen Ebenen-Umschalter:
+  //   Spiel  → Sieg/Niederlage (L1, binär)
+  //   Runde/Partie → Erster/Letzter/Netto (L2/L3/L4)
+  // Es wird immer nur die Kennzahl der AKTIVEN Ebene berechnet (die jeweils andere = null).
+  const isGameLevel = placementLevel === 'game'
+  const siegNiederlage = useMemo(
+    () => (filtered && isGameLevel ? buildSiegNiederlage(filtered) : null),
+    [filtered, isGameLevel],
+  )
+  const platzierung = useMemo(() => (filtered && !isGameLevel ? buildPlatzierung(filtered, placementLevel) : null), [filtered, placementLevel, isGameLevel])
+  const netto       = useMemo(() => (filtered && !isGameLevel ? buildNetto(filtered, placementLevel)       : null), [filtered, placementLevel, isGameLevel])
 
   // Enthält der gewählte Zeitraum überhaupt Partien?
   const isEmpty = filtered && filtered.sessions.length === 0
@@ -398,11 +448,10 @@ function StatsPageInner() {
             <section>
               <SectionTitle
                 info={
-                  <>
-                    Gesamt = Summe aller Punkte
-                    <br />
-                    Schnitt = Durchschnitt je „Standard Partie" (4 Runden)
-                  </>
+                  <InfoDefs items={[
+                    { t: 'Gesamt',  d: 'Summe aller Punkte' },
+                    { t: 'Schnitt', d: 'Durchschnitt je „Standard-Partie" (4 Runden)' },
+                  ]} />
                 }
               >
                 Gesamtscore
@@ -424,7 +473,13 @@ function StatsPageInner() {
             {/* ── Durchschnittsscore (L6) ── */}
             <section>
               <SectionTitle
-                info="Mittlerer Punktestand je Spiel, Runde bzw. Partie (Gesamtsumme geteilt durch die eigene Anzahl gespielter Einheiten). Spaltenkopf antippen zum Sortieren."
+                info={
+                  <InfoDefs items={[
+                    { t: 'Ø Spiel',  d: 'Durchschnitt je mitgespieltem Spiel' },
+                    { t: 'Ø Runde',  d: 'Durchschnitt je mitgespielter Runde' },
+                    { t: 'Ø Partie', d: 'Durchschnitt je mitgespielter Partie' },
+                  ]} />
+                }
               >
                 Durchschnittsscore
               </SectionTitle>
@@ -439,7 +494,13 @@ function StatsPageInner() {
             {/* ── Bester/schlechtester Wert (L7) ── */}
             <section>
               <SectionTitle
-                info="Das höchste und das tiefste Einzelergebnis je Person auf der gewählten Ebene – der beste und der schlechteste einzelne Spiel-, Runden- bzw. Partie-Saldo."
+                info={
+                  <InfoDefs items={[
+                    { n: 'Auf der gewählten Ebene (Spiel, Runde oder Partie):' },
+                    { t: 'Höchster', d: 'das beste eigene Ergebnis' },
+                    { t: 'Tiefster', d: 'das schlechteste eigene Ergebnis' },
+                  ]} />
+                }
               >
                 Bester &amp; schlechtester Wert
               </SectionTitle>
@@ -453,34 +514,49 @@ function StatsPageInner() {
               />
             </section>
 
-            {/* ── Erster / Letzter / Netto-Saldo (L2/L3/L4) ── */}
+            {/* ── Sieg · Platz · Saldo (L1/L2/L3/L4), ein Umschalter über alle Ebenen ── */}
             <section>
               <SectionTitle
                 info={
                   <>
-                    Pro Runde bzw. Partie:
-                    <br />
-                    Erste:r = höchster Punktesaldo, Letzte:r = tiefster (Gleichstand zählt für alle).
-                    <br />
-                    Netto-Saldo = wie oft die eigene Bilanz positiv, ausgeglichen oder negativ war.
-                    <br />
-                    Quote = Anteil an den eigenen gespielten Einheiten.
+                    <InfoHeading>Spiel</InfoHeading>
+                    <InfoDefs items={[
+                      { t: 'Siege',     d: 'Anzahl gewonnener Spiele' },
+                      { t: 'Siegquote', d: 'Anteil gewonnener an den mitgespielten Spielen' },
+                    ]} />
+                    <InfoHeading>Runde / Partie – Platzierung</InfoHeading>
+                    <InfoDefs items={[
+                      { t: 'Erster',  d: 'wie oft man den höchsten Punktestand der Runde/Partie hatte' },
+                      { t: 'Letzter', d: 'wie oft man den niedrigsten Punktestand der Runde/Partie hatte' },
+                      { n: 'Bei Gleichstand zählt der Platz für alle Beteiligten.' },
+                    ]} />
+                    <InfoHeading>Runde / Partie – Netto-Saldo</InfoHeading>
+                    <InfoDefs items={[
+                      { t: 'Positiv / Neutral / Negativ', d: 'wie oft die eigene Bilanz je Runde/Partie so ausfiel' },
+                      { t: 'Quote',                       d: 'Anteil an den mitgespielten Runden/Partien' },
+                    ]} />
                   </>
                 }
               >
-                Erster · Letzter · Saldo
+                Sieg · Platz · Saldo
               </SectionTitle>
 
-              <LevelToggle level={placementLevel} onChange={setPlacementLevel} options={LEVEL_OPTIONS_RP} />
+              <LevelToggle level={placementLevel} onChange={setPlacementLevel} options={LEVEL_OPTIONS} />
 
-              <SubTitle>Erster</SubTitle>
-              <StatsRankingList entries={erster} columns={ERSTER_COLUMNS} defaultSortKey="anzahl" />
+              {/* Eigene key je Liste: sonst behält React beim Ebenen-Wechsel die
+                  Listen-Instanz samt Sortierspalte, die es auf der neuen Ebene
+                  gar nicht gibt → wirkt unsortiert. */}
+              {isGameLevel ? (
+                <StatsRankingList key="l1" entries={siegNiederlage} columns={SIEG_COLUMNS} defaultSortKey="siege" />
+              ) : (
+                <>
+                  <SubTitle>Platzierung</SubTitle>
+                  <StatsRankingList key="platz" entries={platzierung} columns={PLATZIERUNG_COLUMNS} defaultSortKey="erster" />
 
-              <SubTitle>Letzter</SubTitle>
-              <StatsRankingList entries={letzter} columns={LETZTER_COLUMNS} defaultSortKey="anzahl" />
-
-              <SubTitle>Netto-Saldo</SubTitle>
-              <StatsRankingList entries={netto} columns={NETTO_COLUMNS} defaultSortKey="pos" />
+                  <SubTitle>Netto-Saldo</SubTitle>
+                  <StatsRankingList key="netto" entries={netto} columns={NETTO_COLUMNS} defaultSortKey="pos" />
+                </>
+              )}
             </section>
           </>
         )}
