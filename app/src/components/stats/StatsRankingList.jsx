@@ -43,7 +43,10 @@ function colorFor(v, tone = 'sign') {
 //   topN: wie viele Zeilen im zusammengeklappten Zustand sichtbar sind (Standard 3).
 //         Bei mehr Einträgen erscheint „Alle anzeigen (N)" zum Aufklappen. Die
 //         sichtbaren Zeilen sind immer die Top N der AKTIVEN Sortierspalte.
-export default function StatsRankingList({ entries, columns, defaultSortKey, topN = 3 }) {
+//   colWidth: Tailwind-Breitenklasse der Wertspalten (Standard 'w-16'). Breitere
+//         Spalten (z. B. 'w-20') für Zellen mit längeren Zusatzzeilen wie einer
+//         Datumsspanne, damit die Zeile nicht zu früh umbricht.
+export default function StatsRankingList({ entries, columns, defaultSortKey, topN = 3, colWidth = 'w-16' }) {
   // Anfangsspalte und -richtung: die Start-Richtung richtet sich nach der
   // sortDir der Anfangsspalte (Standard 'desc' = größter Wert oben).
   const initialKey = defaultSortKey ?? columns[0].key
@@ -111,7 +114,7 @@ export default function StatsRankingList({ entries, columns, defaultSortKey, top
             <button
               key={col.key}
               onClick={() => toggleSort(col.key)}
-              className={`w-16 flex items-center justify-end gap-0.5 text-xs py-1 ${
+              className={`${colWidth} flex items-center justify-end gap-0.5 text-xs py-1 ${
                 active ? 'text-foreground font-semibold' : 'text-muted-foreground'
               }`}
             >
@@ -139,22 +142,24 @@ export default function StatsRankingList({ entries, columns, defaultSortKey, top
               // normale Tönung) – aber nur bei echtem Wert, nicht beim „–".
               const weak = !!e.weak?.[col.key] && v !== null
               const color = weak ? 'text-muted-foreground italic' : colorFor(v, col.tone)
-              // Optionale kleine Zusatzzeile (z. B. Datum des Rekords oder eine
-              // Quote unter einem Zähler). meta.weak → Zeile kursiv, wenn die
-              // Quote auf zu dünner Stichprobe beruht (der Zähler darüber bleibt
-              // als Absolutzahl voll sichtbar und immun).
+              // Optionale kleine Zusatzzeile(n) (z. B. Datum des Rekords oder eine
+              // Quote unter einem Zähler). sublabel darf ein String ODER ein Array
+              // von Strings sein (mehrere Zeilen, z. B. Rekord-Zeitraum + „aktuell").
+              // meta.weak → Zeilen kursiv, wenn die Quote auf zu dünner Stichprobe
+              // beruht (der Zähler darüber bleibt als Absolutzahl voll sichtbar).
               const sub = e.meta?.[col.key]?.sublabel
+              const subLines = sub == null ? [] : Array.isArray(sub) ? sub : [sub]
               const subWeak = !!e.meta?.[col.key]?.weak
               return (
-                <div key={col.key} className="w-16 flex flex-col items-end leading-tight">
+                <div key={col.key} className={`${colWidth} flex flex-col items-end leading-tight`}>
                   <span className={`text-right text-sm tabular-nums ${active ? 'font-bold' : 'font-normal'} ${color}`}>
                     {col.format(v)}
                   </span>
-                  {sub && (
-                    <span className={`text-[10px] text-muted-foreground font-normal tabular-nums ${subWeak ? 'italic' : ''}`}>
-                      {sub}
+                  {subLines.map((line, li) => (
+                    <span key={li} className={`text-[10px] text-muted-foreground font-normal tabular-nums ${subWeak ? 'italic' : ''}`}>
+                      {line}
                     </span>
-                  )}
+                  ))}
                 </div>
               )
             })}

@@ -63,6 +63,9 @@ export async function loadStatsData() {
           id,
           number,
           game_type,
+          augen_re,
+          augen_re_min,
+          augen_re_max,
           game_results (
             player_id,
             partei,
@@ -123,6 +126,9 @@ export async function loadStatsData() {
           roundNumber: r.number,
           number:      g.number,
           gameType:    g.game_type,
+          augenRe:     g.augen_re,       // exakte Re-Augen (App-Erfassung) …
+          augenReMin:  g.augen_re_min,   // … oder Range aus dem historischen Import
+          augenReMax:  g.augen_re_max,
           winner:      deriveWinner(g, results),   // 're' | 'kontra' | null (Basis für L1/L5/L9)
           results,
         })
@@ -435,6 +441,218 @@ export function winLossStats(data) {
       a.games += 1
       if (res.partei === g.winner) a.siege += 1
       else a.niederlagen += 1
+    }
+  }
+  return acc
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 3c. Serien / Streaks (L5)
+// ────────────────────────────────────────────────────────────────────────────
+// Eine Serie ist eine Folge aufeinanderfolgender Einheiten (Spiele bzw. Runden/
+// Partien), in denen dieselbe Person denselben Zustand erreicht hat – z. B. „5
+// Siege in Folge". Pro Zustand weisen wir zwei Zahlen aus:
+//   • aktuell = die Serie, die am Ende noch lief (Stand: jüngste Einheit)
+//   • längste = der Rekord im gewählten Zeitraum
+//
+// Regeln (STATISTIK_KONZEPT.md L5, Jan-Entscheidung 26.07.2026):
+//   • Abwesenheit (Aussetzen) unterbricht NICHT – ausgesetzte Einheiten kommen in
+//     der persönlichen Folge gar nicht vor, die Serie läuft darüber hinweg.
+//   • Jede MITGESPIELTE Einheit ohne den Zustand bricht die Serie („jedes Nicht-
+//     Erreichen bricht", nicht nur das Gegenteil). Für Sieg/Niederlage ist das
+//     ohnehin dasselbe (kein Mittelfeld); für Erster/Letzter heißt es: eine Runde
+//     im Mittelfeld beendet die Erster-Serie.
+//   • Streaks sind IMMUN gegen P6 (Absolutzahlen) – keine Dämpfung.
+//
+// Entscheidend ist die CHRONOLOGISCHE Reihenfolge: die Einheiten müssen in echter
+// Spielreihenfolge durchlaufen werden, sonst wäre „in Folge" bedeutungslos.
+
+// Chronologischer Rang jeder Partie (nach Datum, bei Gleichstand nach created_at)
+// als Nachschlage-Index sessionId → Position. Basis, um Spiele/Runden/Partien in
+// echte Spielreihenfolge zu bringen. Gleiche Sortier-Logik wie buildScoreCurve.
+function sessionChronoIndex(data) {
+  const order = new Map()
+  ;[...data.sessions]
+    .sort((a, b) => {
+      if (a.date !== b.date) return a.date < b.date ? -1 : 1
+      return (a.createdAt ?? '') < (b.createdAt ?? '') ? -1 : 1
+    })
+    .forEach((s, i) => order.set(s.id, i))
+  return order
+}
+
+// Kleiner Serien-Zähler: bekommt je Einheit in chronologischer Reihenfolge ein
+// hit(pid, erreicht, date) und merkt sich pro Person die laufende (`run`) und die
+// längste (`longest`) Serie. Am Ende IST `run` die aktuelle Serie – 0, wenn die
+// letzte gespielte Einheit den Zustand nicht erfüllte.
+//
+// Zusätzlich wird die DATUMS-SPANNE der längsten Serie festgehalten (bestFrom/
+// bestTo) – das „wann war die Rekord-Serie". `runStart` merkt sich das Datum, an
+// dem die laufende Serie begann; sobald sie einen neuen Rekord aufstellt, wird die
+// Spanne (Start … aktuelles Datum) als bestFrom/bestTo eingefroren.
+function makeStreakTracker() {
+  const m = new Map() // pid → { run, longest, runStart, bestFrom, bestTo }
+  return {
+    hit(pid, erreicht, date) {
+      let s = m.get(pid)
+      if (!s) { s = { run: 0, longest: 0, runStart: null, bestFrom: null, bestTo: null }; m.set(pid, s) }
+      if (erreicht) {
+        if (s.run === 0) s.runStart = date   // neue Serie beginnt hier
+        s.run += 1
+        if (s.run > s.longest) {
+          s.longest = s.run
+          s.bestFrom = s.runStart
+          s.bestTo = date
+        }
+      } else {
+        s.run = 0
+        s.runStart = null
+      }
+    },
+    map: m,
+  }
+}
+
+// L5 Sieg-/Niederlagen-Serien (Spielebene). Läuft die Spiele chronologisch durch
+// und führt zwei Serien je Person: eine für Siege, eine für Niederlagen. Ein Spiel
+// ist genau eines von beiden – „gewonnen" bricht die Pechsträhne und umgekehrt.
+// Spiele mit unbekanntem Gewinner (winner == null, kaputte Altimporte) werden wie
+// Abwesenheit übersprungen (weder Zähler noch Bruch).
+// Rückgabe: Map(pid → { siegAktuell, siegLaengste, niederlageAktuell, niederlageLaengste })
+export function winLossStreaks(data) {
+  const order = sessionChronoIndex(data)
+  const games = [...data.games].sort((a, b) => {
+    const so = (order.get(a.sessionId) ?? 0) - (order.get(b.sessionId) ?? 0)
+    if (so !== 0) return so
+    if (a.roundNumber !== b.roundNumber) return a.roundNumber - b.roundNumber
+    return a.number - b.number
+  })
+
+  const sieg = makeStreakTracker()
+  const niederlage = makeStreakTracker()
+  for (const g of games) {
+    if (g.winner == null) continue
+    for (const res of g.results) {
+      if (res.partei === 'ausgesetzt') continue
+      const gewonnen = res.partei === g.winner
+      sieg.hit(res.playerId, gewonnen, g.sessionDate)
+      niederlage.hit(res.playerId, !gewonnen, g.sessionDate)
+    }
+  }
+
+  const empty = { run: 0, longest: 0, bestFrom: null, bestTo: null }
+  const out = new Map()
+  for (const pid of new Set([...sieg.map.keys(), ...niederlage.map.keys()])) {
+    const s = sieg.map.get(pid) ?? empty
+    const n = niederlage.map.get(pid) ?? empty
+    out.set(pid, {
+      siegAktuell: s.run, siegLaengste: s.longest, siegVon: s.bestFrom, siegBis: s.bestTo,
+      niederlageAktuell: n.run, niederlageLaengste: n.longest, niederlageVon: n.bestFrom, niederlageBis: n.bestTo,
+    })
+  }
+  return out
+}
+
+// L5 Erster-/Letzter-Serien (Runde- oder Partie-Ebene). Aggregiert erst die Spiele
+// je Einheit zu Salden je Spieler:in (wie unitSaldi), bringt die Einheiten dann in
+// chronologische Reihenfolge und führt zwei Serien je Person. „Erster" = höchster
+// Saldo der Einheit, „Letzter" = tiefster (geteilte Plätze zählen für alle). Ohne
+// Abstand (alle gleich) ist niemand Erster/Letzter → beide Serien brechen.
+// level = 'round' | 'session'.
+// Rückgabe: Map(pid → { ersterAktuell, ersterLaengste, letzterAktuell, letzterLaengste })
+export function placementStreaks(data, level) {
+  const order = sessionChronoIndex(data)
+
+  // Spiele je Einheit zu Salden je Spieler:in zusammenziehen (Ausgesetzt-Zeilen
+  // tragen 0 bei). so/roundNumber je Einheit für die chronologische Sortierung.
+  const key = level === 'round' ? 'roundId' : 'sessionId'
+  const byUnit = new Map() // unitId → { so, roundNumber, players: Map(pid → saldo) }
+  for (const g of data.games) {
+    const id = g[key]
+    let u = byUnit.get(id)
+    if (!u) {
+      u = { so: order.get(g.sessionId) ?? 0, roundNumber: g.roundNumber, date: g.sessionDate, players: new Map() }
+      byUnit.set(id, u)
+    }
+    for (const res of g.results) {
+      u.players.set(res.playerId, (u.players.get(res.playerId) ?? 0) + res.zaehlpunkte)
+    }
+  }
+  // Sortieren: erst nach Partie-Reihenfolge, bei 'round' innerhalb der Partie nach
+  // Rundennummer (bei 'session' ist so eindeutig, roundNumber greift dann nie).
+  const units = [...byUnit.values()].sort((a, b) => {
+    if (a.so !== b.so) return a.so - b.so
+    return a.roundNumber - b.roundNumber
+  })
+
+  const erster = makeStreakTracker()
+  const letzter = makeStreakTracker()
+  for (const u of units) {
+    const saldi = [...u.players.values()]
+    if (saldi.length === 0) continue
+    const max = Math.max(...saldi)
+    const min = Math.min(...saldi)
+    const spread = max !== min
+    for (const [pid, s] of u.players) {
+      erster.hit(pid, spread && s === max, u.date)
+      letzter.hit(pid, spread && s === min, u.date)
+    }
+  }
+
+  const empty = { run: 0, longest: 0, bestFrom: null, bestTo: null }
+  const out = new Map()
+  for (const pid of new Set([...erster.map.keys(), ...letzter.map.keys()])) {
+    const e = erster.map.get(pid) ?? empty
+    const l = letzter.map.get(pid) ?? empty
+    out.set(pid, {
+      ersterAktuell: e.run, ersterLaengste: e.longest, ersterVon: e.bestFrom, ersterBis: e.bestTo,
+      letzterAktuell: l.run, letzterLaengste: l.longest, letzterVon: l.bestFrom, letzterBis: l.bestTo,
+    })
+  }
+  return out
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 3d. Deutlichkeit der Siege (L9)
+// ────────────────────────────────────────────────────────────────────────────
+// Zeigt, WIE deutlich jemand gewinnt: Verteilung der eigenen Siege über fünf Stufen
+// von knapp → vernichtend. Gemessen am ERREICHTEN (nicht am Angesagten) – die Stufe
+// ergibt sich allein aus den eigenen Augen des Gewinners:
+//   > 120 (keine Absage geschafft) = normaler (knapper) Sieg
+//   ≥ 151 Keine 90 · ≥ 181 Keine 60 · ≥ 211 Keine 30 · 240 Schwarz
+// (Schwellen identisch zu ABSAGE_THRESHOLDS in scoreCalculation.js.)
+//
+// Der Gewinner steht als game.winner fest (aus den Punkten abgeleitet). Seine Augen:
+// augen_re exakt (App-Erfassung) ODER die Mitte der Import-Range – jede Import-Range
+// liegt per Konstruktion vollständig in EINER Stufe, die Mitte genügt zur Einordnung.
+// Ein Sieg NUR durch eine gescheiterte Gegner-Absage (Gewinner < 121 eigene Augen)
+// fällt in die mildeste Stufe „normal" – deutlicher misst sich ein Sieg nicht.
+// Rückgabe: Map(pid → { total, normal, k90, k60, k30, schwarz })
+export function clarityStats(data) {
+  const acc = new Map()
+  for (const g of data.games) {
+    if (g.winner == null) continue
+
+    // Repräsentative Re-Augen: exakt, sonst Mitte der Import-Range.
+    let reEye = g.augenRe
+    if (reEye == null && g.augenReMin != null && g.augenReMax != null) {
+      reEye = Math.round((g.augenReMin + g.augenReMax) / 2)
+    }
+    if (reEye == null) continue // ohne Augen nicht einstufbar (nach der 25.03.-Reparatur kein Fall mehr)
+
+    const winnerEyes = g.winner === 're' ? reEye : 240 - reEye
+    const stage =
+      winnerEyes >= 240 ? 'schwarz' :
+      winnerEyes >= 211 ? 'k30' :
+      winnerEyes >= 181 ? 'k60' :
+      winnerEyes >= 151 ? 'k90' : 'normal'
+
+    for (const res of g.results) {
+      if (res.partei !== g.winner) continue // nur die Gewinner:innen dieses Spiels
+      let a = acc.get(res.playerId)
+      if (!a) { a = { total: 0, normal: 0, k90: 0, k60: 0, k30: 0, schwarz: 0 }; acc.set(res.playerId, a) }
+      a.total += 1
+      a[stage] += 1
     }
   }
   return acc

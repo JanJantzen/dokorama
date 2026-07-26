@@ -87,10 +87,10 @@ Die Reihenfolge folgt den vier Tiers aus STATISTIK_KONZEPT.md (Schritt 4). Leitp
 - [ ] 4.2 Nerd-Modus-Schalter (global) – erste Nutzlast: σ neben dem Box-Plot (L8). **Bewusst zurückgestellt (Jan, 24.07.2026): erst bauen, wenn er echte Nutzlast hat** (mit L8 in Phase 5) – ein Schalter ohne sichtbare Wirkung verwirrt mehr, als er nützt.
 
 **Phase 5 – Leistung, restliche Kennzahlen (Winner-Flag + Nerd-Modus)**
-- [ ] 5.1 Winner-Flag umsetzen: Gewinner-Partei-Spalte an `games`, via `scoreCalculation.js` befüllt – beim Speichern **und** Bearbeiten **und** Import; einmaliger Backfill für die Bestandsspiele (Migration + Skript).
-- [ ] 5.2 L1 Sieg/Niederlage (absolut + Quote, P6).
-- [ ] 5.3 L5 Streaks (aktueller + längster, je Zustand L1–L4).
-- [ ] 5.4 L9 Deutlichkeit der Siege (Verteilung über Absage-Stufen).
+- [x] 5.1 Gewinner-Bestimmung – **geänderte Umsetzung:** KEIN DB-Flag/Backfill, sondern Gewinner live in `stats.js` aus den Zählpunkten abgeleitet (`deriveWinner`, robuster gegen Altimporte). — *erledigt & deployed 26.07.2026 (Commit 51a5a8a).*
+- [x] 5.2 L1 Sieg/Niederlage (absolut + Quote, P6). — *erledigt & deployed 26.07.2026 (Commit 51a5a8a); im Block „Sieg · Platz · Saldo", Umschalter Spiel|Runde|Partie.*
+- [x] 5.3 L5 Streaks (aktueller + längster). Umfang Sieg/Niederlage + Erster/Letzter (keine netto-Serien); Abbruch = „jedes Nicht-Erreichen bricht"; immun gegen P6. Eigene Sektion „Serien" (Default Partie), Rekord-Datumsspanne + „aktuell". — *erledigt 26.07.2026.*
+- [x] 5.4 L9 Deutlichkeit der Siege (Verteilung über die erreichten Stufen). Gestapelter Balken, zwei Fässer (normal=grau vs. deutlich=Hitze-Rampe, deutlichste links), Sortierung nach Anteil deutlicher Siege, Tap-Detailzeile fürs Handy. Setzte die 25.03.-Augen-Reparatur voraus (erledigt). — *erledigt 26.07.2026.*
 - [ ] 5.5 L8 Streuung/Konstanz (Box-Plot; σ im Nerd-Modus) – punkt-basiert, aber hängt an 4.2.
 
 **Phase 6 – Ausdauer-Block (A1–A7)**

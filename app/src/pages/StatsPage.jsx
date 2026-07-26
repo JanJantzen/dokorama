@@ -22,6 +22,9 @@ import {
   bestWorstSaldo,
   placementStats,
   winLossStats,
+  winLossStreaks,
+  placementStreaks,
+  clarityStats,
   buildScoreCurve,
   filterByPeriod,
   availableYears,
@@ -29,6 +32,7 @@ import {
 } from '@/lib/stats'
 import { StatsFilterProvider, useStatsFilter } from '@/contexts/StatsFilterContext'
 import StatsRankingList from '@/components/stats/StatsRankingList'
+import ClarityBars from '@/components/stats/ClarityBars'
 import ScoreCurve from '@/components/stats/ScoreCurve'
 import PeriodFilter from '@/components/stats/PeriodFilter'
 
@@ -353,6 +357,92 @@ function buildNetto(data, level) {
   })
 }
 
+// Datumsspanne der Rekord-Serie, kompakt und in Klammern – ohne führende Nullen,
+// und es wird nur wiederholt, was sich zwischen Start und Ende ändert:
+//   • gleicher Monat      → „(1.-14.3.26)"        (Tag–Tag, Monat & Jahr einmal)
+//   • gleiches Jahr       → „(1.3.-17.7.26)"      (beide Monate, Jahr einmal)
+//   • über Jahreswechsel  → „(23.12.25-17.5.26)"  (beide Jahre)
+//   • Serie der Länge 1   → „(14.3.26)"           (ein Datum)
+// null (nie erreicht) → keine Zeile. Der Bindestrich ist die einzige Umbruch-
+// stelle, daher bricht die Zeile – wenn überhaupt – sauber zwischen den zwei Daten.
+function streakRange(von, bis) {
+  if (!von) return null
+  const p = (iso) => { const [y, m, d] = iso.split('-'); return { d: Number(d), m: Number(m), y: y.slice(2) } }
+  const a = p(von), b = p(bis)
+  if (von === bis) return `(${a.d}.${a.m}.${a.y})`
+  if (a.y !== b.y) return `(${a.d}.${a.m}.${a.y}-${b.d}.${b.m}.${b.y})`
+  if (a.m !== b.m) return `(${a.d}.${a.m}.-${b.d}.${b.m}.${b.y})`
+  return `(${a.d}.-${b.d}.${b.m}.${b.y})`
+}
+
+// L5 Serien (Spielebene): längste Sieg- bzw. Niederlagen-Serie als Hauptwert;
+// darunter zwei kleine Zeilen – die Datumsspanne der Rekord-Serie und die gerade
+// laufende Serie („aktuell: N"). Serien sind Absolutzahlen → immun gegen P6.
+function buildSiegSerie(data) {
+  const acc = winLossStreaks(data)
+  return [...acc.entries()].map(([id, a]) => {
+    const p = data.players.get(id)
+    return {
+      id,
+      name:      p?.name ?? '?',
+      avatarUrl: p?.avatarUrl ?? null,
+      values: { sieg: a.siegLaengste, pech: a.niederlageLaengste },
+      meta: {
+        sieg: { sublabel: [streakRange(a.siegVon, a.siegBis), `aktuell: ${a.siegAktuell}`].filter(Boolean) },
+        pech: { sublabel: [streakRange(a.niederlageVon, a.niederlageBis), `aktuell: ${a.niederlageAktuell}`].filter(Boolean) },
+      },
+    }
+  })
+}
+
+// L5 Serien (Runde-/Partie-Ebene): längste Erster- bzw. Letzter-Serie als
+// Hauptwert; darunter Datumsspanne des Rekords und die aktuelle Serie.
+function buildPlatzSerie(data, level) {
+  const acc = placementStreaks(data, level)
+  return [...acc.entries()].map(([id, a]) => {
+    const p = data.players.get(id)
+    return {
+      id,
+      name:      p?.name ?? '?',
+      avatarUrl: p?.avatarUrl ?? null,
+      values: { erster: a.ersterLaengste, letzter: a.letzterLaengste },
+      meta: {
+        erster:  { sublabel: [streakRange(a.ersterVon, a.ersterBis),   `aktuell: ${a.ersterAktuell}`].filter(Boolean) },
+        letzter: { sublabel: [streakRange(a.letzterVon, a.letzterBis), `aktuell: ${a.letzterAktuell}`].filter(Boolean) },
+      },
+    }
+  })
+}
+
+const SIEGSERIE_COLUMNS = [
+  { key: 'sieg', label: 'Siegserie',   format: fmtCount, tone: 'good' },
+  { key: 'pech', label: 'Pechsträhne', format: fmtCount, tone: 'bad' },
+]
+const PLATZSERIE_COLUMNS = [
+  { key: 'erster',  label: 'Erster',  format: fmtCount, tone: 'good' },
+  { key: 'letzter', label: 'Letzter', format: fmtCount, tone: 'bad' },
+]
+
+// L9 Deutlichkeit der Siege: Verteilung der eigenen Siege auf die fünf Stufen als
+// gestapelter Balken. clearShare = Anteil „deutlicher" Siege (alles außer „normal")
+// – danach wird sortiert. P6: bei < 8 Siegen dünn → gedämpft und ans Ende.
+function buildClarity(data) {
+  const acc = clarityStats(data)
+  return [...acc.entries()].map(([id, a]) => {
+    const p = data.players.get(id)
+    return {
+      id,
+      name:      p?.name ?? '?',
+      avatarUrl: p?.avatarUrl ?? null,
+      total:     a.total,
+      counts:    { normal: a.normal, k90: a.k90, k60: a.k60, k30: a.k30, schwarz: a.schwarz },
+      // Anteil deutlicher Siege = alles außer dem knappen „normalen" Sieg.
+      clearShare: a.total > 0 ? (a.total - a.normal) / a.total : 0,
+      weak:       isWeakSample(a.total),
+    }
+  })
+}
+
 const PLATZIERUNG_COLUMNS = [
   { key: 'erster',  label: 'Erster',  format: fmtCount, tone: 'good' },
   { key: 'letzter', label: 'Letzter', format: fmtCount, tone: 'bad' },
@@ -371,6 +461,7 @@ function StatsPageInner() {
   const [view, setView] = useState('verlauf')     // 'verlauf' | 'tabelle' (Gesamtscore)
   const [l7Level, setL7Level] = useState('game')  // 'game' | 'round' | 'session' (L7-Ebene)
   const [placementLevel, setPlacementLevel] = useState('game') // 'game' (L1) | 'round' | 'session' (L2/L3/L4)
+  const [streakLevel, setStreakLevel] = useState('session')    // 'game' | 'round' | 'session' (L5-Ebene; Partie = Königs-KPI → Default)
 
   // Der aktive Zeitraum als Datumsgrenzen (kommt aus dem globalen Filter-Context).
   const { range } = useStatsFilter()
@@ -415,6 +506,16 @@ function StatsPageInner() {
   )
   const platzierung = useMemo(() => (filtered && !isGameLevel ? buildPlatzierung(filtered, placementLevel) : null), [filtered, placementLevel, isGameLevel])
   const netto       = useMemo(() => (filtered && !isGameLevel ? buildNetto(filtered, placementLevel)       : null), [filtered, placementLevel, isGameLevel])
+
+  // Serien-Block (L5), gesteuert vom eigenen Ebenen-Umschalter:
+  //   Spiel        → Siegserie / Pechsträhne (aus dem Gewinner-Flag)
+  //   Runde/Partie → Erster-Serie / Letzter-Serie (aus den Salden)
+  const isStreakGame = streakLevel === 'game'
+  const siegSerie  = useMemo(() => (filtered &&  isStreakGame ? buildSiegSerie(filtered)                : null), [filtered, isStreakGame])
+  const platzSerie = useMemo(() => (filtered && !isStreakGame ? buildPlatzSerie(filtered, streakLevel)  : null), [filtered, streakLevel, isStreakGame])
+
+  // Deutlichkeit der Siege (L9) – Verteilung über die fünf Stufen, Spielebene.
+  const clarity = useMemo(() => (filtered ? buildClarity(filtered) : null), [filtered])
 
   // Enthält der gewählte Zeitraum überhaupt Partien?
   const isEmpty = filtered && filtered.sessions.length === 0
@@ -557,6 +658,63 @@ function StatsPageInner() {
                   <StatsRankingList key="netto" entries={netto} columns={NETTO_COLUMNS} defaultSortKey="pos" />
                 </>
               )}
+            </section>
+
+            {/* ── Serien (L5), eigener Umschalter über alle Ebenen ── */}
+            <section>
+              <SectionTitle
+                info={
+                  <>
+                    <InfoHeading>Spiel</InfoHeading>
+                    <InfoDefs items={[
+                      { t: 'Siegserie',   d: 'gewonnene Spiele in Folge' },
+                      { t: 'Pechsträhne', d: 'verlorene Spiele in Folge' },
+                    ]} />
+                    <InfoHeading>Runde / Partie</InfoHeading>
+                    <InfoDefs items={[
+                      { t: 'Erster',  d: 'Runden/Partien als Erster in Folge' },
+                      { t: 'Letzter', d: 'Runden/Partien als Letzter in Folge' },
+                    ]} />
+                    <InfoDefs items={[
+                      { n: 'Große Zahl = längste Serie im Zeitraum; darunter der Zeitraum dieser Rekord-Serie (von–bis) und „aktuell" = die gerade laufende.' },
+                      { n: 'Aussetzen unterbricht nicht; jede mitgespielte Einheit ohne den Zustand bricht die Serie.' },
+                    ]} />
+                  </>
+                }
+              >
+                Serien
+              </SectionTitle>
+
+              <LevelToggle level={streakLevel} onChange={setStreakLevel} options={LEVEL_OPTIONS} />
+
+              {/* Eigene key je Ebene, damit die Sortierspalte beim Wechsel frisch
+                  startet (analog zum Sieg·Platz·Saldo-Block). */}
+              {isStreakGame ? (
+                <StatsRankingList key="sserie" entries={siegSerie} columns={SIEGSERIE_COLUMNS} defaultSortKey="sieg" colWidth="w-20" />
+              ) : (
+                <StatsRankingList key="pserie" entries={platzSerie} columns={PLATZSERIE_COLUMNS} defaultSortKey="erster" colWidth="w-20" />
+              )}
+            </section>
+
+            {/* ── Deutlichkeit der Siege (L9) ── */}
+            <section>
+              <SectionTitle
+                info={
+                  <InfoDefs items={[
+                    { n: 'Verteilung der eigenen Siege auf fünf Stufen – gemessen an den erreichten Augen, nicht am Angesagten:' },
+                    { t: 'Normal',   d: 'knapper Sieg (über 120), keine Absage geschafft' },
+                    { t: 'Keine 90', d: 'Gegner unter 90 Augen gehalten' },
+                    { t: 'Keine 60', d: 'Gegner unter 60' },
+                    { t: 'Keine 30', d: 'Gegner unter 30' },
+                    { t: 'Schwarz',  d: 'Gegner ohne Stich (0 Augen)' },
+                    { n: 'Sortiert nach dem Anteil „deutlicher" Siege (alles außer Normal) – die Prozentzahl rechts.' },
+                  ]} />
+                }
+              >
+                Deutlichkeit der Siege
+              </SectionTitle>
+
+              <ClarityBars entries={clarity} />
             </section>
           </>
         )}
