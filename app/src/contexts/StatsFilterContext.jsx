@@ -25,6 +25,11 @@ const StatsFilterContext = createContext(null)
 // Unter diesem Schlüssel liegt die gemerkte Wahl im Browser.
 const STORAGE_KEY = 'dokorama.statsPeriod'
 
+// Nerd-Modus (globaler Ein/Aus-Schalter, Tier 1 Phase 4.2/5.5): schaltet quer über
+// alle Kennzahlen zusätzliche technische Tiefe zu (erste Nutzlast: σ neben dem
+// Box-Plot L8). Eigener Schlüssel, damit er unabhängig vom Zeitraum überlebt.
+const NERD_STORAGE_KEY = 'dokorama.statsNerd'
+
 // Der Ausgangszustand, wenn noch nichts gemerkt wurde: laufendes Jahr.
 const DEFAULT_PERIOD = { mode: 'currentYear' }
 
@@ -89,13 +94,25 @@ export function StatsFilterProvider({ children }) {
     } catch { /* Speichern nicht möglich → einfach nicht merken */ }
   }, [period])
 
+  // Nerd-Modus: eigener, ebenfalls gemerkter Ein/Aus-Zustand. Default: aus.
+  const [nerdMode, setNerdMode] = useState(() => {
+    try {
+      return localStorage.getItem(NERD_STORAGE_KEY) === '1'
+    } catch { return false }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem(NERD_STORAGE_KEY, nerdMode ? '1' : '0')
+    } catch { /* Speichern nicht möglich → einfach nicht merken */ }
+  }, [nerdMode])
+
   // Abgeleitete Größen einmal hier berechnen, damit alle Verbraucher dieselben
   // Werte sehen: die Datumsgrenzen (für den Filter) und den Anzeigetext.
   const range = resolveRange(period)
   const label = resolveLabel(period)
 
   return (
-    <StatsFilterContext.Provider value={{ period, setPeriod, range, label }}>
+    <StatsFilterContext.Provider value={{ period, setPeriod, range, label, nerdMode, setNerdMode }}>
       {children}
     </StatsFilterContext.Provider>
   )

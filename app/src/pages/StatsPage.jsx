@@ -25,6 +25,7 @@ import {
   winLossStreaks,
   placementStreaks,
   clarityStats,
+  spreadStats,
   buildScoreCurve,
   filterByPeriod,
   availableYears,
@@ -33,6 +34,7 @@ import {
 import { StatsFilterProvider, useStatsFilter } from '@/contexts/StatsFilterContext'
 import StatsRankingList from '@/components/stats/StatsRankingList'
 import ClarityBars from '@/components/stats/ClarityBars'
+import BoxPlot from '@/components/stats/BoxPlot'
 import ScoreCurve from '@/components/stats/ScoreCurve'
 import PeriodFilter from '@/components/stats/PeriodFilter'
 
@@ -154,6 +156,27 @@ const LEVEL_OPTIONS = [
   { key: 'round',   label: 'Runde' },
   { key: 'session', label: 'Partie' },
 ]
+
+// Globaler Nerd-Modus-Schalter (Tier 1, Phase 4.2): eine kleine Pille, die quer
+// über alle Kennzahlen zusätzliche technische Tiefe zuschaltet (erste Nutzlast:
+// σ neben dem Box-Plot L8). Sitzt oben bei den Filtern; der Zustand lebt global
+// im StatsFilterContext und überlebt einen Neustart.
+function NerdToggle() {
+  const { nerdMode, setNerdMode } = useStatsFilter()
+  return (
+    <button
+      onClick={() => setNerdMode(v => !v)}
+      className={`self-start px-3 py-1 rounded-full border text-sm whitespace-nowrap transition-colors ${
+        nerdMode
+          ? 'bg-primary text-primary-foreground border-primary font-medium'
+          : 'border-border text-muted-foreground hover:text-foreground'
+      }`}
+      aria-pressed={nerdMode}
+    >
+      🤓 Nerd-Modus {nerdMode ? 'an' : 'aus'}
+    </button>
+  )
+}
 
 // ── Wert-Formatierungen (Anzeige) ──
 // Ganzzahl mit Vorzeichen: +120 / −162 (fehlend → „–").
@@ -443,6 +466,23 @@ function buildClarity(data) {
   })
 }
 
+// L8 Streuung/Konstanz: pro Person die Verteilungs-Kennzahlen für den Box-Plot
+// (min/q1/median/q3/max + σ + n). Die Sortierung (nach Median) und die
+// P6-Dämpfung übernimmt die BoxPlot-Komponente selbst.
+function buildSpread(data, level) {
+  const acc = spreadStats(data, level)
+  return [...acc.entries()].map(([id, s]) => {
+    const p = data.players.get(id)
+    return {
+      id,
+      name:      p?.name ?? '?',
+      avatarUrl: p?.avatarUrl ?? null,
+      ...s, // n, min, q1, median, q3, max, sigma
+      weak: isWeakSample(s.n),
+    }
+  })
+}
+
 const PLATZIERUNG_COLUMNS = [
   { key: 'erster',  label: 'Erster',  format: fmtCount, tone: 'good' },
   { key: 'letzter', label: 'Letzter', format: fmtCount, tone: 'bad' },
@@ -462,9 +502,10 @@ function StatsPageInner() {
   const [l7Level, setL7Level] = useState('game')  // 'game' | 'round' | 'session' (L7-Ebene)
   const [placementLevel, setPlacementLevel] = useState('game') // 'game' (L1) | 'round' | 'session' (L2/L3/L4)
   const [streakLevel, setStreakLevel] = useState('session')    // 'game' | 'round' | 'session' (L5-Ebene; Partie = Königs-KPI → Default)
+  const [spreadLevel, setSpreadLevel] = useState('game')       // 'game' | 'round' | 'session' (L8-Ebene; Spiel = meiste Datenpunkte → Default)
 
-  // Der aktive Zeitraum als Datumsgrenzen (kommt aus dem globalen Filter-Context).
-  const { range } = useStatsFilter()
+  // Der aktive Zeitraum als Datumsgrenzen + der globale Nerd-Modus (beides aus dem Context).
+  const { range, nerdMode } = useStatsFilter()
 
   // Einmal beim Öffnen der Seite alle abgeschlossenen Partien laden.
   useEffect(() => {
@@ -517,6 +558,9 @@ function StatsPageInner() {
   // Deutlichkeit der Siege (L9) – Verteilung über die fünf Stufen, Spielebene.
   const clarity = useMemo(() => (filtered ? buildClarity(filtered) : null), [filtered])
 
+  // Streuung/Konstanz (L8) – Box-Plot-Kennzahlen auf der gewählten Ebene.
+  const spread = useMemo(() => (filtered ? buildSpread(filtered, spreadLevel) : null), [filtered, spreadLevel])
+
   // Enthält der gewählte Zeitraum überhaupt Partien?
   const isEmpty = filtered && filtered.sessions.length === 0
 
@@ -528,8 +572,9 @@ function StatsPageInner() {
       </header>
 
       <div className="px-4 flex flex-col gap-8">
-        {/* Globaler Zeitraum-Filter – gilt für alle Bereiche darunter */}
+        {/* Globaler Zeitraum-Filter + Nerd-Modus – gelten für alle Bereiche darunter */}
         {data && <PeriodFilter years={years} />}
+        {data && <NerdToggle />}
 
         {/* Fehler-/Lade-/Leer-Zustand einmal zentral; die Bereiche erscheinen
             nur, wenn es im gewählten Zeitraum wirklich etwas anzuzeigen gibt. */}
@@ -715,6 +760,28 @@ function StatsPageInner() {
               </SectionTitle>
 
               <ClarityBars entries={clarity} />
+            </section>
+
+            {/* ── Streuung / Konstanz (L8) ── */}
+            <section>
+              <SectionTitle
+                info={
+                  <InfoDefs items={[
+                    { n: 'Der Box-Plot zeigt, wie stark die eigenen Ergebnisse auf der gewählten Ebene schwanken:' },
+                    { t: 'Kasten',  d: 'die mittleren 50 % der Ergebnisse (von Q1 bis Q3)' },
+                    { t: 'Strich',  d: 'der Median – der typische Wert' },
+                    { t: 'Linien',  d: 'bestes und schlechtestes Einzelergebnis' },
+                    { n: 'Schmaler Kasten = konstant, breiter Kasten = Zocker. Sortiert nach Median. n = Anzahl der Ergebnisse.' },
+                    ...(nerdMode ? [{ t: 'σ', d: 'Standardabweichung – die technische Streuungs-Kennzahl' }] : [{ n: 'Tipp: der Nerd-Modus (oben) blendet zusätzlich σ ein.' }]),
+                  ]} />
+                }
+              >
+                Streuung / Konstanz
+              </SectionTitle>
+
+              <LevelToggle level={spreadLevel} onChange={setSpreadLevel} options={LEVEL_OPTIONS} />
+
+              <BoxPlot entries={spread} nerd={nerdMode} />
             </section>
           </>
         )}

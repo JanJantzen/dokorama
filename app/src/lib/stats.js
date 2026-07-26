@@ -376,6 +376,65 @@ export function bestWorstSaldo(data, level) {
   return { best, worst }
 }
 
+// Lineares-Interpolations-Quantil („Typ 7", wie numpy/Excel-Standard): p ∈ [0,1]
+// auf eine AUFSTEIGEND sortierte Zahlenliste. p=0 → Minimum, p=0,5 → Median,
+// p=1 → Maximum. Bei genau einem Wert gibt es diesen Wert zurück. Liegt der
+// gesuchte Rang zwischen zwei Datenpunkten, wird linear dazwischen interpoliert.
+// (Leere Liste → null; wird von spreadStats nie mit n=0 aufgerufen.)
+function quantile(sortedAsc, p) {
+  const n = sortedAsc.length
+  if (n === 0) return null
+  if (n === 1) return sortedAsc[0]
+  const idx = p * (n - 1)        // Bruch-Rang 0…n-1
+  const lo = Math.floor(idx)
+  const hi = Math.ceil(idx)
+  if (lo === hi) return sortedAsc[lo]
+  const frac = idx - lo
+  return sortedAsc[lo] * (1 - frac) + sortedAsc[hi] * frac
+}
+
+// L8 Streuung/Konstanz: sammelt je Spieler:in ALLE Einzel-Salden auf der Ebene
+// (Spiel/Runde/Partie – wiederverwendet unitSaldi) und beschreibt ihre Verteilung
+// mit der „Fünf-Zahlen-Zusammenfassung" für den Box-Plot plus der Standard-
+// abweichung σ (Nerd-Modus):
+//   • min / max     → die Whisker (bestes/schlechtestes Einzelergebnis)
+//   • q1 / q3       → die Kasten-Kanten (mittlere 50 % der Ergebnisse)
+//   • median        → der Strich im Kasten (typischer Wert)
+//   • sigma         → Standardabweichung (Populations-σ, weil es die VOLLSTÄNDIGE
+//                     Ergebnisreihe der Person ist, keine Stichprobe daraus)
+//   • n             → Anzahl Werte (Nenner für die P6-Dämpfung)
+// Ein schmaler Kasten = konstante:r Spieler:in, ein breiter = Zocker:in.
+// Rückgabe: Map(playerId → { n, min, q1, median, q3, max, sigma })
+export function spreadStats(data, level) {
+  const units = unitSaldi(data, level)
+  // Je Spieler:in alle Salden in eine Liste einsammeln.
+  const byPlayer = new Map() // pid → number[]
+  for (const u of units) {
+    for (const [pid, saldo] of u.players) {
+      let arr = byPlayer.get(pid)
+      if (!arr) { arr = []; byPlayer.set(pid, arr) }
+      arr.push(saldo)
+    }
+  }
+  const out = new Map()
+  for (const [pid, values] of byPlayer) {
+    const sorted = [...values].sort((a, b) => a - b)
+    const n = sorted.length
+    const mean = sorted.reduce((s, v) => s + v, 0) / n
+    const variance = sorted.reduce((s, v) => s + (v - mean) ** 2, 0) / n
+    out.set(pid, {
+      n,
+      min:    sorted[0],
+      q1:     quantile(sorted, 0.25),
+      median: quantile(sorted, 0.5),
+      q3:     quantile(sorted, 0.75),
+      max:    sorted[n - 1],
+      sigma:  Math.sqrt(variance),
+    })
+  }
+  return out
+}
+
 // L2/L3/L4 in EINEM Durchgang: zählt je Spieler:in über alle Einheiten einer
 // Ebene, wie oft sie Erste:r bzw. Letzte:r wurde und wie ihr Netto-Saldo ausfiel.
 //
