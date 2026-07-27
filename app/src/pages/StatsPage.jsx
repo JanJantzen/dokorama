@@ -12,7 +12,7 @@
 // die geladenen Daten vor der Berechnung zu (filterByPeriod) – kein neuer DB-Zugriff.
 
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import { Info } from 'lucide-react'
+import { Info, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   loadStatsData,
   playerTotals,
@@ -178,6 +178,66 @@ function NerdToggle() {
   )
 }
 
+// Rubrik-Kachel (Navigations-Ebene 0): teasert ein Statistik-Thema an und führt
+// per Tap auf die Rubrik-Seite (Ebene 1). Emoji + Titel + Halbsatz + eine
+// Highlight-Zeile (aktuelle:r Spitzenreiter:in einer Signatur-Kennzahl).
+function RubrikCard({ emoji, title, teaser, highlight, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex flex-col items-start text-left gap-1 p-4 rounded-2xl border border-border bg-card hover:border-primary/50 transition-colors"
+    >
+      <div className="flex items-center justify-between w-full">
+        <span className="text-2xl" aria-hidden>{emoji}</span>
+        <ChevronRight size={18} className="text-muted-foreground" />
+      </div>
+      <span className="font-semibold text-base">{title}</span>
+      <span className="text-xs text-muted-foreground">{teaser}</span>
+      {highlight && (
+        <span className="text-xs text-foreground/70 mt-1 tabular-nums">{highlight}</span>
+      )}
+    </button>
+  )
+}
+
+// Raster der Rubrik-Kacheln auf dem Dashboard (Ebene 0). Zwei Spalten; wächst
+// später um weitere Rubriken (Risiko, Solo, …), ohne dass sich die Logik ändert.
+function RubrikGrid({ onOpen, highlights }) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <RubrikCard
+        emoji="🏆"
+        title="Leistung"
+        teaser="Wer punktet."
+        highlight={highlights ? `Meiste Siege: ${highlights.leistung}` : null}
+        onClick={() => onOpen('leistung')}
+      />
+      <RubrikCard
+        emoji="⏱️"
+        title="Ausdauer"
+        teaser="Wer am meisten dabei ist."
+        highlight={highlights ? `Meiste Partien: ${highlights.ausdauer}` : null}
+        onClick={() => onOpen('ausdauer')}
+      />
+    </div>
+  )
+}
+
+// Zurück-Leiste auf einer Rubrik-Seite (Ebene 1): führt zurück aufs Dashboard.
+function BackBar({ title, onBack }) {
+  return (
+    <button
+      onClick={onBack}
+      className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground -mb-2"
+    >
+      <ChevronLeft size={18} />
+      <span>Übersicht</span>
+      <span className="mx-1 text-border">/</span>
+      <span className="text-foreground font-medium">{title}</span>
+    </button>
+  )
+}
+
 // ── Wert-Formatierungen (Anzeige) ──
 // Ganzzahl mit Vorzeichen: +120 / −162 (fehlend → „–").
 const fmtInt = (n) => (n === null ? '–' : n > 0 ? `+${n}` : `${n}`)
@@ -189,6 +249,9 @@ const fmtPer4 = (n) => {
 }
 // Reiner Zähler ohne Vorzeichen: 12 / 0 (für Anzahlen wie „wie oft Erster").
 const fmtCount = (n) => (n === null ? '–' : `${n}`)
+// Dezimalzahl mit einer Nachkommastelle OHNE Vorzeichen (für Dichte-Werte wie
+// „4,2 Runden/Partie" – die sind immer ≥ 0, ein „+" wäre hier sinnlos).
+const fmtDec1 = (n) => (n === null ? '–' : n.toFixed(1).replace('.', ','))
 // Quote als Prozent ohne Nachkommastelle: 63 % (Eingabe ist ein Anteil 0…1).
 const fmtQuote = (n) => (n === null ? '–' : `${Math.round(n * 100)} %`)
 
@@ -493,6 +556,103 @@ const NETTO_COLUMNS = [
   { key: 'neg',     label: 'Negativ', format: fmtCount, tone: 'bad' },
 ]
 
+// ── Ausdauer-Block (A1–A3) ──
+// Alle drei sind laut Konzept P6-immun: A1/A2 sind Mengen bzw. strukturelle
+// Dichten, A3 hat einen Gruppen-Nenner (nicht die eigene Stichprobe). Deshalb
+// setzen die Bau-Funktionen KEIN weak-Flag – es wird nirgends gedämpft.
+
+// A1 Mengen: absolute Anzahl gespielter Spiele / Runden / Partien je Person.
+// „Gespielt" = mit dabei (Ausgesetzt-Spiele zählen bei den Spielen nicht mit).
+function buildMengen(data) {
+  const games    = playedGamesByPlayer(data)
+  const rounds   = playedRoundsByPlayer(data)
+  const sessions = playedSessionsByPlayer(data)
+  // Basis = alle, die überhaupt eine Partie mitgespielt haben.
+  return [...sessions.keys()].map(id => {
+    const p = data.players.get(id)
+    return {
+      id,
+      name:      p?.name ?? '?',
+      avatarUrl: p?.avatarUrl ?? null,
+      values: {
+        spiele:  games.get(id)    ?? 0,
+        runden:  rounds.get(id)   ?? 0,
+        partien: sessions.get(id) ?? 0,
+      },
+    }
+  })
+}
+
+const MENGEN_COLUMNS = [
+  { key: 'spiele',  label: 'Spiele',  format: fmtCount, tone: 'plain' },
+  { key: 'runden',  label: 'Runden',  format: fmtCount, tone: 'plain' },
+  { key: 'partien', label: 'Partien', format: fmtCount, tone: 'plain' },
+]
+
+// A2 Dichte: wie „voll" die eigenen Einheiten typischerweise waren.
+//   Runden/Partie = eigene Runden ÷ eigene Partien (wie lang ein Abend lief)
+//   Spiele/Runde  = eigene Spiele ÷ eigene Runden  (steigt durch Solos)
+// Bezug jeweils die EIGENEN gespielten Einheiten (konsistent mit L6).
+function buildDichte(data) {
+  const games    = playedGamesByPlayer(data)
+  const rounds   = playedRoundsByPlayer(data)
+  const sessions = playedSessionsByPlayer(data)
+  return [...sessions.keys()].map(id => {
+    const p = data.players.get(id)
+    const g = games.get(id)    ?? 0
+    const r = rounds.get(id)   ?? 0
+    const s = sessions.get(id) ?? 0
+    return {
+      id,
+      name:      p?.name ?? '?',
+      avatarUrl: p?.avatarUrl ?? null,
+      values: {
+        rundenProPartie: s > 0 ? r / s : null,
+        spieleProRunde:  r > 0 ? g / r : null,
+      },
+    }
+  })
+}
+
+const DICHTE_COLUMNS = [
+  { key: 'rundenProPartie', label: 'Runden/Partie', format: fmtDec1, tone: 'plain' },
+  { key: 'spieleProRunde',  label: 'Spiele/Runde',  format: fmtDec1, tone: 'plain' },
+]
+
+// A3 Teilnahmequote: Anteil an ALLEN Partien der Gruppe im Zeitraum. Nenner =
+// alle Partien im Zeitraum (nicht die eigene Stichprobe) → immer aussagekräftig,
+// P6-immun. Darunter als kleiner Anker die absolute „12/14"-Zeile.
+function buildTeilnahme(data) {
+  const sessions = playedSessionsByPlayer(data)
+  const total = data.sessions.length
+  return [...sessions.keys()].map(id => {
+    const p = data.players.get(id)
+    const mine = sessions.get(id) ?? 0
+    return {
+      id,
+      name:      p?.name ?? '?',
+      avatarUrl: p?.avatarUrl ?? null,
+      values: { quote: total > 0 ? mine / total : null },
+      meta:   { quote: { sublabel: `${mine}/${total}` } },
+    }
+  })
+}
+
+const TEILNAHME_COLUMNS = [
+  { key: 'quote', label: 'Anteil', format: fmtQuote, tone: 'plain' },
+]
+
+// Name der Person mit dem höchsten Wert in einer Map(id → zahl) – für die
+// Highlight-Zeile auf den Rubrik-Kacheln. Leere Map → „–".
+function topName(data, map) {
+  let bestId = null
+  let bestV = -Infinity
+  for (const [id, v] of map) {
+    if (v > bestV) { bestV = v; bestId = id }
+  }
+  return bestId != null ? (data.players.get(bestId)?.name ?? '?') : '–'
+}
+
 // Die eigentliche Seite – lebt INNERHALB des StatsFilterProvider (s. Default-Export
 // unten), damit sie den gewählten Zeitraum über useStatsFilter() lesen kann.
 function StatsPageInner() {
@@ -503,6 +663,7 @@ function StatsPageInner() {
   const [placementLevel, setPlacementLevel] = useState('game') // 'game' (L1) | 'round' | 'session' (L2/L3/L4)
   const [streakLevel, setStreakLevel] = useState('session')    // 'game' | 'round' | 'session' (L5-Ebene; Partie = Königs-KPI → Default)
   const [spreadLevel, setSpreadLevel] = useState('game')       // 'game' | 'round' | 'session' (L8-Ebene; Spiel = meiste Datenpunkte → Default)
+  const [activeBlock, setActiveBlock] = useState(null)         // null = Dashboard (Ebene 0), 'leistung' | 'ausdauer' = Rubrik-Seite (Ebene 1)
 
   // Der aktive Zeitraum als Datumsgrenzen + der globale Nerd-Modus (beides aus dem Context).
   const { range, nerdMode } = useStatsFilter()
@@ -561,6 +722,22 @@ function StatsPageInner() {
   // Streuung/Konstanz (L8) – Box-Plot-Kennzahlen auf der gewählten Ebene.
   const spread = useMemo(() => (filtered ? buildSpread(filtered, spreadLevel) : null), [filtered, spreadLevel])
 
+  // Ausdauer-Block (A1–A3).
+  const mengen    = useMemo(() => (filtered ? buildMengen(filtered)    : null), [filtered])
+  const dichte    = useMemo(() => (filtered ? buildDichte(filtered)    : null), [filtered])
+  const teilnahme = useMemo(() => (filtered ? buildTeilnahme(filtered) : null), [filtered])
+
+  // Highlight-Zeilen für die Rubrik-Kacheln (Dashboard): aktuelle Spitzenreiter:innen.
+  //   Leistung → meiste Siege (L1), Ausdauer → meiste Partien (A1).
+  const highlights = useMemo(() => {
+    if (!filtered) return null
+    const siege = new Map([...winLossStats(filtered)].map(([id, a]) => [id, a.siege]))
+    return {
+      leistung: topName(filtered, siege),
+      ausdauer: topName(filtered, playedSessionsByPlayer(filtered)),
+    }
+  }, [filtered])
+
   // Enthält der gewählte Zeitraum überhaupt Partien?
   const isEmpty = filtered && filtered.sessions.length === 0
 
@@ -588,7 +765,8 @@ function StatsPageInner() {
           <p className="text-sm text-muted-foreground text-center mt-8">
             In diesem Zeitraum gibt es keine Partien.
           </p>
-        ) : (
+        ) : activeBlock === null ? (
+          /* ── Ebene 0: Dashboard – Gesamtscore als Held + Rubrik-Kacheln ── */
           <>
             {/* ── Gesamtscore (G1) ── */}
             <section>
@@ -615,6 +793,14 @@ function StatsPageInner() {
                 />
               )}
             </section>
+
+            {/* Rubrik-Kacheln → Ebene 1 */}
+            <RubrikGrid onOpen={setActiveBlock} highlights={highlights} />
+          </>
+        ) : activeBlock === 'leistung' ? (
+          /* ── Ebene 1: Rubrik „Leistung“ ── */
+          <>
+            <BackBar title="Leistung" onBack={() => setActiveBlock(null)} />
 
             {/* ── Durchschnittsscore (L6) ── */}
             <section>
@@ -782,6 +968,75 @@ function StatsPageInner() {
               <LevelToggle level={spreadLevel} onChange={setSpreadLevel} options={LEVEL_OPTIONS} />
 
               <BoxPlot entries={spread} nerd={nerdMode} />
+            </section>
+          </>
+        ) : (
+          /* ── Ebene 1: Rubrik „Ausdauer“ (A1–A3) ── */
+          <>
+            <BackBar title="Ausdauer" onBack={() => setActiveBlock(null)} />
+
+            {/* ── Mengen (A1) ── */}
+            <section>
+              <SectionTitle
+                info={
+                  <InfoDefs items={[
+                    { n: 'Absolute Anzahl – wie viel jemand insgesamt gespielt hat:' },
+                    { t: 'Spiele',  d: 'mitgespielte Einzelspiele (Aussetzen zählt nicht)' },
+                    { t: 'Runden',  d: 'mitgespielte Runden' },
+                    { t: 'Partien', d: 'Spielabende, an denen man dabei war' },
+                  ]} />
+                }
+              >
+                Mengen
+              </SectionTitle>
+
+              <StatsRankingList
+                entries={mengen}
+                columns={MENGEN_COLUMNS}
+                defaultSortKey="partien"
+              />
+            </section>
+
+            {/* ── Dichte (A2) ── */}
+            <section>
+              <SectionTitle
+                info={
+                  <InfoDefs items={[
+                    { n: 'Wie „voll“ die eigenen Einheiten typischerweise waren:' },
+                    { t: 'Runden/Partie', d: 'Ø Runden je Spielabend (wie lang ein Abend lief)' },
+                    { t: 'Spiele/Runde',  d: 'Ø Spiele je Runde (steigt durch Solos)' },
+                  ]} />
+                }
+              >
+                Dichte
+              </SectionTitle>
+
+              <StatsRankingList
+                entries={dichte}
+                columns={DICHTE_COLUMNS}
+                defaultSortKey="rundenProPartie"
+                colWidth="w-24"
+              />
+            </section>
+
+            {/* ── Teilnahmequote (A3) ── */}
+            <section>
+              <SectionTitle
+                info={
+                  <InfoDefs items={[
+                    { t: 'Anteil', d: 'wie viele aller Partien im Zeitraum man mitgespielt hat' },
+                    { n: 'Stammspieler:in vs. Gelegenheitsgast. Nenner = alle Partien der Gruppe, darunter „eigene / alle“.' },
+                  ]} />
+                }
+              >
+                Teilnahmequote
+              </SectionTitle>
+
+              <StatsRankingList
+                entries={teilnahme}
+                columns={TEILNAHME_COLUMNS}
+                defaultSortKey="quote"
+              />
             </section>
           </>
         )}

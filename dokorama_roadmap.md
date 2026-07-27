@@ -94,12 +94,12 @@ Die Reihenfolge folgt den vier Tiers aus STATISTIK_KONZEPT.md (Schritt 4). Leitp
 - [x] 5.5 L8 Streuung/Konstanz (Box-Plot; σ im Nerd-Modus) – punkt-basiert. — *erledigt 26.07.2026.* Waagerechter Box-Plot je Spieler:in auf EINER gemeinsamen Skala (min/Q1/Median/Q3/max), Whisker auf echtes Min/Max (keine Ausreißer-Punkte), feine 0-Linie, Tap-Detailzeile fürs Handy. **Entscheidungen (Jan):** Default-Ebene **Spiel** (meiste Datenpunkte), Sortierung nach **Median**, P6-Dämpfung bei < 8 Werten (grau + ans Ende). σ nur im Nerd-Modus. `lib/stats.js` → `spreadStats(data,level)` + `quantile`-Helfer (lineare Interpolation „Typ 7"); σ = Populations-Standardabweichung. NEU `components/stats/BoxPlot.jsx` (theme-fähig über Design-Tokens).
 
 **Phase 6 – Ausdauer-Block (A1–A7)**
-- [ ] 6.1 A1 Mengen (Spiele/Runden/Partien), A2 Dichte, A3 Teilnahmequote – voll verfügbar.
+- [x] 6.1 A1 Mengen (Spiele/Runden/Partien), A2 Dichte, A3 Teilnahmequote – voll verfügbar. — *erledigt 27.07.2026.* Alle drei P6-immun (Mengen/Dichte absolut, A3 = Gruppen-Nenner) → keine Dämpfung. A2 = Ø Runden/Partie + Ø Spiele/Runde (Master-Tabellen-Variante, eigene Einheiten). **Zusammen mit der Navigations-Ebene 0/1 gebaut (Vorziehen aus Phase 7):** Dashboard mit Gesamtscore-Held + Rubrik-Kacheln (Leistung/Ausdauer, mit Highlight-Zeile) → Tap öffnet Rubrik-Seite mit Zurück; `activeBlock`-State in StatsPage, kein Router. Neue Bau-Fns in StatsPage (buildMengen/buildDichte/buildTeilnahme, reuse der vorhandenen playedGames/Rounds/SessionsByPlayer); NEU `RubrikCard`/`RubrikGrid`/`BackBar`.
 - [ ] 6.2 A4 Anwesenheits-Timeline.
 - [ ] 6.3 A5 Gebeversuche + A6/A7 Spielzeit – mit P2-Lückenhinweis (für Importe großteils leer → „erst ab App-Erfassung" statt falscher 0).
 
 **Phase 7 – Feinschliff Navigation**
-- [ ] 7.1 Ranglisten-Zwischenebene (Umschalter Leistung/Ausdauer) + Kompakt-Kacheln (Top 3) → Klick = Vollliste. (Spieler-Steckbrief bleibt Tier 2.)
+- [~] 7.1 Ranglisten-Zwischenebene. **Ebene 0/1 (Rubrik-Kacheln Leistung/Ausdauer → Rubrik-Seite mit Zurück) bereits mit 6.1 vorgezogen & erledigt (27.07.2026).** OFFEN bleibt der Rest, bewusst zusammen mit dem Spieler-Steckbrief in **Tier 2**: Kennzahl-Kacheln (Top 3 je Kennzahl) → Klick = Vollliste einer einzelnen Kennzahl → Klick auf Person = Spieler-Steckbrief. (Grund fürs Verschieben: der Absprung-Sinn der Kennzahl-Kachel ist der Steckbrief; ohne ihn wäre „Kachel → Vollliste" = das heutige inline-„Alle anzeigen".)
 
 ---
 
