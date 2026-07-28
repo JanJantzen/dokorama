@@ -27,6 +27,8 @@ import {
   clarityStats,
   spreadStats,
   attendanceTimeline,
+  dealingStats,
+  playtimeStats,
   buildScoreCurve,
   filterByPeriod,
   availableYears,
@@ -240,6 +242,38 @@ function BackBar({ title, onBack }) {
   )
 }
 
+// Kleiner Hinweis-Kasten für Datenlücken (P2): erklärt, dass eine Kennzahl nur
+// auf einem Teil der Historie beruht – statt still eine falsche 0 zu zeigen.
+function GapNote({ children }) {
+  return (
+    <p className="mb-3 text-[11px] text-muted-foreground bg-muted/40 border border-border rounded-lg px-3 py-2">
+      {children}
+    </p>
+  )
+}
+
+// A7: drei kleine Kacheln mit der Ø-Dauer je Partie / Runde / Spiel. Die Dauer
+// ist eine Eigenschaft des Abends (für alle am Tisch gleich), deshalb KEINE
+// Personen-Rangliste, sondern kompakte Gruppen-Werte.
+function DurationTiles({ avg, gameCaveat }) {
+  const tiles = [
+    { label: 'Ø Partie', value: avg.session },
+    { label: 'Ø Runde',  value: avg.round },
+    { label: 'Ø Spiel',  value: avg.game, caveat: gameCaveat },
+  ]
+  return (
+    <div className="grid grid-cols-3 gap-3">
+      {tiles.map(t => (
+        <div key={t.label} className="flex flex-col items-center justify-center p-3 rounded-xl border border-border bg-card text-center">
+          <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{t.label}</span>
+          <span className="text-base font-semibold tabular-nums mt-1">{fmtDur(t.value)}</span>
+          {t.caveat && <span className="text-[9px] text-muted-foreground mt-0.5 leading-tight">{t.caveat}</span>}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── Wert-Formatierungen (Anzeige) ──
 // Ganzzahl mit Vorzeichen: +120 / −162 (fehlend → „–").
 const fmtInt = (n) => (n === null ? '–' : n > 0 ? `+${n}` : `${n}`)
@@ -256,6 +290,17 @@ const fmtCount = (n) => (n === null ? '–' : `${n}`)
 const fmtDec1 = (n) => (n === null ? '–' : n.toFixed(1).replace('.', ','))
 // Quote als Prozent ohne Nachkommastelle: 63 % (Eingabe ist ein Anteil 0…1).
 const fmtQuote = (n) => (n === null ? '–' : `${Math.round(n * 100)} %`)
+// Mehrleistung über eine Norm, in Prozentpunkten mit Plus-Vorzeichen: +20 % / 0 %.
+// (Eingabe ist schon der Prozentwert, nicht der Anteil – kann hier nie < 0 werden.)
+const fmtPlusPercent = (n) => (n === null ? '–' : `${n > 0 ? '+' : ''}${Math.round(n)} %`)
+// Zeitdauer aus Millisekunden: „2 h 39 min" bzw. „8 min" (unter 1 h ohne Stunden).
+const fmtDur = (ms) => {
+  if (ms == null) return '–'
+  const min = Math.round(ms / 60000)
+  if (min < 60) return `${min} min`
+  const h = Math.floor(min / 60), m = min % 60
+  return m ? `${h} h ${m} min` : `${h} h`
+}
 
 // Baut die Gesamtscore-Einträge für StatsRankingList: pro Person zwei Werte –
 // absolut (Summe Zählpunkte) und pro 4 Runden (Summe ÷ eigene gespielte Runden × 4).
@@ -644,6 +689,57 @@ const TEILNAHME_COLUMNS = [
   { key: 'quote', label: 'Anteil', format: fmtQuote, tone: 'plain' },
 ]
 
+// A5 Gebeversuche: absolute Zahl der Gaben (Rotation + Solo-Neugaben + Neugeben)
+// und daneben die „Mehrlast" – wie viel öfter als der Soll (1×/Runde) jemand
+// austeilen musste. Rohwert Gaben/Runden liegt immer knapp über 1; wir zeigen
+// deshalb die prozentuale Mehrleistung (1,2 → +20 %), das spreizt Pech-/Solo-
+// Vielgeber sichtbar. Beides P6-immun (Mengen bzw. strukturelle Relation).
+function buildGebeversuche(data) {
+  const deals  = dealingStats(data)
+  const rounds = playedRoundsByPlayer(data)
+  return [...deals.entries()].map(([id, d]) => {
+    const p = data.players.get(id)
+    const r = rounds.get(id) ?? 0
+    return {
+      id,
+      name:      p?.name ?? '?',
+      avatarUrl: p?.avatarUrl ?? null,
+      values: {
+        gaben:    d,
+        // Ohne gespielte Runden keine sinnvolle Relation → null (zeigt „–").
+        mehrlast: r > 0 ? (d / r - 1) * 100 : null,
+      },
+      // P6: „Gaben" ist eine Absolutzahl und bleibt immun; die „Mehrlast" ist
+      // eine Quote (Gaben ÷ Runden) und rauscht bei wenigen Runden stark – wie
+      // jede andere Quote im App dämpfen wir sie bei < 8 Runden.
+      weak: { mehrlast: isWeakSample(r) },
+    }
+  })
+}
+
+const GEBEVERSUCHE_COLUMNS = [
+  { key: 'gaben',    label: 'Gaben',    format: fmtCount,       tone: 'plain' },
+  { key: 'mehrlast', label: 'Mehrlast', format: fmtPlusPercent, tone: 'plain' },
+]
+
+// A6 Spielstunden: Summe der am Tisch verbrachten Zeit je Person, nur aus
+// App-erfassten Abenden (Importe haben keine Uhrzeiten – s. P2-Hinweis).
+function buildSpielstunden(pt, data) {
+  return [...pt.perPlayer.entries()].map(([id, ms]) => {
+    const p = data.players.get(id)
+    return {
+      id,
+      name:      p?.name ?? '?',
+      avatarUrl: p?.avatarUrl ?? null,
+      values: { zeit: ms },
+    }
+  })
+}
+
+const SPIELSTUNDEN_COLUMNS = [
+  { key: 'zeit', label: 'Spielzeit', format: fmtDur, tone: 'plain' },
+]
+
 // Name der Person mit dem höchsten Wert in einer Map(id → zahl) – für die
 // Highlight-Zeile auf den Rubrik-Kacheln. Leere Map → „–".
 function topName(data, map) {
@@ -729,6 +825,10 @@ function StatsPageInner() {
   const dichte     = useMemo(() => (filtered ? buildDichte(filtered)        : null), [filtered])
   const teilnahme  = useMemo(() => (filtered ? buildTeilnahme(filtered)     : null), [filtered])
   const attendance = useMemo(() => (filtered ? attendanceTimeline(filtered) : null), [filtered])
+  const gebeversuche = useMemo(() => (filtered ? buildGebeversuche(filtered) : null), [filtered])
+  // Spielzeit (A6/A7): einmal die Rohkennzahlen, daraus die Personen-Liste (A6).
+  const playtime     = useMemo(() => (filtered ? playtimeStats(filtered) : null), [filtered])
+  const spielstunden = useMemo(() => (playtime ? buildSpielstunden(playtime, filtered) : null), [playtime, filtered])
 
   // Highlight-Zeilen für die Rubrik-Kacheln (Dashboard): aktuelle Spitzenreiter:innen.
   //   Leistung → meiste Siege (L1), Ausdauer → meiste Partien (A1).
@@ -1058,6 +1158,69 @@ function StatsPageInner() {
               </SectionTitle>
 
               <AttendanceGrid timeline={attendance} />
+            </section>
+
+            {/* ── Gebeversuche (A5) ── */}
+            <section>
+              <SectionTitle
+                info={
+                  <InfoDefs items={[
+                    { t: 'Gaben',    d: 'wie oft jemand mischen & austeilen musste (absolut)' },
+                    { t: 'Mehrlast', d: 'wie viel öfter als der Soll (1× pro Runde) – durch Solo-Neugaben und Neugeben' },
+                    { n: 'Gezählt werden: das normale Geben (Rotation), die Solo-Neugabe (nach einem angesagten Solo gibt derselbe nochmal) und jedes Neugeben (fünf Neunen / Armut ohne Retter / trumpfschwach / vergeben).' },
+                  ]} />
+                }
+              >
+                Gebeversuche
+              </SectionTitle>
+
+              <StatsRankingList
+                entries={gebeversuche}
+                columns={GEBEVERSUCHE_COLUMNS}
+                defaultSortKey="mehrlast"
+                colWidth="w-20"
+              />
+            </section>
+
+            {/* ── Spielzeit (A6/A7) ── */}
+            <section>
+              <SectionTitle
+                info={
+                  <InfoDefs items={[
+                    { t: 'Spielzeit', d: 'am Tisch verbrachte Zeit je Person (Summe der besuchten Abende)' },
+                    { t: 'Ø Partie/Runde/Spiel', d: 'durchschnittliche Dauer einer Einheit' },
+                    { n: 'Dauer eines Abends = vom ersten bis zum letzten Spiel. Ø Spiel ist erfassungsempfindlich (Pausen zwischen Spielen verwischen mit der Spieldauer).' },
+                  ]} />
+                }
+              >
+                Spielzeit
+              </SectionTitle>
+
+              {playtime.dates.length === 0 ? (
+                <GapNote>
+                  Für den gewählten Zeitraum gibt es noch keine Abende mit Uhrzeiten – Spielzeiten
+                  entstehen erst ab der App-Erfassung (ältere importierte Abende haben keine Zeitstempel).
+                </GapNote>
+              ) : (
+                <>
+                  <GapNote>
+                    Nur aus {playtime.dates.length} App-erfassten{' '}
+                    {playtime.dates.length === 1 ? 'Abend' : 'Abenden'} (ab {recordDate(playtime.dates[0])}).
+                    Ältere importierte Abende haben keine Uhrzeiten und zählen hier bewusst nicht mit.
+                  </GapNote>
+
+                  <SubTitle>Spielstunden</SubTitle>
+                  <StatsRankingList
+                    entries={spielstunden}
+                    columns={SPIELSTUNDEN_COLUMNS}
+                    defaultSortKey="zeit"
+                    colWidth="w-24"
+                  />
+
+                  <SubTitle>Ø Dauer</SubTitle>
+                  <DurationTiles avg={playtime.avg} gameCaveat="mit Vorsicht" />
+                </>
+              )}
             </section>
           </>
         )}

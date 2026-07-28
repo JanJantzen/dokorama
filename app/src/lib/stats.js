@@ -31,9 +31,11 @@ import { supabase } from './supabase'
 // Rückgabe:
 //   {
 //     sessions: [{ id, date }],
-//     rounds:   [{ id, sessionId, number, participantIds: [playerId, …] }],
+//     rounds:   [{ id, sessionId, number, participantIds: [playerId, …],
+//                  participants: [{ playerId, seat }] }],
 //     games:    [{ id, sessionId, sessionDate, roundId, roundNumber, number,
-//                  gameType, winner: 're'|'kontra'|null,
+//                  gameType, createdAt, winner: 're'|'kontra'|null,
+//                  redealDealerIds: [playerId, …],
 //                  results: [{ playerId, partei, sonderrolle, zaehlpunkte }] }],
 //     players:  Map(playerId → { id, name, avatarUrl }),
 //   }
@@ -58,7 +60,7 @@ export async function loadStatsData() {
       rounds (
         id,
         number,
-        round_participations ( player_id ),
+        round_participations ( player_id, seat_position ),
         games (
           id,
           number,
@@ -66,6 +68,7 @@ export async function loadStatsData() {
           augen_re,
           augen_re_min,
           augen_re_max,
+          created_at,
           game_results (
             player_id,
             partei,
@@ -73,7 +76,8 @@ export async function loadStatsData() {
             zaehlpunkte,
             players ( name, avatar_url )
           ),
-          special_points ( player_id )
+          special_points ( player_id ),
+          round_redeals ( dealer_id )
         )
       )
     `)
@@ -97,7 +101,13 @@ export async function loadStatsData() {
     for (const r of s.rounds ?? []) {
       // Wer hat an dieser Runde teilgenommen? (Basis für "pro 4 Runden".)
       const participantIds = (r.round_participations ?? []).map(p => p.player_id)
-      rounds.push({ id: r.id, sessionId: s.id, number: r.number, participantIds })
+      // Zusätzlich mit Sitzposition – nötig für die Geber-Rotation (A5). seat = 1
+      // ist der/die erste Geber:in der Runde; die Rotation läuft 1 → n → 1.
+      const participants = (r.round_participations ?? []).map(p => ({
+        playerId: p.player_id,
+        seat:     p.seat_position,
+      }))
+      rounds.push({ id: r.id, sessionId: s.id, number: r.number, participantIds, participants })
 
       for (const g of r.games ?? []) {
         const results = (g.game_results ?? []).map(gr => {
@@ -126,9 +136,14 @@ export async function loadStatsData() {
           roundNumber: r.number,
           number:      g.number,
           gameType:    g.game_type,
+          createdAt:   g.created_at,     // Zeitstempel (für Spielzeit A6/A7; im Import = Import-Zeit)
           augenRe:     g.augen_re,       // exakte Re-Augen (App-Erfassung) …
           augenReMin:  g.augen_re_min,   // … oder Range aus dem historischen Import
           augenReMax:  g.augen_re_max,
+          // Geber:innen der gescheiterten Gebversuche an diesem Spiel (Quelle 3
+          // für A5). Jedes Neugeben ist eine zusätzliche Gabe – egal aus welcher
+          // Ursache (fünf Neunen / Armut ohne Retter / trumpfschwach / vergeben).
+          redealDealerIds: (g.round_redeals ?? []).map(rd => rd.dealer_id),
           winner:      deriveWinner(g, results),   // 're' | 'kontra' | null (Basis für L1/L5/L9)
           results,
         })
@@ -368,6 +383,129 @@ export function attendanceTimeline(data) {
   rows.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
 
   return { sessions: sessions.map(s => ({ id: s.id, date: s.date })), rows }
+}
+
+// Angesagte Solos, bei denen der/die Geber:in NOCHMAL gibt (Rotation hält an):
+// fleischlos, buben_solo, damen_solo, farb_solo. NICHT dabei: Stilles Solo und
+// Solo Hochzeit – die verlängern die Runde nicht und rücken normal weiter.
+const HELD_ROTATION_TYPES = new Set(['fleischlos', 'buben_solo', 'damen_solo', 'farb_solo'])
+
+// A5 – Gebeversuche: wie oft jemand mischen & austeilen musste. Summe aus drei
+// Quellen (alle drei, nicht nur die Redeal-Tabelle):
+//   1. normales Geben  – Rotation: jede:r gibt pro Runde genau einmal
+//   2. Solo-Neugabe    – nach einem angesagten Solo gibt derselbe nochmal
+//   3. Fehl-Gebversuch – jedes Neugeben (round_redeals) ist eine zusätzliche
+//                        Gabe des dortigen Gebers, egal aus welcher Ursache
+//
+// Quelle 1+2 ergeben sich aus der Geber-Rotation: pro Runde bei seat 1 starten,
+// nach jedem NORMALEN Spiel eins weiterrücken, nach einem angesagten Solo den
+// Geber HALTEN (er gibt das verlängernde Folgespiel) – so fällt die Solo-Neugabe
+// automatisch dem richtigen seat zu. Quelle 3 hängt direkt an den Spielen.
+//
+// Reine Mengen → P6-immun. Rückgabe: Map(playerId → Anzahl Gaben).
+export function dealingStats(data) {
+  const deals = new Map()
+  const add = (pid) => { if (pid != null) deals.set(pid, (deals.get(pid) ?? 0) + 1) }
+
+  // Spiele je Runde gruppieren (später in Nummern-Reihenfolge durchlaufen).
+  const gamesByRound = new Map()
+  for (const g of data.games) {
+    let arr = gamesByRound.get(g.roundId)
+    if (!arr) { arr = []; gamesByRound.set(g.roundId, arr) }
+    arr.push(g)
+  }
+
+  for (const round of data.rounds) {
+    const parts = round.participants ?? []
+    const n = parts.length
+    if (n === 0) continue
+    const seatMap = new Map(parts.map(p => [p.seat, p.playerId])) // seat → playerId
+    const games = (gamesByRound.get(round.id) ?? []).slice().sort((a, b) => a.number - b.number)
+
+    let seat = 1 // seat 1 = erste:r Geber:in der Runde
+    for (const g of games) {
+      add(seatMap.get(seat))                            // Quelle 1+2: die Gabe dieses Spiels
+      for (const pid of g.redealDealerIds ?? []) add(pid) // Quelle 3: Fehl-Gebversuche
+      // Rotation fortschreiben – außer nach angesagtem Solo (derselbe gibt nochmal).
+      if (!HELD_ROTATION_TYPES.has(g.gameType)) seat = (seat % n) + 1
+    }
+  }
+  return deals
+}
+
+// A6/A7 – Spielzeit. Nur aus App-erfassten Abenden: dort tragen die Spiel-
+// Zeitstempel (created_at) die echte Uhrzeit. Beim historischen Import wurden
+// alle Spiele eines Abends in derselben Sekunde eingespielt → keine Dauer.
+// Ein Abend gilt als „getimt", wenn er mindestens ein App-Spiel hat (augenRe
+// gesetzt = exakte Augen = App-Erfassung) und die Zeitstempel auseinanderliegen.
+//
+// A6 (Spielstunden je Person) = Summe der Zeitspannen der besuchten getimten
+// Abende. A7 (Ø Dauer) = gesamte getimte Zeit ÷ Anzahl getimter Partien/Runden/
+// Spiele. Dauer eines Abends = letzter minus erster Spiel-Zeitstempel (die
+// Dauer des letzten Spiels selbst fehlt mangels Endzeit – leichte Unterschätzung).
+//
+// Rückgabe:
+//   {
+//     perPlayer: Map(playerId → ms),          // A6
+//     totalMs,                                 // Summe aller getimten Abende
+//     counts: { sessions, rounds, games },     // getimte Einheiten (Nenner A7)
+//     avg:    { session, round, game },        // A7: totalMs ÷ counts (ms, oder null)
+//     dates:  [ 'YYYY-MM-DD', … ],             // getimte Abende (für den P2-Hinweis)
+//   }
+export function playtimeStats(data) {
+  // Spiele je Abend gruppieren.
+  const gamesBySession = new Map()
+  for (const g of data.games) {
+    let arr = gamesBySession.get(g.sessionId)
+    if (!arr) { arr = []; gamesBySession.set(g.sessionId, arr) }
+    arr.push(g)
+  }
+
+  // Getimte Abende + ihre Zeitspanne bestimmen.
+  const timed = new Map() // sessionId → spanMs
+  for (const [sid, gs] of gamesBySession) {
+    if (!gs.some(g => g.augenRe != null)) continue // kein App-Spiel → Import → keine Uhrzeit
+    const ts = gs.map(g => Date.parse(g.createdAt)).filter(Number.isFinite)
+    if (ts.length < 2) continue
+    const span = Math.max(...ts) - Math.min(...ts)
+    if (span > 0) timed.set(sid, span)
+  }
+
+  // Anwesenheit je Abend (aus den Runden-Teilnahmen), um A6 zuzuordnen.
+  const attend = new Map() // sessionId → Set(playerId)
+  for (const round of data.rounds) {
+    let set = attend.get(round.sessionId)
+    if (!set) { set = new Set(); attend.set(round.sessionId, set) }
+    for (const p of round.participants ?? []) set.add(p.playerId)
+  }
+
+  // A6: je Person die Summe der Spannen ihrer besuchten getimten Abende.
+  const perPlayer = new Map()
+  let totalMs = 0
+  for (const [sid, span] of timed) {
+    totalMs += span
+    for (const pid of attend.get(sid) ?? []) {
+      perPlayer.set(pid, (perPlayer.get(pid) ?? 0) + span)
+    }
+  }
+
+  // A7: Nenner = Anzahl getimter Partien / Runden / Spiele.
+  const timedIds = new Set(timed.keys())
+  const rounds = data.rounds.filter(r => timedIds.has(r.sessionId)).length
+  const games  = data.games.filter(g => timedIds.has(g.sessionId)).length
+  const dates  = data.sessions.filter(s => timedIds.has(s.id)).map(s => s.date).sort()
+
+  return {
+    perPlayer,
+    totalMs,
+    counts: { sessions: timed.size, rounds, games },
+    avg: {
+      session: timed.size ? totalMs / timed.size : null,
+      round:   rounds ? totalMs / rounds : null,
+      game:    games  ? totalMs / games  : null,
+    },
+    dates,
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
