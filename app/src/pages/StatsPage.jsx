@@ -26,6 +26,7 @@ import {
   placementStreaks,
   clarityStats,
   spreadStats,
+  attendanceTimeline,
   buildScoreCurve,
   filterByPeriod,
   availableYears,
@@ -35,6 +36,7 @@ import { StatsFilterProvider, useStatsFilter } from '@/contexts/StatsFilterConte
 import StatsRankingList from '@/components/stats/StatsRankingList'
 import ClarityBars from '@/components/stats/ClarityBars'
 import BoxPlot from '@/components/stats/BoxPlot'
+import AttendanceGrid from '@/components/stats/AttendanceGrid'
 import ScoreCurve from '@/components/stats/ScoreCurve'
 import PeriodFilter from '@/components/stats/PeriodFilter'
 
@@ -723,9 +725,10 @@ function StatsPageInner() {
   const spread = useMemo(() => (filtered ? buildSpread(filtered, spreadLevel) : null), [filtered, spreadLevel])
 
   // Ausdauer-Block (A1–A3).
-  const mengen    = useMemo(() => (filtered ? buildMengen(filtered)    : null), [filtered])
-  const dichte    = useMemo(() => (filtered ? buildDichte(filtered)    : null), [filtered])
-  const teilnahme = useMemo(() => (filtered ? buildTeilnahme(filtered) : null), [filtered])
+  const mengen     = useMemo(() => (filtered ? buildMengen(filtered)        : null), [filtered])
+  const dichte     = useMemo(() => (filtered ? buildDichte(filtered)        : null), [filtered])
+  const teilnahme  = useMemo(() => (filtered ? buildTeilnahme(filtered)     : null), [filtered])
+  const attendance = useMemo(() => (filtered ? attendanceTimeline(filtered) : null), [filtered])
 
   // Highlight-Zeilen für die Rubrik-Kacheln (Dashboard): aktuelle Spitzenreiter:innen.
   //   Leistung → meiste Siege (L1), Ausdauer → meiste Partien (A1).
@@ -1037,6 +1040,24 @@ function StatsPageInner() {
                 columns={TEILNAHME_COLUMNS}
                 defaultSortKey="quote"
               />
+            </section>
+
+            {/* ── Anwesenheit (A4) ── */}
+            <section>
+              <SectionTitle
+                info={
+                  <InfoDefs items={[
+                    { n: 'Wer war an welchem Spielabend dabei? Ein Balken je Person, von links (ältester Abend) nach rechts (jüngster) – ein Segment pro Abend.' },
+                    { t: 'Grün', d: 'an dem Abend dabei' },
+                    { t: 'Grau', d: 'gefehlt' },
+                    { n: 'Durchgehend grün = treuer Stammgast; erst grün, dann grau = intensive Phase, danach abgeflacht. Tipp: auf eine Zeile tippen zeigt die Zusammenfassung.' },
+                  ]} />
+                }
+              >
+                Anwesenheit
+              </SectionTitle>
+
+              <AttendanceGrid timeline={attendance} />
             </section>
           </>
         )}

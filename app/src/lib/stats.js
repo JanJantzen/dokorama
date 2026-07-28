@@ -307,6 +307,69 @@ export function playedSessionsByPlayer(data) {
   return counts
 }
 
+// A4 – Anwesenheits-Timeline (Ausdauer-Block).
+//
+// Baut das „Präsenz-Raster": links jede Person, oben die Spielabende in
+// chronologischer Reihenfolge, und für jede Kombination die schlichte Aussage
+// „an diesem Abend dabei – ja/nein". „Dabei" heißt: in mindestens einer Runde
+// des Abends als Teilnehmer:in eingetragen (gleiche Quelle wie
+// playedSessionsByPlayer). Reine Anwesenheit ist immer exakt erfasst →
+// P6-immun, auf jeder Datenqualität voll belastbar.
+//
+// So liest man aus einer Zeile die „Spielerbiografie": durchgehend gefüllt =
+// treuer Stammgast; erst voll, dann leer = intensive Phase, danach abgeflacht.
+//
+// Rückgabe:
+//   {
+//     sessions: [{ id, date }],          // chronologisch (alt → neu)
+//     rows: [{
+//       id, name, avatarUrl,
+//       present: [bool, …],              // deckungsgleich zur sessions-Reihenfolge
+//       total,                           // Anzahl besuchter Abende
+//       firstDate, lastDate,             // erster/letzter besuchter Abend (oder null)
+//     }],
+//   }
+export function attendanceTimeline(data) {
+  // Abende chronologisch sortieren – identischer Vergleich wie sessionChronoIndex
+  // (Datum, bei Gleichstand die Anlage-Zeit), damit die Reihenfolge überall gleich ist.
+  const sessions = [...data.sessions].sort((a, b) => {
+    if (a.date !== b.date) return a.date < b.date ? -1 : 1
+    return (a.createdAt ?? '') < (b.createdAt ?? '') ? -1 : 1
+  })
+
+  // Wer war an welchem Abend dabei? Aus den Runden-Teilnahmen einsammeln.
+  const presence = new Map() // playerId → Set(sessionId)
+  for (const round of data.rounds) {
+    for (const pid of round.participantIds) {
+      let set = presence.get(pid)
+      if (!set) { set = new Set(); presence.set(pid, set) }
+      set.add(round.sessionId)
+    }
+  }
+
+  // Je Person die Präsenz-Reihe (deckungsgleich zur sessions-Reihenfolge) bauen.
+  const rows = []
+  for (const [pid, set] of presence) {
+    const p = data.players.get(pid)
+    const present = sessions.map(s => set.has(s.id))
+    let total = 0, firstIdx = -1, lastIdx = -1
+    present.forEach((v, i) => { if (v) { total++; if (firstIdx < 0) firstIdx = i; lastIdx = i } })
+    rows.push({
+      id:        pid,
+      name:      p?.name ?? '?',
+      avatarUrl: p?.avatarUrl ?? null,
+      present,
+      total,
+      firstDate: firstIdx >= 0 ? sessions[firstIdx].date : null,
+      lastDate:  lastIdx  >= 0 ? sessions[lastIdx].date  : null,
+    })
+  }
+  // Stammgäste oben: nach Gesamt-Teilnahme absteigend, bei Gleichstand nach Name.
+  rows.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
+
+  return { sessions: sessions.map(s => ({ id: s.id, date: s.date })), rows }
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // 3. Saldo pro Einheit (gemeinsame Grundgröße für L7 und L2/L3/L4)
 // ────────────────────────────────────────────────────────────────────────────
