@@ -11,7 +11,9 @@ import { ArrowLeft, ChevronRight, Trash2, PenLine, Eye } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import StandingsList from '@/components/session/StandingsList'
+import PartieSteckbrief from '@/components/stats/PartieSteckbrief'
 import { loadStandings } from '@/lib/standings'
+import { loadStatsData } from '@/lib/stats'
 import { deleteSession, formatSessionDate } from '@/lib/sessions'
 
 export default function SessionResultPage() {
@@ -21,6 +23,7 @@ export default function SessionResultPage() {
 
   const [session, setSession] = useState(null)
   const [standings, setStandings] = useState(null)
+  const [statsData, setStatsData] = useState(null) // Gruppendaten für den Partie-Steckbrief
   const [error, setError] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [working, setWorking] = useState(false)
@@ -31,6 +34,14 @@ export default function SessionResultPage() {
       .then(({ data }) => setSession(data))
     loadStandings(id).then(setStandings).catch(() => setError(true))
   }, [id])
+
+  // Partie-Steckbrief („Stats des Abends"): braucht die Gruppendaten (u. a. für
+  // den Benchmark in Phase 8.3). Nur für BEENDETE Partien laden – bei laufenden
+  // gibt es noch keinen Abend-Steckbrief und der Full-Load wäre unnötig.
+  useEffect(() => {
+    if (session?.status !== 'abgeschlossen') return
+    loadStatsData().then(setStatsData).catch(() => {})
+  }, [session?.status])
 
   // Live-Updates: Spielstand neu laden wenn der Schreiber ein Spiel bestätigt
   useEffect(() => {
@@ -100,6 +111,12 @@ export default function SessionResultPage() {
       <div className="flex-1 overflow-y-auto px-4 py-5 flex flex-col gap-4">
 
         <StandingsList standings={standings} error={error} />
+
+        {/* Stats des Abends (Partie-Steckbrief) – nur bei beendeten Partien, sobald
+            die Gruppendaten geladen sind. */}
+        {!isRunning && statsData && (
+          <PartieSteckbrief data={statsData} sessionId={id} />
+        )}
 
         {/* Laufende Partie: Zum Tisch – kontextbewusst je nachdem wer gerade schreibt */}
         {isRunning && (

@@ -140,6 +140,9 @@ export async function loadStatsData() {
           augenRe:     g.augen_re,       // exakte Re-Augen (App-Erfassung) …
           augenReMin:  g.augen_re_min,   // … oder Range aus dem historischen Import
           augenReMax:  g.augen_re_max,
+          // Gewinner:innen der Sonderpunkte dieses Spiels (player_id = wer ihn erzielt
+          // hat). Für Partie-Steckbrief 8.3: Anzahl (= .length) + Pro-Person-Zeile.
+          specialPointPlayers: (g.special_points ?? []).map(sp => sp.player_id),
           // Geber:innen der gescheiterten Gebversuche an diesem Spiel (Quelle 3
           // für A5). Jedes Neugeben ist eine zusätzliche Gabe – egal aus welcher
           // Ursache (fünf Neunen / Armut ohne Retter / trumpfschwach / vergeben).
@@ -973,4 +976,251 @@ export function buildScoreCurve(data) {
 function shortDate(iso) {
   const [, m, d] = iso.split('-')
   return `${Number(d)}.${Number(m)}.`
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 9. Partie-Steckbrief („Stats of the Party", Tier 2 / Phase 8)
+// ────────────────────────────────────────────────────────────────────────────
+//
+// Alle folgenden Funktionen beschreiben GENAU EINE Partie (sessionId). Sie sind
+// reines Filtern der ohnehin geladenen Gruppendaten – kein neuer Datentopf, kein
+// eigener DB-Zugriff (Konzept: „bestehende Kennzahlen, gefiltert auf eine Partie").
+
+// buildSessionCurve – Verlaufskurve über die Spiele EINER Partie (Phase 8.1).
+//
+// Anders als buildScoreCurve (x-Achse = Partien über die ganze Historie) läuft
+// die x-Achse hier über die einzelnen Spiele DIESES Abends (1, 2, 3, …). y ist
+// der kumulierte Saldo je Spieler:in. Rückgabeform ist identisch zu
+// buildScoreCurve ({ points: [{ label, <playerId>: wert, … }], players }), damit
+// die ScoreCurve-Komponente unverändert wiederverwendet werden kann.
+export function buildSessionCurve(data, sessionId) {
+  // Spiele dieser Partie in echter Spielreihenfolge: erst nach Runde, dann nach
+  // Spielnummer innerhalb der Runde.
+  const games = data.games
+    .filter(g => g.sessionId === sessionId)
+    .sort((a, b) => (a.roundNumber - b.roundNumber) || (a.number - b.number))
+
+  // Wer war an diesem Abend beteiligt? Jede:r mit mindestens einem echten (nicht
+  // ausgesetzten) Ergebnis bekommt eine Linie. Reine Aussetzer bleiben außen vor.
+  const involved = new Set()
+  for (const g of games) {
+    for (const res of g.results) {
+      if (res.partei !== 'ausgesetzt') involved.add(res.playerId)
+    }
+  }
+
+  // Laufende Summe je Spieler:in; nach jedem Spiel ein Kurvenpunkt. Wer ein Spiel
+  // aussetzt, behält seinen Stand → die Linie bleibt an der Stelle flach.
+  //
+  // Jeder Punkt bekommt ein eindeutiges Label (der globale Spiel-Index als String)
+  // und daneben Meta-Infos (Runde, Spielnummer innerhalb der Runde, ob hier eine
+  // neue Runde beginnt). meta ist nach Label gekippt, damit die ScoreCurve die
+  // x-Achse zweizeilig beschriften (Spielnr. + Rundenmarker) und im Tooltip
+  // „Runde X · Spiel Y" zeigen kann.
+  const running = new Map()
+  const points = []
+  const meta = {}
+  let idx = 0
+  let prevRound = null
+  for (const g of games) {
+    idx++
+    for (const res of g.results) {
+      running.set(res.playerId, (running.get(res.playerId) ?? 0) + res.zaehlpunkte)
+    }
+    const label = String(idx)
+    const point = { label }
+    for (const pid of involved) point[pid] = running.get(pid) ?? 0
+    points.push(point)
+    meta[label] = {
+      round:      g.roundNumber,
+      game:       g.number,               // Spielnummer INNERHALB der Runde
+      roundStart: g.roundNumber !== prevRound,
+    }
+    prevRound = g.roundNumber
+  }
+
+  // Spieler:innen nach Endstand absteigend – bestimmt die Reihenfolge der Linien
+  // und der rechten Rang-Liste (führend zuerst).
+  const players = [...involved]
+    .map(pid => ({ id: pid, name: data.players.get(pid)?.name ?? '?' }))
+    .sort((a, b) => (running.get(b.id) ?? 0) - (running.get(a.id) ?? 0))
+
+  return { points, players, meta }
+}
+
+// sessionSingleGameExtremes – bester/schlechtester Einzelspielwert EINES Abends
+// (Phase 8.2). „Einzelspielwert" = die Zählpunkte, die eine Person in einem
+// einzelnen Spiel geholt hat (gleiche Idee wie L7 auf Spiel-Ebene, nur auf diese
+// Partie begrenzt). Aussetzer zählen nicht mit.
+//
+// Rückgabe je Rekord: { value, holders: [{ name, round, game }, …] }. holders
+// enthält jede:n Inhaber:in mit dem eigenen Spielort (Runde/Spiel), z. B. beide
+// Partner eines Team-Werts oder – selten – dieselbe Person in zwei Spielen mit
+// gleichem Wert. Dubletten (Name + gleicher Ort) werden entfernt.
+export function sessionSingleGameExtremes(data, sessionId) {
+  const games = data.games.filter(g => g.sessionId === sessionId)
+
+  let best = null   // { value, entries: [{ playerId, round, game }] }
+  let worst = null
+
+  for (const g of games) {
+    for (const res of g.results) {
+      if (res.partei === 'ausgesetzt') continue
+      const v = res.zaehlpunkte
+      const entry = { playerId: res.playerId, round: g.roundNumber, game: g.number }
+      if (!best || v > best.value)      best = { value: v, entries: [entry] }
+      else if (v === best.value)        best.entries.push(entry)
+      if (!worst || v < worst.value)    worst = { value: v, entries: [entry] }
+      else if (v === worst.value)       worst.entries.push(entry)
+    }
+  }
+
+  // Rohform → Anzeigeform: je Inhaber:in Name + eigener Ort (Dubletten raus).
+  const shape = (rec) => {
+    if (!rec) return null
+    const seen = new Set()
+    const holders = []
+    for (const e of rec.entries) {
+      const name = data.players.get(e.playerId)?.name ?? '?'
+      const key = `${name}|${e.round}|${e.game}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      holders.push({ name, round: e.round, game: e.game })
+    }
+    return { value: rec.value, holders }
+  }
+
+  return { best: shape(best), worst: shape(worst) }
+}
+
+// sessionStreaks – längste Sieg-/Niederlagenserie INNERHALB eines Abends
+// (Phase 8.2, L5-Logik auf die Partie begrenzt). Pro Person die Spiele des Abends
+// in Reihenfolge; ein Aussetzen unterbricht die Serie NICHT (übersprungen), nur
+// das jeweils andere Ergebnis bricht sie. Anschließend das Maximum über alle
+// Personen. Eine „Serie" zählt erst ab Länge 2; sonst null.
+//
+// Rückgabe je Serie: { len, holders: [{ name, from:{round,game}, to:{round,game} }] }
+// – from/to markieren erstes und letztes Spiel der Serie (für die Spannen-Anzeige
+// „R3S2–R4S2"). Bei Gleichstand mehrere Inhaber:innen mit je eigener Spanne.
+export function sessionStreaks(data, sessionId) {
+  const games = data.games
+    .filter(g => g.sessionId === sessionId)
+    .sort((a, b) => (a.roundNumber - b.roundNumber) || (a.number - b.number))
+
+  // Ergebnis-Folge je Person mit Spielort: { outcome:'win'|'loss', round, game }.
+  // Unentschiedene/gewinnerlose Spiele und Aussetzer kommen gar nicht erst rein
+  // → sie unterbrechen die Serie nicht.
+  const seq = new Map()
+  for (const g of games) {
+    if (!g.winner) continue
+    for (const res of g.results) {
+      if (res.partei === 'ausgesetzt') continue
+      const outcome = res.partei === g.winner ? 'win' : 'loss'
+      if (!seq.has(res.playerId)) seq.set(res.playerId, [])
+      seq.get(res.playerId).push({ outcome, round: g.roundNumber, game: g.number })
+    }
+  }
+
+  // Längste Serie eines Ergebnistyps in einer Folge, inkl. Start-/End-Spiel.
+  const longestRun = (arr, target) => {
+    let best = { len: 0, from: null, to: null }
+    let curLen = 0, curFrom = null
+    for (const e of arr) {
+      if (e.outcome === target) {
+        if (curLen === 0) curFrom = e
+        curLen++
+        if (curLen > best.len) best = { len: curLen, from: curFrom, to: e }
+      } else {
+        curLen = 0; curFrom = null
+      }
+    }
+    return best
+  }
+
+  const perPlayer = new Map()
+  for (const [pid, arr] of seq) {
+    perPlayer.set(pid, { win: longestRun(arr, 'win'), loss: longestRun(arr, 'loss') })
+  }
+
+  // Gruppen-Maximum + alle Inhaber:innen (Gleichstand → mehrere, je eigene Spanne).
+  let maxWin = 0, maxLoss = 0
+  for (const v of perPlayer.values()) {
+    if (v.win.len > maxWin)   maxWin = v.win.len
+    if (v.loss.len > maxLoss) maxLoss = v.loss.len
+  }
+  const nm = (pid) => data.players.get(pid)?.name ?? '?'
+  const collect = (key, len) =>
+    [...perPlayer]
+      .filter(([, v]) => v[key].len === len)
+      .map(([pid, v]) => ({ name: nm(pid), from: v[key].from, to: v[key].to }))
+
+  return {
+    bestWin:  maxWin  >= 2 ? { len: maxWin,  holders: collect('win', maxWin) }   : null,
+    bestLoss: maxLoss >= 2 ? { len: maxLoss, holders: collect('loss', maxLoss) } : null,
+  }
+}
+
+// Spieltypen, die als Solo bzw. als Sonderspiel (Hochzeit/Armut) zählen.
+const SOLO_TYPES = new Set([
+  'fleischlos', 'buben_solo', 'damen_solo', 'farb_solo', 'stilles_solo', 'solo_hochzeit',
+])
+const SONDERSPIEL_TYPES = new Set(['hochzeit', 'armut'])
+
+// sessionCounts – Anzahl Solos / Sonderspiele / Sonderpunkte an EINEM Abend, jeweils
+// mit einem längenbereinigten Erwartungswert UND einer Pro-Person-Aufschlüsselung
+// (Phase 8.3).
+//
+// Erwartungswert statt simplem Ø pro Partie: Ein simpler „Gesamtzahl ÷ Anzahl
+// Partien" wäre durch die Abendlänge verzerrt (ein langer Abend hat mechanisch mehr
+// Solos). Stattdessen die Gruppen-Rate PRO RUNDE (Gesamtzahl ÷ alle Runden) × die
+// Runden DIESES Abends → „so viele wären an einem Abend dieser Länge erwartbar".
+// Runde als Basis (nicht Spiel), weil ein angesagtes Solo die Runde um ein Spiel
+// verlängert – „Spiele" wären durch die Solos selbst aufgebläht, Runden nicht.
+// Reine Einordnung, kein Ranking, keine P6-Behandlung.
+//
+// Zuordnung „wer": Solo → der/die Solist:in (sonderrolle 'solist'); Sonderspiel →
+// der/die Hauptrolle (sonderrolle 'hochzeit' bzw. 'arm'); Sonderpunkt → wer ihn
+// erzielt hat (specialPointPlayers).
+export function sessionCounts(data, sessionId) {
+  let sSolo = 0, sSs = 0, sSp = 0   // dieser Abend
+  let gSolo = 0, gSs = 0, gSp = 0   // ganze Gruppe
+
+  // Pro-Person-Zähler NUR für diesen Abend (playerId → Anzahl).
+  const bySolo = new Map()
+  const bySs   = new Map()
+  const bySp   = new Map()
+  const bump = (map, pid) => { if (pid) map.set(pid, (map.get(pid) ?? 0) + 1) }
+
+  for (const g of data.games) {
+    const solo = SOLO_TYPES.has(g.gameType) ? 1 : 0
+    const ss   = SONDERSPIEL_TYPES.has(g.gameType) ? 1 : 0
+    const spIds = g.specialPointPlayers ?? []
+    gSolo += solo; gSs += ss; gSp += spIds.length
+    if (g.sessionId !== sessionId) continue
+
+    sSolo += solo; sSs += ss; sSp += spIds.length
+    if (solo) bump(bySolo, g.results.find(r => r.sonderrolle === 'solist')?.playerId)
+    if (ss) {
+      const mainRole = g.gameType === 'armut' ? 'arm' : 'hochzeit'
+      bump(bySs, g.results.find(r => r.sonderrolle === mainRole)?.playerId)
+    }
+    for (const pid of spIds) bump(bySp, pid)
+  }
+
+  // Zähler-Map → nach Anzahl absteigend sortierte Namensliste [{ name, count }].
+  const rank = (map) =>
+    [...map]
+      .map(([pid, count]) => ({ name: data.players.get(pid)?.name ?? '?', count }))
+      .sort((a, b) => b.count - a.count)
+
+  // Erwartungswert = Gruppen-Rate pro Runde × Runden dieses Abends.
+  const groupRounds   = data.rounds.length || 1
+  const sessionRounds = data.rounds.filter(r => r.sessionId === sessionId).length
+  const expected = (groupTotal) => (groupTotal / groupRounds) * sessionRounds
+
+  return {
+    solos:        { count: sSolo, expected: expected(gSolo), byPlayer: rank(bySolo) },
+    sonderspiele: { count: sSs,   expected: expected(gSs),   byPlayer: rank(bySs) },
+    sonderpunkte: { count: sSp,   expected: expected(gSp),   byPlayer: rank(bySp) },
+  }
 }

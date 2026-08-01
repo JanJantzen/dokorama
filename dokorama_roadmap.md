@@ -57,7 +57,7 @@ Die Reihenfolge folgt den vier Tiers aus STATISTIK_KONZEPT.md (Schritt 4). Leitp
 3. **Tier 3 – später:** Orte + Ort-Steckbrief; Hall of Fame; Kuriositätenkabinett (strukturell ein Ranglisten-Block, aber mit Vitrinen-/Fun-Charakter statt ernster Leistungsmessung).
 4. **Tier 4 – deutlich später:** das komplette Teamplay (Team-Chemie, Übermut, Partner-Glück/Gegner-Pech, Karlchen-/Fuchs-Battle, Gegner-Bilanz) sowie das rechnerisch teure Partie-Steckbrief-Feature „Neue Rekorde/Ranking-Veränderungen durch diese Partie".
 
-### Tier 1 – Bauplan (in Arbeit)
+### Tier 1 – Bauplan (abgeschlossen; 7.1-Rest → Tier 2)
 
 > Detail-Checkliste zum Abarbeiten (überlebt `/clear`). Fachliche Grundlage: STATISTIK_KONZEPT.md – die Kennzahl-Nummern (L…/A…/G1) sind dort erklärt. Reihenfolge-Kniff: erst die **punkt-basierten** Kennzahlen (brauchen nur `zaehlpunkte`-Summen, auf jeder Datenqualität verfügbar), dann die **gewinner-basierten** (L1/L5/L9), weil der Gewinner ≠ „Punkte > 0" ist.
 >
@@ -99,7 +99,45 @@ Die Reihenfolge folgt den vier Tiers aus STATISTIK_KONZEPT.md (Schritt 4). Leitp
 - [x] 6.3 A5 Gebeversuche + A6/A7 Spielzeit. — *erledigt & abgenommen 29.07.2026.* **A5 Gebeversuche:** Ranking mit „Gaben" (absolut, P6-immun) + „Mehrlast %" (Gaben ÷ eigene Runden − 1, P6-gedämpft wie jede Quote, Default-Sort). Gaben = Rotation (1×/Runde) + Solo-Neugabe (nach angesagtem Solo gibt derselbe nochmal) + jedes Neugeben aus `round_redeals` (alle 4 Ursachen), gezählt nach `dealer_id`. Verifiziert: Σ Gaben = 240 = 238 Spiele + 2 Redeals (alle 49 Runden lückenlose Sitzfolge 1..n). `stats.js` → `dealingStats(data)`; `loadStatsData` lädt jetzt `seat_position`, `created_at` und `round_redeals(dealer_id)`. **A6/A7 Spielzeit:** nur aus App-erfassten Abenden (augen_re gesetzt = echte Uhrzeit; Importe ~0,1 min Import-Sekunde → raus) mit sichtbarem **P2-Lückenhinweis** (`GapNote`) statt falscher 0. A6 = Spielstunden je Person (Ranking), A7 = Ø Partie/Runde/Spiel als Gruppen-Kacheln (`DurationTiles`, Spiel-Ebene mit „mit Vorsicht"-Fußnote). `stats.js` → `playtimeStats(data)`. **Ursachen/Verursacher der Neugeben gehören bewusst NICHT hierher, sondern nach KUR4 (Tier 3):** A5 zählt nach `dealer_id` (Mischarbeit), KUR4 nach `culprit_id` (Schuldfrage) – „Vergeben" = Tollpatsch-Orden.
 
 **Phase 7 – Feinschliff Navigation**
-- [~] 7.1 Ranglisten-Zwischenebene. **Ebene 0/1 (Rubrik-Kacheln Leistung/Ausdauer → Rubrik-Seite mit Zurück) bereits mit 6.1 vorgezogen & erledigt (27.07.2026).** OFFEN bleibt der Rest, bewusst zusammen mit dem Spieler-Steckbrief in **Tier 2**: Kennzahl-Kacheln (Top 3 je Kennzahl) → Klick = Vollliste einer einzelnen Kennzahl → Klick auf Person = Spieler-Steckbrief. (Grund fürs Verschieben: der Absprung-Sinn der Kennzahl-Kachel ist der Steckbrief; ohne ihn wäre „Kachel → Vollliste" = das heutige inline-„Alle anzeigen".)
+- [~] 7.1 Ranglisten-Zwischenebene. **Ebene 0/1 (Rubrik-Kacheln Leistung/Ausdauer → Rubrik-Seite mit Zurück) bereits mit 6.1 vorgezogen & erledigt (27.07.2026).** OFFEN bleibt der Rest, bewusst zusammen mit dem Spieler-Steckbrief in **Tier 2**: Kennzahl-Kacheln (Top 3 je Kennzahl) → Klick = Vollliste einer einzelnen Kennzahl → Klick auf Person = Spieler-Steckbrief. (Grund fürs Verschieben: der Absprung-Sinn der Kennzahl-Kachel ist der Steckbrief; ohne ihn wäre „Kachel → Vollliste" = das heutige inline-„Alle anzeigen".) **→ Der offene Rest ist jetzt Phase 10.3 im Tier-2-Bauplan.**
+
+### Tier 2 – Bauplan (in Arbeit)
+
+> Fachliche Grundlage weiterhin STATISTIK_KONZEPT.md (Kennzahl-Nummern R…/S…/H…/AM…/K…/DK…/F…, die Steckbrief-Abschnitte A–F, das Darreichungs-Muster Kompakt→Vollliste→Steckbrief und die Navigations-Ebenen). Phasen-Nummerierung setzt den Tier-1-Bauplan fort (dort Phase 0–7). Reihenfolge-Entscheidung (Jan, 29.07.2026): **Partie-Steckbrief zuerst vorgezogen** (unabhängig, reines Filtern vorhandener Daten, sofort im laufenden Betrieb nach Partie-Abschluss sichtbar), danach die Steckbrief-Infrastruktur, dann die restlichen Ranglisten-Blöcke, die den Spieler-Steckbrief nach und nach anreichern.
+
+**Phase 8 – Partie-Steckbrief („Stats of the Party") — vorgezogen** — *erledigt & abgenommen 01.08.2026.*
+> Sitzt auf dem Endstand-Screen (`SessionResultPage`) DIREKT unter der Rangliste (Jan-Entscheidung: prominenteste Variante, nur bei beendeten Partien; Gruppendaten via `loadStatsData` nur dann geladen). NEU `components/stats/PartieSteckbrief.jsx`. Kein neuer Datentopf – bestehende Kennzahlen, auf genau eine Partie gefiltert.
+- [x] 8.1 Verlaufskurve über die Spiele DIESER Partie – `ScoreCurve` per optionalem `meta`-Prop wiederverwendet (x-Achse = Spielnummer INNERHALB der Runde, durchgezogene Rundentrenner + „Runde X"-Label im Diagramm in Muted-Grau, Tooltip „Runde X · Spiel Y", y-Achse mit Luft nach unten für die Labels). Rechter Rand trägt den Endstand. `stats.js` → `buildSessionCurve(data, sessionId)` (liefert points + players + meta). — *erledigt 29.07.2026.*
+- [x] 8.2 Bester/schlechtester Einzelspielwert des Abends (`sessionSingleGameExtremes`, L7-Logik auf die Partie) + Streak des Abends (`sessionStreaks`, L5-Logik nur innerhalb des Abends, Aussetzen unterbricht nicht, ab Länge 2). Anzeige: Kacheln mit ALLEN Inhaber:innen, je Zeile ein Name + Kurzort in Muted-Klammer (Rekord `(R4S2)`, mehrfach `Dani (R2S3 + R4S1)`, Streak-Spanne `(R3S2–R4S2)`). — *erledigt 29.07.2026.*
+- [x] 8.3 Anzahl Soli / Sonderspiele / Sonderpunkte des Abends mit **längenbereinigtem Erwartungswert** statt simplem Ø (Jan-Klemmer: simpler Ø/Partie ist durch die Abendlänge verzerrt). Erwartung = Gruppen-Rate PRO RUNDE (Gesamtzahl ÷ alle Runden) × Runden dieses Abends. `stats.js` → `sessionCounts(data, sessionId)` (count + expected + byPlayer). Darstellung: **Bullet-Bar** (Füllung bis Ist, Marker am Erwartungswert; Ist-Zahl über dem Füll-Ende, Erwartungszahl unter dem Marker), Pro-Person-Zeile („Dani 2 · Jan 1", Soli nach Solist:in, Sonderspiele nach Hauptrolle, Sonderpunkte nach Erzieler:in), ⓘ-Erklärsatz. **Dreistufige Lesart** im Text über den symmetrischen Faktor max(ist,erw)÷min(ist,erw): ≤1,15× Norm · bis 1,5× etwas · bis 2× deutlich · >2× außergewöhnlich (mehr/weniger). Loader-Ergänzung: `specialPointPlayers` je Spiel. — *erledigt & abgenommen 01.08.2026.*
+- **Bewusst NICHT in Phase 8 (bleibt offen):** HOF/KUR-Ereignisse des Abends (HOF/KUR existieren als Blöcke erst in Tier 3 → Nachzügler) und „Neue Rekorde/Ranking-Veränderungen durch diese Partie" (rechnerisch teuer, Vorher-Nachher-Vergleich → Tier 4). *Offene Idee für später (nicht gebaut):* Typ-Aufschlüsselung der Zahlen (was für Soli/Sonderpunkte, z. B. „2× Buben, 1× Damen").
+
+**Phase 9 – Infrastruktur: Personen-Filter (Achse 5)**
+- [ ] 9.1 Universeller Personen-Filter analog zum Zeitraum-Filter (`StatsFilterContext` + `filterByPeriod`-Pendant, `PeriodFilter`-Pendant). Wird beim Betreten eines Spieler-Steckbriefs automatisch auf genau diese Person gesetzt und beim Verlassen wieder zurückgesetzt (Konzept: „sonst bliebe man beim Weiternavigieren ungewollt gefiltert"). Fundament für den „Alle Werte"-Absprung aus Phase 10. „Alle Filter zurücksetzen"-Aktion jetzt aktivieren (in Phase 2.1 dafür vorgemerkt: „erst wenn es mehr als Zeit-Filter gibt").
+
+**Phase 10 – Personen-Verzeichnis + Spieler-Steckbrief-Gerüst + 7.1 Kennzahl-Kacheln**
+> Das Herzstück / der Konvergenzpunkt: macht die Ranglisten erst richtig nutzbar. Startet bewusst schlank und füllt sich, sobald die Blöcke aus Phase 11–14 landen.
+- [ ] 10.1 Personen-Verzeichnis (neuer Top-Level-Einstieg): Liste aller Spieler:innen, Default-Sortierung nach A1 (Anzahl Partien), Sortierwert direkt neben dem Namen („Robert – 87 Partien").
+- [ ] 10.2 Spieler-Steckbrief-Gerüst mit den Abschnitten: A Kopf (Name/Avatar), B Gesamtscore + Wasserfall G2 (G2 wegen ⚙️ ggf. nachziehen), C Highlights (Kennzahlen, bei denen die Person in einer Top-3 auftaucht), D Spielstil (Reizhöhe/Lieblings-Solo/Mut-vs-Können – füllt sich mit R/S), E Teamplay (später, Tier 4), F Hall of Fame (Rekordhalter). Statt eigenem „Alle Werte"-Bereich ein Link → bestehende Ranglisten, via Personen-Filter (Phase 9) auf diese Person vorgefiltert.
+- [ ] 10.3 **7.1-Rest: Kennzahl-Kacheln (Navi-Ebene 2).** Je Kennzahl eine Kompakt-Kachel mit Top 3 (Name + Wert, ohne Datum/Ort). Zwei Klickziele je Kachel: Klick auf Kachel/Kennzahl → Vollliste dieser einen Kennzahl; Klick auf einen Top-3-Namen → Spieler-Steckbrief dieser Person. Erst mit den vorhandenen Blöcken (Leistung/Ausdauer), erweitert sich mit Phase 11–14.
+
+**Phase 11 – Risiko-Block (R1–R5)**
+> Gleiches Bau-Pattern wie Leistung/Ausdauer. Speist zusätzlich Steckbrief-Abschnitt D (Reizhöhe/„Spielstil").
+- [ ] 11.1 R1 Ansage-Pyramide (Häufigkeit + Erfolgsquote, Grundansage + Absagen K90/K60/K30/Schwarz, je Re/Kontra/Solo, Drilldown-Ebenen), R2 Re- vs. Kontra-Profil.
+- [ ] 11.2 R3 Ansage-Bilanz (deskriptiv, netto Punkte), R5 Überreizt-Quote (total + je Absage-Stufe).
+- [ ] 11.3 R4 Mut-Ertrag (theoretisch/modellhaft; ⚙️ rechnerisch teuer – realer Ertrag minus Ertrag derselben Spiele ohne meine Ansagen).
+
+**Phase 12 – Solo-Block (S1–S4)**
+> Speist Steckbrief-Abschnitt D (Lieblings-Solo, Mut-vs-Können-Quadrant).
+- [ ] 12.1 S1 Solo-Häufigkeit, S2 Solo-Quote (Erfolg).
+- [ ] 12.2 S3 Aufschlüsselung nach Typ (Häufigkeit + Quote je Typ; Farb-Solo konsolidiert, Farb-Drilldown P2), S4 Solo-Punkteertrag (Saldo + Box-Plot – `BoxPlot` wiederverwenden).
+
+**Phase 13 – Sonderspiele-Block (H1–H2, AM1–AM2)**
+- [ ] 13.1 H1/H2 Hochzeit (Häufigkeit + Quote, je als Hochzeiter:in / als Eingeheiratete:r), AM1/AM2 Armut (Häufigkeit + Quote, je als arm / als reich). Gegenrollen H2/AM2 mit P2-Datenqualitätshinweis (2024 fehlt).
+
+**Phase 14 – Sonderpunkte-Block (K / DK / F)**
+- [ ] 14.1 Karlchen: K1 gemacht, K2 gefangen, K3 verloren (P2), K4 Erfolgsbilanz, K5 Jagdbilanz, K6 Doppel-Karlchen (Trophäe).
+- [ ] 14.2 Doppelkopf: DK1 Häufigkeit, DK2 Vitrinen-Doppelköpfe (2er/3er/4er). Fuchs: F1 gefangen, F2 verloren, F3 Jagdbilanz, F4 Vitrinen-Füchse (alle Fuchs-Kennzahlen P2 – 2024 nicht erfasst).
 
 ---
 
@@ -186,8 +224,8 @@ Angedachtes Tarif-Modell:
 
 > Dies ist die **einzige** blockübergreifende Priorisierung in diesem Dokument – bewusst kurz gehalten auf die nächsten Brocken, statt alle Punkte aller Blöcke in eine Gesamtreihenfolge zu pressen (die sich ohnehin laufend ändert). Reihenfolge:
 
-1. **Block C – Statistiken bauen (Tier 1).**
-   Der eigentliche Wert des Projekts und der Grund, warum Dokorama existiert. Die Konzept-Session ist abgeschlossen (Ergebnis: STATISTIK_KONZEPT.md); als Nächstes wird Tier 1 gebaut – Gesamtscore-Startbildschirm und Ranglisten-Basis (Leistung, Ausdauer) samt P6-, Zeitraum- und Nerd-Modus-Infrastruktur.
+1. **Block C – Statistiken bauen (Tier 2).**
+   Der eigentliche Wert des Projekts und der Grund, warum Dokorama existiert. **Tier 1 ist abgeschlossen** (Gesamtscore-Startbildschirm, Ranglisten Leistung + Ausdauer, P6-/Zeitraum-/Nerd-Modus-Infrastruktur). Als Nächstes wird Tier 2 gebaut (Detail-Bauplan Phase 8–14 oben): Partie-Steckbrief vorgezogen, dann Personen-Filter + Personen-Verzeichnis/Spieler-Steckbrief (inkl. 7.1-Kacheln), dann die restlichen Ranglisten-Blöcke Risiko/Solo/Sonderspiele/Sonderpunkte.
 
 2. **Block D, Punkt 1 – 2026er Import.**
    Läuft bereits parallel und wird weitergeführt (Foto-/JSON-Workflow, ROBERT_IMPORT.md). Stand 29.06.2026: alle 12 Spielabende 2026 (Januar–Juni) importiert, DB ist aktuell.
