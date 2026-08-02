@@ -30,6 +30,21 @@ const STORAGE_KEY = 'dokorama.statsPeriod'
 // Box-Plot L8). Eigener Schlüssel, damit er unabhängig vom Zeitraum überlebt.
 const NERD_STORAGE_KEY = 'dokorama.statsNerd'
 
+// Personen-Filter (Achse 5, Tier 2, Phase 9): der zweite universelle Filter neben
+// dem Zeitraum. Angezeigt werden dann NUR die gewählten Personen. Gespeichert wird
+// eine Liste von Spieler-IDs; leere Liste = kein Personen-Filter. Eigener
+// Schlüssel, damit er unabhängig vom Zeitraum überlebt.
+const PERSON_STORAGE_KEY = 'dokorama.statsPersons'
+
+// Der Modus des Personen-Filters bei MEHREREN gewählten Personen (Entscheidung
+// Jan, Phase 9):
+//   • 'common' – nur die GEMEINSAMEN Spiele (Schnittmenge; „am selben Tisch, wer
+//                war besser?"). Default, weil das die eigentliche Story ist.
+//   • 'total'  – jede Person über ihre GANZE Historie (keine Spiel-Einschränkung;
+//                nur die gewählten Namen nebeneinander).
+// Bei nur EINER Person sind beide Modi identisch – der Umschalter ist dann irrelevant.
+const PERSON_MODE_STORAGE_KEY = 'dokorama.statsPersonMode'
+
 // Der Ausgangszustand, wenn noch nichts gemerkt wurde: laufendes Jahr.
 const DEFAULT_PERIOD = { mode: 'currentYear' }
 
@@ -106,13 +121,74 @@ export function StatsFilterProvider({ children }) {
     } catch { /* Speichern nicht möglich → einfach nicht merken */ }
   }, [nerdMode])
 
+  // Personen-Filter: die gemerkte Liste gewählter Spieler-IDs. Leer = kein Filter.
+  const [personIds, setPersonIds] = useState(() => {
+    try {
+      const raw = localStorage.getItem(PERSON_STORAGE_KEY)
+      if (raw) {
+        const arr = JSON.parse(raw)
+        if (Array.isArray(arr)) return arr
+      }
+    } catch { /* localStorage nicht verfügbar → keine Vorauswahl */ }
+    return []
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem(PERSON_STORAGE_KEY, JSON.stringify(personIds))
+    } catch { /* Speichern nicht möglich → einfach nicht merken */ }
+  }, [personIds])
+
+  // Modus bei mehreren Personen ('common' | 'total'), ebenfalls gemerkt. Default 'common'.
+  const [personMode, setPersonMode] = useState(() => {
+    try {
+      const raw = localStorage.getItem(PERSON_MODE_STORAGE_KEY)
+      if (raw === 'total' || raw === 'common') return raw
+    } catch { /* localStorage nicht verfügbar → Default */ }
+    return 'common'
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem(PERSON_MODE_STORAGE_KEY, personMode)
+    } catch { /* Speichern nicht möglich → einfach nicht merken */ }
+  }, [personMode])
+
+  // Eine Person zu-/abschalten (Tippen auf ihren Avatar-Chip im PersonFilter).
+  function togglePerson(id) {
+    setPersonIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id],
+    )
+  }
+  // Personen-Filter ganz leeren (ohne den Zeitraum anzufassen).
+  function clearPersons() {
+    setPersonIds([])
+  }
+  // „Alle Filter zurücksetzen": Zeitraum auf den Default (laufendes Jahr), Personen
+  // leeren und den Modus auf den Default. Der Nerd-Modus ist bewusst KEIN Filter
+  // und bleibt unberührt.
+  function resetFilters() {
+    setPeriod(DEFAULT_PERIOD)
+    setPersonIds([])
+    setPersonMode('common')
+  }
+  // Weicht gerade irgendein Filter vom Standard ab? Steuert die Sichtbarkeit des
+  // „Zurücksetzen"-Buttons. Standard = laufendes Jahr + keine Personen.
+  const filtersActive = period.mode !== 'currentYear' || personIds.length > 0
+
   // Abgeleitete Größen einmal hier berechnen, damit alle Verbraucher dieselben
   // Werte sehen: die Datumsgrenzen (für den Filter) und den Anzeigetext.
   const range = resolveRange(period)
   const label = resolveLabel(period)
 
   return (
-    <StatsFilterContext.Provider value={{ period, setPeriod, range, label, nerdMode, setNerdMode }}>
+    <StatsFilterContext.Provider
+      value={{
+        period, setPeriod, range, label,
+        nerdMode, setNerdMode,
+        personIds, setPersonIds, togglePerson, clearPersons,
+        personMode, setPersonMode,
+        resetFilters, filtersActive,
+      }}
+    >
       {children}
     </StatsFilterContext.Provider>
   )

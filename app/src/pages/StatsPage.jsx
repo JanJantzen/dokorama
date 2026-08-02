@@ -31,6 +31,7 @@ import {
   playtimeStats,
   buildScoreCurve,
   filterByPeriod,
+  filterByPersons,
   availableYears,
   isWeakSample,
 } from '@/lib/stats'
@@ -41,6 +42,7 @@ import BoxPlot from '@/components/stats/BoxPlot'
 import AttendanceGrid from '@/components/stats/AttendanceGrid'
 import ScoreCurve from '@/components/stats/ScoreCurve'
 import PeriodFilter from '@/components/stats/PeriodFilter'
+import PersonFilter from '@/components/stats/PersonFilter'
 
 // Kleiner Abschnitts-Titel im selben Stil wie auf der Startseite.
 // Optionales `info`: zeigt ein ⓘ neben dem Titel; Tap blendet den Erklärtext
@@ -185,11 +187,15 @@ function NerdToggle() {
 // Rubrik-Kachel (Navigations-Ebene 0): teasert ein Statistik-Thema an und führt
 // per Tap auf die Rubrik-Seite (Ebene 1). Emoji + Titel + Halbsatz + eine
 // Highlight-Zeile (aktuelle:r Spitzenreiter:in einer Signatur-Kennzahl).
-function RubrikCard({ emoji, title, teaser, highlight, onClick }) {
+// dimmed = ausgegraut (z. B. Ausdauer bei aktivem Personen-Filter). Die Kachel
+// bleibt anklickbar – sie ignoriert den Filter nur, statt zu verschwinden.
+function RubrikCard({ emoji, title, teaser, highlight, onClick, dimmed }) {
   return (
     <button
       onClick={onClick}
-      className="flex flex-col items-start text-left gap-1 p-4 rounded-2xl border border-border bg-card hover:border-primary/50 transition-colors"
+      className={`flex flex-col items-start text-left gap-1 p-4 rounded-2xl border border-border bg-card hover:border-primary/50 transition-colors ${
+        dimmed ? 'opacity-50' : ''
+      }`}
     >
       <div className="flex items-center justify-between w-full">
         <span className="text-2xl" aria-hidden>{emoji}</span>
@@ -197,7 +203,9 @@ function RubrikCard({ emoji, title, teaser, highlight, onClick }) {
       </div>
       <span className="font-semibold text-base">{title}</span>
       <span className="text-xs text-muted-foreground">{teaser}</span>
-      {highlight && (
+      {dimmed ? (
+        <span className="text-xs text-muted-foreground mt-1">vom Personen-Filter nicht betroffen</span>
+      ) : highlight && (
         <span className="text-xs text-foreground/70 mt-1 tabular-nums">{highlight}</span>
       )}
     </button>
@@ -206,7 +214,7 @@ function RubrikCard({ emoji, title, teaser, highlight, onClick }) {
 
 // Raster der Rubrik-Kacheln auf dem Dashboard (Ebene 0). Zwei Spalten; wächst
 // später um weitere Rubriken (Risiko, Solo, …), ohne dass sich die Logik ändert.
-function RubrikGrid({ onOpen, highlights }) {
+function RubrikGrid({ onOpen, highlights, personActive }) {
   return (
     <div className="grid grid-cols-2 gap-3">
       <RubrikCard
@@ -222,8 +230,20 @@ function RubrikGrid({ onOpen, highlights }) {
         teaser="Wer am meisten dabei ist."
         highlight={highlights ? `Meiste Partien: ${highlights.ausdauer}` : null}
         onClick={() => onOpen('ausdauer')}
+        dimmed={personActive}
       />
     </div>
+  )
+}
+
+// Hinweis, wenn ein Personen-Filter aktiv ist, die gewählte Konstellation im
+// Zeitraum aber keine gemeinsamen Spiele hat (Gesamtscore/Leistung dann leer).
+function PersonEmptyNote() {
+  return (
+    <GapNote>
+      Für die gewählte Personen-Auswahl gibt es in diesem Zeitraum keine Spiele.
+      Wähle weniger Personen, einen größeren Zeitraum oder setze die Filter zurück.
+    </GapNote>
   )
 }
 
@@ -751,6 +771,16 @@ function topName(data, map) {
   return bestId != null ? (data.players.get(bestId)?.name ?? '?') : '–'
 }
 
+// Anzeige-Filter „nur gewählte Personen": Bei aktivem Personen-Filter werden die
+// fertig berechneten Ranglisten-Einträge auf die gewählten IDs eingedampft – nie
+// unbeteiligte Dritte anzeigen. Die BERECHNUNG lief zuvor über alle Beteiligten
+// (nötig für relative Kennzahlen wie „Erster in der Runde"); erst die ANZEIGE wird
+// beschränkt. Ohne aktiven Filter unverändert durchgereicht.
+function selectRows(entries, personActive, personIds) {
+  if (!personActive || !Array.isArray(entries)) return entries
+  return entries.filter(e => personIds.includes(e.id))
+}
+
 // Die eigentliche Seite – lebt INNERHALB des StatsFilterProvider (s. Default-Export
 // unten), damit sie den gewählten Zeitraum über useStatsFilter() lesen kann.
 function StatsPageInner() {
@@ -763,8 +793,9 @@ function StatsPageInner() {
   const [spreadLevel, setSpreadLevel] = useState('game')       // 'game' | 'round' | 'session' (L8-Ebene; Spiel = meiste Datenpunkte → Default)
   const [activeBlock, setActiveBlock] = useState(null)         // null = Dashboard (Ebene 0), 'leistung' | 'ausdauer' = Rubrik-Seite (Ebene 1)
 
-  // Der aktive Zeitraum als Datumsgrenzen + der globale Nerd-Modus (beides aus dem Context).
-  const { range, nerdMode } = useStatsFilter()
+  // Der aktive Zeitraum als Datumsgrenzen + der globale Nerd-Modus + der
+  // Personen-Filter (alles aus dem Context).
+  const { range, nerdMode, personIds, personMode, filtersActive, resetFilters } = useStatsFilter()
 
   // Einmal beim Öffnen der Seite alle abgeschlossenen Partien laden.
   useEffect(() => {
@@ -779,21 +810,54 @@ function StatsPageInner() {
   // nicht aus den gefilterten, sonst verschwänden Chips beim Umschalten.)
   const years = useMemo(() => (data ? availableYears(data) : []), [data])
 
-  // Rohdaten auf den gewählten Zeitraum zuschneiden; darauf rechnen alle Kennzahlen.
-  // Neu, sobald sich die Daten ODER der Zeitraum ändern.
-  const filtered = useMemo(
+  // Wählbare Personen für den Personen-Filter – aus den VOLLEN Daten (analog zu
+  // den Jahres-Chips), vorsortiert nach Anzahl gespielter Partien (Stammspieler:innen
+  // zuerst), bei Gleichstand alphabetisch.
+  const persons = useMemo(() => {
+    if (!data) return []
+    const sess = playedSessionsByPlayer(data)
+    return [...data.players.values()].sort(
+      (a, b) => (sess.get(b.id) ?? 0) - (sess.get(a.id) ?? 0) || a.name.localeCompare(b.name),
+    )
+  }, [data])
+
+  // Zwei Filterstufen hintereinander:
+  //   periodFiltered = nur der Zeitraum  → speist den AUSDAUER-Block (der bewusst
+  //                    nicht vom Personen-Filter berührt wird).
+  //   filtered       = Zeitraum (+ Personen im Modus „Gemeinsame Spiele") → speist
+  //                    Gesamtscore + Leistung. Im Modus „Ganze Historie" bleiben
+  //                    die Spiele voll; die Beschränkung auf die gewählten Personen
+  //                    passiert dann erst bei der Anzeige (selectRows unten).
+  const periodFiltered = useMemo(
     () => (data ? filterByPeriod(data, range) : null),
     [data, range],
   )
+  // Ist ein Personen-Filter aktiv? (Steuert Anzeige-Filter, Ausgrauen der
+  // Ausdauer-Kachel + Hinweise.)
+  const personActive = personIds.length > 0
+  const filtered = useMemo(() => {
+    if (!periodFiltered) return null
+    // Nur im Modus „Gemeinsame Spiele" die Spiele auf die Schnittmenge einschränken.
+    return personActive && personMode === 'common'
+      ? filterByPersons(periodFiltered, personIds)
+      : periodFiltered
+  }, [periodFiltered, personActive, personMode, personIds])
 
-  // Abgeleitete Ansichten aus den GEFILTERTEN Daten.
-  const gesamtscore   = useMemo(() => (filtered ? buildGesamtscore(filtered) : null), [filtered])
-  const curve         = useMemo(() => (filtered ? buildScoreCurve(filtered) : null), [filtered])
-  const durchschnitt  = useMemo(() => (filtered ? buildDurchschnittsscore(filtered) : null), [filtered])
+  // Abgeleitete Ansichten aus den GEFILTERTEN Daten. selectRows(…) dampft die
+  // fertigen Listen bei aktivem Personen-Filter auf die gewählten Personen ein
+  // (die Berechnung lief über alle Beteiligten – s. selectRows).
+  const gesamtscore   = useMemo(() => (filtered ? selectRows(buildGesamtscore(filtered), personActive, personIds) : null), [filtered, personActive, personIds])
+  // Kurve: nur die gewählten Linien zeichnen (players filtern; die Berechnung bleibt).
+  const curve = useMemo(() => {
+    if (!filtered) return null
+    const c = buildScoreCurve(filtered)
+    return personActive ? { ...c, players: c.players.filter(p => personIds.includes(p.id)) } : c
+  }, [filtered, personActive, personIds])
+  const durchschnitt  = useMemo(() => (filtered ? selectRows(buildDurchschnittsscore(filtered), personActive, personIds) : null), [filtered, personActive, personIds])
   // Bester/schlechtester Wert hängt zusätzlich an der gewählten Ebene (l7Level).
   const bestWorst     = useMemo(
-    () => (filtered ? buildBestWorst(filtered, l7Level) : null),
-    [filtered, l7Level],
+    () => (filtered ? selectRows(buildBestWorst(filtered, l7Level), personActive, personIds) : null),
+    [filtered, l7Level, personActive, personIds],
   )
   // Platzierungs-Block, gesteuert vom gemeinsamen Ebenen-Umschalter:
   //   Spiel  → Sieg/Niederlage (L1, binär)
@@ -801,48 +865,64 @@ function StatsPageInner() {
   // Es wird immer nur die Kennzahl der AKTIVEN Ebene berechnet (die jeweils andere = null).
   const isGameLevel = placementLevel === 'game'
   const siegNiederlage = useMemo(
-    () => (filtered && isGameLevel ? buildSiegNiederlage(filtered) : null),
-    [filtered, isGameLevel],
+    () => (filtered && isGameLevel ? selectRows(buildSiegNiederlage(filtered), personActive, personIds) : null),
+    [filtered, isGameLevel, personActive, personIds],
   )
-  const platzierung = useMemo(() => (filtered && !isGameLevel ? buildPlatzierung(filtered, placementLevel) : null), [filtered, placementLevel, isGameLevel])
-  const netto       = useMemo(() => (filtered && !isGameLevel ? buildNetto(filtered, placementLevel)       : null), [filtered, placementLevel, isGameLevel])
+  const platzierung = useMemo(() => (filtered && !isGameLevel ? selectRows(buildPlatzierung(filtered, placementLevel), personActive, personIds) : null), [filtered, placementLevel, isGameLevel, personActive, personIds])
+  const netto       = useMemo(() => (filtered && !isGameLevel ? selectRows(buildNetto(filtered, placementLevel), personActive, personIds)       : null), [filtered, placementLevel, isGameLevel, personActive, personIds])
 
   // Serien-Block (L5), gesteuert vom eigenen Ebenen-Umschalter:
   //   Spiel        → Siegserie / Pechsträhne (aus dem Gewinner-Flag)
   //   Runde/Partie → Erster-Serie / Letzter-Serie (aus den Salden)
   const isStreakGame = streakLevel === 'game'
-  const siegSerie  = useMemo(() => (filtered &&  isStreakGame ? buildSiegSerie(filtered)                : null), [filtered, isStreakGame])
-  const platzSerie = useMemo(() => (filtered && !isStreakGame ? buildPlatzSerie(filtered, streakLevel)  : null), [filtered, streakLevel, isStreakGame])
+  const siegSerie  = useMemo(() => (filtered &&  isStreakGame ? selectRows(buildSiegSerie(filtered), personActive, personIds)                : null), [filtered, isStreakGame, personActive, personIds])
+  const platzSerie = useMemo(() => (filtered && !isStreakGame ? selectRows(buildPlatzSerie(filtered, streakLevel), personActive, personIds)  : null), [filtered, streakLevel, isStreakGame, personActive, personIds])
 
   // Deutlichkeit der Siege (L9) – Verteilung über die fünf Stufen, Spielebene.
-  const clarity = useMemo(() => (filtered ? buildClarity(filtered) : null), [filtered])
+  const clarity = useMemo(() => (filtered ? selectRows(buildClarity(filtered), personActive, personIds) : null), [filtered, personActive, personIds])
 
   // Streuung/Konstanz (L8) – Box-Plot-Kennzahlen auf der gewählten Ebene.
-  const spread = useMemo(() => (filtered ? buildSpread(filtered, spreadLevel) : null), [filtered, spreadLevel])
+  const spread = useMemo(() => (filtered ? selectRows(buildSpread(filtered, spreadLevel), personActive, personIds) : null), [filtered, spreadLevel, personActive, personIds])
 
-  // Ausdauer-Block (A1–A3).
-  const mengen     = useMemo(() => (filtered ? buildMengen(filtered)        : null), [filtered])
-  const dichte     = useMemo(() => (filtered ? buildDichte(filtered)        : null), [filtered])
-  const teilnahme  = useMemo(() => (filtered ? buildTeilnahme(filtered)     : null), [filtered])
-  const attendance = useMemo(() => (filtered ? attendanceTimeline(filtered) : null), [filtered])
-  const gebeversuche = useMemo(() => (filtered ? buildGebeversuche(filtered) : null), [filtered])
+  // Ausdauer-Block (A1–A7): rechnet bewusst auf periodFiltered (nur Zeitraum),
+  // NICHT auf filtered – der Personen-Filter greift hier nicht (Entscheidung Jan,
+  // Phase 9: „Ausdauer bleibt außen vor").
+  const mengen     = useMemo(() => (periodFiltered ? buildMengen(periodFiltered)        : null), [periodFiltered])
+  const dichte     = useMemo(() => (periodFiltered ? buildDichte(periodFiltered)        : null), [periodFiltered])
+  const teilnahme  = useMemo(() => (periodFiltered ? buildTeilnahme(periodFiltered)     : null), [periodFiltered])
+  const attendance = useMemo(() => (periodFiltered ? attendanceTimeline(periodFiltered) : null), [periodFiltered])
+  const gebeversuche = useMemo(() => (periodFiltered ? buildGebeversuche(periodFiltered) : null), [periodFiltered])
   // Spielzeit (A6/A7): einmal die Rohkennzahlen, daraus die Personen-Liste (A6).
-  const playtime     = useMemo(() => (filtered ? playtimeStats(filtered) : null), [filtered])
-  const spielstunden = useMemo(() => (playtime ? buildSpielstunden(playtime, filtered) : null), [playtime, filtered])
+  const playtime     = useMemo(() => (periodFiltered ? playtimeStats(periodFiltered) : null), [periodFiltered])
+  const spielstunden = useMemo(() => (playtime ? buildSpielstunden(playtime, periodFiltered) : null), [playtime, periodFiltered])
 
   // Highlight-Zeilen für die Rubrik-Kacheln (Dashboard): aktuelle Spitzenreiter:innen.
-  //   Leistung → meiste Siege (L1), Ausdauer → meiste Partien (A1).
+  //   Leistung → meiste Siege (L1); bei aktivem Personen-Filter nur unter den
+  //              gewählten Personen. Ausdauer → meiste Partien (A1) aus den reinen
+  //              Zeitraum-Daten (vom Personen-Filter unberührt).
   const highlights = useMemo(() => {
-    if (!filtered) return null
-    const siege = new Map([...winLossStats(filtered)].map(([id, a]) => [id, a.siege]))
+    if (!filtered || !periodFiltered) return null
+    let siege = new Map([...winLossStats(filtered)].map(([id, a]) => [id, a.siege]))
+    if (personActive) siege = new Map([...siege].filter(([id]) => personIds.includes(id)))
     return {
       leistung: topName(filtered, siege),
-      ausdauer: topName(filtered, playedSessionsByPlayer(filtered)),
+      ausdauer: topName(periodFiltered, playedSessionsByPlayer(periodFiltered)),
     }
-  }, [filtered])
+  }, [filtered, periodFiltered, personActive, personIds])
 
-  // Enthält der gewählte Zeitraum überhaupt Partien?
-  const isEmpty = filtered && filtered.sessions.length === 0
+  // Enthält der gewählte Zeitraum überhaupt Partien? (Der äußere Zeitraum-Filter.)
+  const isEmpty = periodFiltered && periodFiltered.sessions.length === 0
+  // Personen-Filter aktiv, aber die gewählten Personen haben in der aktuellen
+  // Datenbasis keine Spiele (im „Gemeinsame Spiele"-Modus: keine Schnittmenge; im
+  // „Ganze Historie"-Modus: keine der Personen hat im Zeitraum gespielt) →
+  // Gesamtscore/Leistung sind leer. Der Ausdauer-Block bleibt davon unberührt gültig.
+  const selectedHaveData = useMemo(() => {
+    if (!personActive || !filtered) return true
+    return filtered.games.some(g =>
+      g.results.some(r => personIds.includes(r.playerId) && r.partei !== 'ausgesetzt'),
+    )
+  }, [personActive, filtered, personIds])
+  const personEmpty = personActive && !selectedHaveData && !isEmpty
 
   return (
     <div className="flex flex-col min-h-screen pb-20">
@@ -852,9 +932,25 @@ function StatsPageInner() {
       </header>
 
       <div className="px-4 flex flex-col gap-8">
-        {/* Globaler Zeitraum-Filter + Nerd-Modus – gelten für alle Bereiche darunter */}
-        {data && <PeriodFilter years={years} />}
-        {data && <NerdToggle />}
+        {/* Globale Filter (Zeitraum, Personen) + Nerd-Modus – gelten für alle Bereiche darunter */}
+        {data && (
+          <div className="flex flex-col gap-1">
+            <PeriodFilter years={years} />
+            <PersonFilter players={persons} />
+            <div className="flex items-center justify-between gap-3">
+              <NerdToggle />
+              {/* „Alle Filter zurücksetzen" – erst sichtbar, sobald ein Filter aktiv ist */}
+              {filtersActive && (
+                <button
+                  onClick={resetFilters}
+                  className="text-xs text-muted-foreground underline hover:text-foreground whitespace-nowrap"
+                >
+                  Alle Filter zurücksetzen
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Fehler-/Lade-/Leer-Zustand einmal zentral; die Bereiche erscheinen
             nur, wenn es im gewählten Zeitraum wirklich etwas anzuzeigen gibt. */}
@@ -862,7 +958,7 @@ function StatsPageInner() {
           <p className="text-sm text-muted-foreground text-center mt-8">
             Statistiken konnten nicht geladen werden.
           </p>
-        ) : !filtered ? (
+        ) : !periodFiltered ? (
           <p className="text-sm text-muted-foreground text-center mt-8">Lädt…</p>
         ) : isEmpty ? (
           <p className="text-sm text-muted-foreground text-center mt-8">
@@ -884,6 +980,10 @@ function StatsPageInner() {
                 Gesamtscore
               </SectionTitle>
 
+              {personEmpty ? (
+                <PersonEmptyNote />
+              ) : (
+              <>
               <ViewToggle view={view} onChange={setView} />
 
               {view === 'verlauf' ? (
@@ -895,15 +995,19 @@ function StatsPageInner() {
                   defaultSortKey="absolut"
                 />
               )}
+              </>
+              )}
             </section>
 
-            {/* Rubrik-Kacheln → Ebene 1 */}
-            <RubrikGrid onOpen={setActiveBlock} highlights={highlights} />
+            {/* Rubrik-Kacheln → Ebene 1. Bei aktivem Personen-Filter wird die
+                Ausdauer-Kachel ausgegraut (der Filter greift dort nicht). */}
+            <RubrikGrid onOpen={setActiveBlock} highlights={highlights} personActive={personActive} />
           </>
         ) : activeBlock === 'leistung' ? (
           /* ── Ebene 1: Rubrik „Leistung“ ── */
           <>
             <BackBar title="Leistung" onBack={() => setActiveBlock(null)} />
+            {personEmpty && <PersonEmptyNote />}
 
             {/* ── Durchschnittsscore (L6) ── */}
             <section>
@@ -1077,6 +1181,12 @@ function StatsPageInner() {
           /* ── Ebene 1: Rubrik „Ausdauer“ (A1–A3) ── */
           <>
             <BackBar title="Ausdauer" onBack={() => setActiveBlock(null)} />
+            {personActive && (
+              <GapNote>
+                Der Ausdauer-Block bezieht sich immer auf alle Personen – der
+                Personen-Filter wirkt hier nicht (nur der Zeitraum gilt).
+              </GapNote>
+            )}
 
             {/* ── Mengen (A1) ── */}
             <section>

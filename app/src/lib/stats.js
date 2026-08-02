@@ -231,6 +231,52 @@ export function availableYears(data) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// 1b'. Personen-Filter (Achse 5, Tier 2, Phase 9)
+// ────────────────────────────────────────────────────────────────────────────
+// Zwilling zu filterByPeriod, nur nach "wer mitgespielt hat" statt "wann". Grenzt
+// den Datensatz auf die Spiele einer gewählten Personen-Konstellation ein:
+// behalten wird ein Spiel nur, wenn JEDE gewählte Person darin mitgespielt hat
+// (Schnittmenge – "nur die gemeinsamen Spiele"). Für EINE Person heißt das
+// schlicht "alle Spiele dieser Person" (der Fall des Spieler-Steckbriefs).
+//
+// Wie beim Zeitraum-Filter: reine Einschränkung im Speicher, kein neuer
+// DB-Zugriff, gleiche Datenform zurück. Anders als der Zeitraum (der ganze
+// Partien rein/raus nimmt) schneidet dieser Filter auf SPIEL-Ebene – deshalb
+// werden danach leer gewordene Runden und Partien mit weggeräumt, damit der
+// zurückgegebene Datensatz in sich stimmig bleibt.
+//
+// personIds = Liste gewählter Spieler-IDs. Leere Liste = kein Filter (Daten
+// unverändert zurück, wie ein offener Zeitraum).
+export function filterByPersons(data, personIds) {
+  if (!personIds || personIds.length === 0) return data
+
+  // Hat in diesem Spiel jede gewählte Person mitgespielt (nicht ausgesetzt)?
+  const played = (game, id) =>
+    game.results.some(r => r.playerId === id && r.partei !== 'ausgesetzt')
+  const allPlayed = (game) => personIds.every(id => played(game, id))
+
+  const games = data.games.filter(allPlayed)
+
+  // Nur noch die Runden/Partien behalten, die überhaupt noch ein Spiel enthalten.
+  const keptRoundIds   = new Set(games.map(g => g.roundId))
+  const keptSessionIds = new Set(games.map(g => g.sessionId))
+  const rounds   = data.rounds.filter(r => keptRoundIds.has(r.id))
+  const sessions = data.sessions.filter(s => keptSessionIds.has(s.id))
+
+  // Spieler:innen auf die einschränken, die in den übrig gebliebenen Spielen
+  // noch vorkommen (gleiche Logik wie beim Zeitraum-Filter). Das sind die
+  // gewählten Personen UND ihre jeweiligen Mitspieler:innen in diesen Spielen.
+  const activeIds = new Set()
+  for (const g of games) for (const res of g.results) activeIds.add(res.playerId)
+  const players = new Map()
+  for (const id of activeIds) {
+    if (data.players.has(id)) players.set(id, data.players.get(id))
+  }
+
+  return { sessions, rounds, games, players }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // 1c. P6 – Mindest-Stichprobe (statistische Belastbarkeit)
 // ────────────────────────────────────────────────────────────────────────────
 // Quoten und Durchschnitte von Spieler:innen mit sehr wenigen Einheiten sind
