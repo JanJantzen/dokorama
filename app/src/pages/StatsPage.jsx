@@ -43,6 +43,8 @@ import AttendanceGrid from '@/components/stats/AttendanceGrid'
 import ScoreCurve from '@/components/stats/ScoreCurve'
 import PeriodFilter from '@/components/stats/PeriodFilter'
 import PersonFilter from '@/components/stats/PersonFilter'
+import PersonDirectory from '@/components/stats/PersonDirectory'
+import PlayerProfile from '@/components/stats/PlayerProfile'
 
 // Kleiner Abschnitts-Titel im selben Stil wie auf der Startseite.
 // Optionales `info`: zeigt ein ⓘ neben dem Titel; Tap blendet den Erklärtext
@@ -233,6 +235,25 @@ function RubrikGrid({ onOpen, highlights, personActive }) {
         dimmed={personActive}
       />
     </div>
+  )
+}
+
+// Einstiegs-Kachel „Personen" (Dashboard, Ebene 0): führt ins Personen-Verzeichnis.
+// Volle Breite unter dem Rubrik-Raster – bewusst anders als die Rubrik-Kacheln,
+// weil es ein Verzeichnis ist (Sprungbrett zu den Steckbriefen), keine Themen-Rubrik.
+function DirectoryCard({ onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-3 p-4 rounded-2xl border border-border bg-card hover:border-primary/50 transition-colors text-left"
+    >
+      <span className="text-2xl" aria-hidden>👥</span>
+      <div className="flex flex-col">
+        <span className="font-semibold text-base">Personen</span>
+        <span className="text-xs text-muted-foreground">Steckbrief für jede:n Spieler:in.</span>
+      </div>
+      <ChevronRight size={18} className="text-muted-foreground ml-auto" />
+    </button>
   )
 }
 
@@ -781,6 +802,19 @@ function selectRows(entries, personActive, personIds) {
   return entries.filter(e => personIds.includes(e.id))
 }
 
+// Personen-Verzeichnis (Phase 10.1): eine Zeile je Spieler:in, die im Zeitraum
+// dabei war, mit A1 (Anzahl gespielter Partien) als Sortier-/Anzeigewert. Absteigend
+// nach Partien, bei Gleichstand alphabetisch – Stammspieler:innen oben.
+function buildPersonDirectory(data) {
+  const sessions = playedSessionsByPlayer(data)
+  return [...sessions.entries()]
+    .map(([id, partien]) => {
+      const p = data.players.get(id)
+      return { id, name: p?.name ?? '?', avatarUrl: p?.avatarUrl ?? null, partien }
+    })
+    .sort((a, b) => b.partien - a.partien || a.name.localeCompare(b.name))
+}
+
 // Die eigentliche Seite – lebt INNERHALB des StatsFilterProvider (s. Default-Export
 // unten), damit sie den gewählten Zeitraum über useStatsFilter() lesen kann.
 function StatsPageInner() {
@@ -791,7 +825,8 @@ function StatsPageInner() {
   const [placementLevel, setPlacementLevel] = useState('game') // 'game' (L1) | 'round' | 'session' (L2/L3/L4)
   const [streakLevel, setStreakLevel] = useState('session')    // 'game' | 'round' | 'session' (L5-Ebene; Partie = Königs-KPI → Default)
   const [spreadLevel, setSpreadLevel] = useState('game')       // 'game' | 'round' | 'session' (L8-Ebene; Spiel = meiste Datenpunkte → Default)
-  const [activeBlock, setActiveBlock] = useState(null)         // null = Dashboard (Ebene 0), 'leistung' | 'ausdauer' = Rubrik-Seite (Ebene 1)
+  const [activeBlock, setActiveBlock] = useState(null)         // null = Dashboard (Ebene 0), 'leistung' | 'ausdauer' = Rubrik-Seite (Ebene 1), 'personen' = Personen-Verzeichnis
+  const [profileId, setProfileId] = useState(null)            // im Block 'personen': null = Verzeichnis, sonst der/die gewählte Spieler:in (Steckbrief)
 
   // Der aktive Zeitraum als Datumsgrenzen + der globale Nerd-Modus + der
   // Personen-Filter (alles aus dem Context).
@@ -896,6 +931,15 @@ function StatsPageInner() {
   const playtime     = useMemo(() => (periodFiltered ? playtimeStats(periodFiltered) : null), [periodFiltered])
   const spielstunden = useMemo(() => (playtime ? buildSpielstunden(playtime, periodFiltered) : null), [playtime, periodFiltered])
 
+  // Personen-Verzeichnis (Phase 10.1): über den Zeitraum, unberührt vom Personen-Filter
+  // (ein Verzeichnis nach Personen zu filtern wäre selbstbezüglich – analog Ausdauer).
+  const personDirectory = useMemo(() => (periodFiltered ? buildPersonDirectory(periodFiltered) : null), [periodFiltered])
+  // Die im Steckbrief gewählte Person (aus dem Verzeichnis herausgesucht).
+  const profilePlayer = useMemo(
+    () => (profileId && personDirectory ? personDirectory.find(p => p.id === profileId) : null),
+    [profileId, personDirectory],
+  )
+
   // Highlight-Zeilen für die Rubrik-Kacheln (Dashboard): aktuelle Spitzenreiter:innen.
   //   Leistung → meiste Siege (L1); bei aktivem Personen-Filter nur unter den
   //              gewählten Personen. Ausdauer → meiste Partien (A1) aus den reinen
@@ -936,7 +980,10 @@ function StatsPageInner() {
         {data && (
           <div className="flex flex-col gap-1">
             <PeriodFilter years={years} />
-            <PersonFilter players={persons} />
+            {/* Der Personen-Filter ist im Personen-Verzeichnis/Steckbrief sinnlos
+                (das Verzeichnis IST schon die Personen-Auswahl, der Steckbrief rechnet
+                Ränge bewusst über das ganze Feld) → dort ausblenden. */}
+            {activeBlock !== 'personen' && <PersonFilter players={persons} />}
             <div className="flex items-center justify-between gap-3">
               <NerdToggle />
               {/* „Alle Filter zurücksetzen" – erst sichtbar, sobald ein Filter aktiv ist */}
@@ -1002,6 +1049,9 @@ function StatsPageInner() {
             {/* Rubrik-Kacheln → Ebene 1. Bei aktivem Personen-Filter wird die
                 Ausdauer-Kachel ausgegraut (der Filter greift dort nicht). */}
             <RubrikGrid onOpen={setActiveBlock} highlights={highlights} personActive={personActive} />
+
+            {/* Personen-Verzeichnis als eigener Einstieg (Sprungbrett zu den Steckbriefen). */}
+            <DirectoryCard onClick={() => { setProfileId(null); setActiveBlock('personen') }} />
           </>
         ) : activeBlock === 'leistung' ? (
           /* ── Ebene 1: Rubrik „Leistung“ ── */
@@ -1177,7 +1227,7 @@ function StatsPageInner() {
               <BoxPlot entries={spread} nerd={nerdMode} />
             </section>
           </>
-        ) : (
+        ) : activeBlock === 'ausdauer' ? (
           /* ── Ebene 1: Rubrik „Ausdauer“ (A1–A3) ── */
           <>
             <BackBar title="Ausdauer" onBack={() => setActiveBlock(null)} />
@@ -1333,6 +1383,20 @@ function StatsPageInner() {
               )}
             </section>
           </>
+        ) : (
+          /* ── Personen-Verzeichnis (Ebene 1) + Spieler-Steckbrief ── */
+          profilePlayer ? (
+            <PlayerProfile
+              player={profilePlayer}
+              partien={profilePlayer.partien}
+              onBack={() => setProfileId(null)}
+            />
+          ) : (
+            <>
+              <BackBar title="Personen" onBack={() => setActiveBlock(null)} />
+              <PersonDirectory entries={personDirectory} onOpen={setProfileId} />
+            </>
+          )
         )}
       </div>
     </div>

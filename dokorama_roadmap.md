@@ -54,8 +54,8 @@ Die Reihenfolge folgt den vier Tiers aus STATISTIK_KONZEPT.md (Schritt 4). Leitp
 
 1. **Tier 1 – sofort:** Gesamtscore-Startbildschirm und die Ranglisten-Basis (Blöcke Leistung + Ausdauer). Dazu die Infrastruktur, die ab hier zwingend stehen muss: der P6-Mindest-Stichprobe-Filter (schon für Siegquoten nötig), der Zeitraum-Filter (Total / Kalenderjahr) und der Nerd-Modus-Schalter (schon für die Streuungs-Kennzahl L8 nötig).
 2. **Tier 2 – direkt danach:** Personen-Verzeichnis + Spieler-Steckbrief (der Konvergenzpunkt, der die Ranglisten erst richtig nutzbar macht); die restlichen Ranglisten-Blöcke (Risiko, Solo, Sonderspiele, Sonderpunkte); der Partie-Steckbrief-Kern (Verlaufskurve inkl. Endstand, bester/schlechtester Einzelspielwert, Streak des Abends, Solo-/Sonderpunkte-Zahlen mit Benchmark, HOF/KUR-Ereignisse des Abends – hoher Gameflow-Wert direkt nach Partie-Abschluss, günstig zu bauen, weil reines Filtern vorhandener Daten). Neue Infrastruktur: der Personen-Filter (Achse 5).
-3. **Tier 3 – später:** Orte + Ort-Steckbrief; Hall of Fame; Kuriositätenkabinett (strukturell ein Ranglisten-Block, aber mit Vitrinen-/Fun-Charakter statt ernster Leistungsmessung).
-4. **Tier 4 – deutlich später:** das komplette Teamplay (Team-Chemie, Übermut, Partner-Glück/Gegner-Pech, Karlchen-/Fuchs-Battle, Gegner-Bilanz) sowie das rechnerisch teure Partie-Steckbrief-Feature „Neue Rekorde/Ranking-Veränderungen durch diese Partie".
+3. **Tier 3 – später:** Orte + Ort-Steckbrief; Hall of Fame (**→ Steckbrief:** speist Abschnitt F des Spieler-Steckbriefs, Phase 10.2); Kuriositätenkabinett (strukturell ein Ranglisten-Block, aber mit Vitrinen-/Fun-Charakter statt ernster Leistungsmessung).
+4. **Tier 4 – deutlich später:** das komplette Teamplay (Team-Chemie, Übermut, Partner-Glück/Gegner-Pech, Karlchen-/Fuchs-Battle, Gegner-Bilanz; **→ Steckbrief:** speist Abschnitt E des Spieler-Steckbriefs, Phase 10.2) sowie das rechnerisch teure Partie-Steckbrief-Feature „Neue Rekorde/Ranking-Veränderungen durch diese Partie".
 
 ### Tier 1 – Bauplan (abgeschlossen; 7.1-Rest → Tier 2)
 
@@ -122,26 +122,34 @@ Die Reihenfolge folgt den vier Tiers aus STATISTIK_KONZEPT.md (Schritt 4). Leitp
 
 **Phase 10 – Personen-Verzeichnis + Spieler-Steckbrief-Gerüst + 7.1 Kennzahl-Kacheln**
 > Das Herzstück / der Konvergenzpunkt: macht die Ranglisten erst richtig nutzbar. Startet bewusst schlank und füllt sich, sobald die Blöcke aus Phase 11–14 landen.
-- [ ] 10.1 Personen-Verzeichnis (neuer Top-Level-Einstieg): Liste aller Spieler:innen, Default-Sortierung nach A1 (Anzahl Partien), Sortierwert direkt neben dem Namen („Robert – 87 Partien").
-- [ ] 10.2 Spieler-Steckbrief-Gerüst mit den Abschnitten: A Kopf (Name/Avatar), B Gesamtscore + Wasserfall G2 (G2 wegen ⚙️ ggf. nachziehen), C Highlights (Kennzahlen, bei denen die Person in einer Top-3 auftaucht), D Spielstil (Reizhöhe/Lieblings-Solo/Mut-vs-Können – füllt sich mit R/S), E Teamplay (später, Tier 4), F Hall of Fame (Rekordhalter). Statt eigenem „Alle Werte"-Bereich ein Link → bestehende Ranglisten, via Personen-Filter (Phase 9) auf diese Person vorgefiltert.
-  - **Offene Design-Frage (aus Phase 9 mitgenommen):** Der Personen-Filter zeigt bewusst NUR die gewählten Personen an (`selectRows`). Setzt der „Alle Werte"-Absprung ihn auf EINE Person, zeigt jede Rangliste dann nur DEREN eine Zeile – der „wo stehe ich unter allen?"-Kontext geht verloren. In Phase 10 entscheiden: reicht das so (Steckbrief = die eigenen Werte pro Kennzahl), oder soll der Absprung stattdessen „alle anzeigen, diese Person hervorheben"? Ggf. braucht der Personen-Filter für den Einzel-Fall einen „Hervorheben statt Filtern"-Modus.
+- [x] 10.1 Personen-Verzeichnis (neuer Top-Level-Einstieg): Liste aller Spieler:innen, Default-Sortierung nach A1 (Anzahl Partien), Sortierwert direkt neben dem Namen („Robert – 87 Partien"). — *erledigt & abgenommen 03.08.2026.* NEU `components/stats/PersonDirectory.jsx` (Liste, sortiert Partien absteigend, respektiert Zeitraum, ignoriert Personen-Filter) + `components/stats/PlayerProfile.jsx` (Steckbrief-Hülle, vorerst nur Abschnitt A/Kopf + Platzhalter). `StatsPage.jsx`: neuer `activeBlock='personen'` + `profileId`-Zustand (kein Router), `DirectoryCard`-Einstieg (volle Breite unter dem Rubrik-Raster), Personen-Filter im Verzeichnis/Steckbrief ausgeblendet. **Einziger Weg zum Steckbrief in 10.1 = das Verzeichnis;** „Klick auf jeden Namen → Steckbrief" folgt mit 10.3/Volllisten.
+- [ ] 10.2 Spieler-Steckbrief-Gerüst. **Entscheidungen (Jan, 03.08.2026):**
+  - **A Kopf:** Avatar, Name, darunter A1 „X Partien".
+  - **B Gesamtscore:** Gesamt + Schnitt (pro 4R) mit dem eigenen **Rang** dahinter (🥇🥈🥉 bei Podest). **G2-Wasserfall zurückgestellt** (⚙️ teuer + Zerlegungsfrage offen) → eigener späterer Schritt (Reminder unten bei „Zurückgestellt").
+  - **C Meine Werte (mit Rang):** je Kennzahl *Name · Wert · Rang* (Medaille bei 1–3). **Standard:** nur die Kennzahlen mit Top-3-Platzierung, absteigend nach Rang; **Fallback** (nirgends Top 3): die drei besten eigenen Ränge. Darunter **„Alle Werte anzeigen"** → klappt die Komplettliste aller Kennzahlen (weiter absteigend nach Rang) IN-PAGE auf. Je Kennzahl ein Leitwert. Speist sich aus einer **Kennzahl-Registry**, die mit jedem neuen Block (Phase 11–14) wächst.
+  - **D Spielstil / E Teamplay / F Hall of Fame:** noch NICHT – kommen mit ihren Quell-Blöcken (s. „Zurückgestellt").
+  - **Ränge intern über das ganze Feld** (im gewählten Zeitraum) gerechnet; der **Personen-Filter bleibt auf dem Steckbrief außen vor**, der **Zeitraum-Filter gilt**.
+  - **✅ Design-Frage (aus Phase 9) entschieden:** KEIN „Alle Werte"-Absprung in vorgefilterte Ranglisten und KEIN „Hervorheben statt Filtern"-Modus. Stattdessen Rang direkt im Steckbrief + in-page „Alle Werte anzeigen". **Folge:** der Phase-9-Punkt „Personen-Filter beim Betreten automatisch setzen/zurücksetzen" ist damit **hinfällig** (entfällt).
+  - **Zurückgestellte Steckbrief-Teile (Reminder, wo sie nachgezogen werden):** B-G2-Wasserfall → eigener Schritt sobald G2 gebaut wird; D Spielstil → Phase 11 (R1) + Phase 12 (S1/S2/S3); E Teamplay → Tier 4; F Hall of Fame → Tier 3. Jeder dieser Punkte trägt unten seinen eigenen „→ Steckbrief"-Marker.
 - [ ] 10.3 **7.1-Rest: Kennzahl-Kacheln (Navi-Ebene 2).** Je Kennzahl eine Kompakt-Kachel mit Top 3 (Name + Wert, ohne Datum/Ort). Zwei Klickziele je Kachel: Klick auf Kachel/Kennzahl → Vollliste dieser einen Kennzahl; Klick auf einen Top-3-Namen → Spieler-Steckbrief dieser Person. Erst mit den vorhandenen Blöcken (Leistung/Ausdauer), erweitert sich mit Phase 11–14.
 
 **Phase 11 – Risiko-Block (R1–R5)**
-> Gleiches Bau-Pattern wie Leistung/Ausdauer. Speist zusätzlich Steckbrief-Abschnitt D (Reizhöhe/„Spielstil").
+> Gleiches Bau-Pattern wie Leistung/Ausdauer. **→ Steckbrief:** neue Kennzahlen in die Steckbrief-C-Registry (Phase 10.2) aufnehmen; speist zusätzlich Abschnitt D (Reizhöhe/„Spielstil", aus R1).
 - [ ] 11.1 R1 Ansage-Pyramide (Häufigkeit + Erfolgsquote, Grundansage + Absagen K90/K60/K30/Schwarz, je Re/Kontra/Solo, Drilldown-Ebenen), R2 Re- vs. Kontra-Profil.
 - [ ] 11.2 R3 Ansage-Bilanz (deskriptiv, netto Punkte), R5 Überreizt-Quote (total + je Absage-Stufe).
 - [ ] 11.3 R4 Mut-Ertrag (theoretisch/modellhaft; ⚙️ rechnerisch teuer – realer Ertrag minus Ertrag derselben Spiele ohne meine Ansagen).
 
 **Phase 12 – Solo-Block (S1–S4)**
-> Speist Steckbrief-Abschnitt D (Lieblings-Solo, Mut-vs-Können-Quadrant).
+> **→ Steckbrief:** neue Kennzahlen in die Steckbrief-C-Registry (Phase 10.2) aufnehmen; speist zusätzlich Abschnitt D (Lieblings-Solo, Mut-vs-Können-Quadrant).
 - [ ] 12.1 S1 Solo-Häufigkeit, S2 Solo-Quote (Erfolg).
 - [ ] 12.2 S3 Aufschlüsselung nach Typ (Häufigkeit + Quote je Typ; Farb-Solo konsolidiert, Farb-Drilldown P2), S4 Solo-Punkteertrag (Saldo + Box-Plot – `BoxPlot` wiederverwenden).
 
 **Phase 13 – Sonderspiele-Block (H1–H2, AM1–AM2)**
+> **→ Steckbrief:** neue Kennzahlen in die Steckbrief-C-Registry (Phase 10.2) aufnehmen.
 - [ ] 13.1 H1/H2 Hochzeit (Häufigkeit + Quote, je als Hochzeiter:in / als Eingeheiratete:r), AM1/AM2 Armut (Häufigkeit + Quote, je als arm / als reich). Gegenrollen H2/AM2 mit P2-Datenqualitätshinweis (2024 fehlt).
 
 **Phase 14 – Sonderpunkte-Block (K / DK / F)**
+> **→ Steckbrief:** neue Kennzahlen in die Steckbrief-C-Registry (Phase 10.2) aufnehmen.
 - [ ] 14.1 Karlchen: K1 gemacht, K2 gefangen, K3 verloren (P2), K4 Erfolgsbilanz, K5 Jagdbilanz, K6 Doppel-Karlchen (Trophäe).
 - [ ] 14.2 Doppelkopf: DK1 Häufigkeit, DK2 Vitrinen-Doppelköpfe (2er/3er/4er). Fuchs: F1 gefangen, F2 verloren, F3 Jagdbilanz, F4 Vitrinen-Füchse (alle Fuchs-Kennzahlen P2 – 2024 nicht erfasst).
 
