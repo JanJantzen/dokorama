@@ -303,6 +303,34 @@ export function isWeakSample(n) {
   return n != null && n < P6_MIN_SAMPLE
 }
 
+// Rang-Berechnung über ein ganzes Feld (Spieler-Steckbrief, Phase 10.2).
+//
+// Eingabe: eine Map(spielerId → Zahl) mit AUSSCHLIESSLICH den ranking-fähigen
+// Werten (Aufrufer siebt vorher null-Werte und schwache Stichproben aus – die
+// bekommen bewusst keinen Rang, s. P6). Ausgabe: Map(spielerId → Rang, 1-basiert).
+//
+// Gleichstand = gleicher Rang, danach Lücke („Standard competition ranking",
+// 1-2-2-4): zwei geteilte Erste stehen beide auf 🥇, der Nächste auf Rang 3.
+// higherIsBetter steuert die Richtung (höher = besser bei Punkten/Quoten;
+// perspektivisch könnte eine „kleiner ist besser"-Kennzahl false übergeben).
+export function rankMap(values, higherIsBetter = true) {
+  const sorted = [...values.entries()].sort((a, b) =>
+    higherIsBetter ? b[1] - a[1] : a[1] - b[1],
+  )
+  const ranks = new Map()
+  let prevValue = null
+  let prevRank = 0
+  sorted.forEach(([id, value], i) => {
+    // Gleicher Wert wie der Vorgänger → gleicher Rang; sonst der Listenplatz (i+1),
+    // wodurch nach einem Gleichstand automatisch die Lücke entsteht.
+    const rank = prevValue !== null && value === prevValue ? prevRank : i + 1
+    ranks.set(id, rank)
+    prevValue = value
+    prevRank = rank
+  })
+  return ranks
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // 2. Grundgrößen (pure Hilfsfunktionen)
 // ────────────────────────────────────────────────────────────────────────────

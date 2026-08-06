@@ -34,6 +34,7 @@ import {
   filterByPersons,
   availableYears,
   isWeakSample,
+  rankMap,
 } from '@/lib/stats'
 import { StatsFilterProvider, useStatsFilter } from '@/contexts/StatsFilterContext'
 import StatsRankingList from '@/components/stats/StatsRankingList'
@@ -815,6 +816,124 @@ function buildPersonDirectory(data) {
     .sort((a, b) => b.partien - a.partien || a.name.localeCompare(b.name))
 }
 
+// ── Spieler-Steckbrief: Kennzahl-Registry + Profil-Bau (Phase 10.2) ──
+//
+// Die Registry ist die zentrale Liste der Kennzahlen, die im Steckbrief-Abschnitt
+// „Meine Werte" (C) auftauchen. Jeder Eintrag hängt sich an eine der vorhandenen
+// build*-Funktionen und pickt EINEN Leitwert – so wird kein Rechenweg doppelt
+// gebaut, und die Registry wächst später einfach mit jedem neuen Block (Phase
+// 11–14: Risiko, Solo, Sonderspiele, Sonderpunkte).
+//
+// extract(data) → Map(spielerId → { value, weak }):
+//   value = der Leitwert dieser Person (null, wenn nicht gespielt → fällt raus)
+//   weak  = true, wenn die Stichprobe zu dünn ist (P6) → Wert wird gezeigt, aber
+//           OHNE Rang/Medaille, und er fließt nicht in die Rang-Berechnung ein.
+// higherIsBetter steuert die Rang-Richtung; alle Tier-1-Leitwerte sind „höher = besser".
+
+// Zieht aus einer fertigen build*-Liste ([{ id, values, weak }]) einen einzelnen
+// Leitwert je Person heraus – inkl. des ggf. vorhandenen weak-Flags für diesen Key.
+function extractValues(entries, key) {
+  const m = new Map()
+  for (const e of entries) {
+    m.set(e.id, { value: e.values?.[key] ?? null, weak: !!(e.weak && e.weak[key]) })
+  }
+  return m
+}
+
+const PROFILE_METRICS = [
+  // Leistung
+  { id: 'L6', label: 'Ø Partie',              format: fmtPer4,  higherIsBetter: true,
+    extract: d => extractValues(buildDurchschnittsscore(d), 'avgSession') },
+  { id: 'L1', label: 'Siegquote',             format: fmtQuote, higherIsBetter: true,
+    extract: d => extractValues(buildSiegNiederlage(d), 'quote') },
+  { id: 'L9', label: 'Deutliche Siege',       format: fmtQuote, higherIsBetter: true,
+    // clarity hat eine eigene Form (clearShare + boolesches weak, Wert nur bei Siegen).
+    extract: d => new Map(buildClarity(d).map(e =>
+      [e.id, { value: e.total > 0 ? e.clearShare : null, weak: e.weak }])) },
+  { id: 'L2', label: 'Partie-Erster',         format: fmtCount, higherIsBetter: true,
+    extract: d => extractValues(buildPlatzierung(d, 'session'), 'erster') },
+  { id: 'L5', label: 'Erster-Serie',          format: fmtCount, higherIsBetter: true,
+    extract: d => extractValues(buildPlatzSerie(d, 'session'), 'erster') },
+  { id: 'L7', label: 'Bestes Partie-Ergebnis', format: fmtInt,  higherIsBetter: true,
+    extract: d => extractValues(buildBestWorst(d, 'session'), 'best') },
+  // Ausdauer
+  { id: 'A1', label: 'Partien',               format: fmtCount, higherIsBetter: true,
+    extract: d => extractValues(buildMengen(d), 'partien') },
+  { id: 'A3', label: 'Teilnahmequote',        format: fmtQuote, higherIsBetter: true,
+    extract: d => extractValues(buildTeilnahme(d), 'quote') },
+  { id: 'A6', label: 'Spielzeit',             format: fmtDur,   higherIsBetter: true,
+    // Spielzeit steckt in playtimeStats (nur App-erfasste Abende); wer keine hat,
+    // fällt über den null-/fehlt-Weg raus. Absolutwert → nie schwach. P2-Hinweis
+    // (note): der Wert deckt NICHT den ganzen Zeitraum ab – ältere importierte
+    // Abende haben keine Uhrzeiten. note ist eine Funktion, damit das früheste
+    // App-Datum im Zeitraum mit hineinkommt (analog zum Ausdauer-Block).
+    note: d => {
+      const dates = playtimeStats(d).dates // aufsteigend sortiert
+      const ab = dates.length ? ` (ab ${recordDate(dates[0])})` : ''
+      return `Nur aus App-erfassten Abenden${ab} – ältere importierte Abende haben keine Uhrzeiten und zählen hier nicht mit.`
+    },
+    extract: d => new Map([...playtimeStats(d).perPlayer.entries()].map(
+      ([id, ms]) => [id, { value: ms, weak: false }])) },
+]
+
+// Baut die Steckbrief-Daten für EINE Person aus den (nur zeitraum-gefilterten)
+// Gruppendaten. Ränge werden bewusst über das GANZE Feld gerechnet – der
+// Personen-Filter bleibt im Steckbrief außen vor (Entscheidung Phase 10.2).
+function buildProfile(data, playerId) {
+  // ── B – Gesamtscore (Gesamt + Schnitt/4R), je mit eigenem Rang ──
+  const gs = buildGesamtscore(data)
+  const meGs = gs.find(e => e.id === playerId)
+  // „Gesamt" ist eine Absolutzahl → jede:r wird gerankt (P6-immun).
+  const rankAbs = rankMap(new Map(gs.map(e => [e.id, e.values.absolut])), true)
+  // „Schnitt" ist ein Durchschnitt → schwache Stichproben fließen nicht in die
+  // Rangwertung ein (und bekommen selbst keinen Rang).
+  const rankPer4 = rankMap(
+    new Map(gs.filter(e => e.values.per4 != null && !e.weak.per4)
+              .map(e => [e.id, e.values.per4])),
+    true,
+  )
+  const b = meGs
+    ? {
+        gesamt:  { value: fmtInt(meGs.values.absolut), rank: rankAbs.get(playerId) ?? null },
+        schnitt: {
+          value: fmtPer4(meGs.values.per4),
+          rank: meGs.values.per4 != null && !meGs.weak.per4
+            ? (rankPer4.get(playerId) ?? null)
+            : null,
+        },
+      }
+    : null
+
+  // ── C – Meine Werte: je Registry-Kennzahl Wert + Rang übers ganze Feld ──
+  const metrics = []
+  for (const m of PROFILE_METRICS) {
+    const vals = m.extract(data)
+    const mine = vals.get(playerId)
+    if (!mine || mine.value == null) continue // nicht gespielt → Kennzahl weglassen
+    // Nur belastbare Werte (kein null, keine schwache Stichprobe) ranken.
+    const rankable = new Map(
+      [...vals.entries()]
+        .filter(([, v]) => v.value != null && !v.weak)
+        .map(([id, v]) => [id, v.value]),
+    )
+    const ranks = rankMap(rankable, m.higherIsBetter)
+    const rank = mine.weak ? null : (ranks.get(playerId) ?? null)
+    // note kann ein fester String oder eine Funktion (data) => string sein (z. B.
+    // Spielzeit, die das früheste App-Datum im Zeitraum einblendet).
+    const note = typeof m.note === 'function' ? m.note(data) : (m.note ?? null)
+    metrics.push({ id: m.id, label: m.label, value: m.format(mine.value), rank, note })
+  }
+  // Nach Rang aufsteigend (bester zuerst); ranglose Kennzahlen (schwach) ans Ende.
+  metrics.sort((a, z) => {
+    if (a.rank == null && z.rank == null) return 0
+    if (a.rank == null) return 1
+    if (z.rank == null) return -1
+    return a.rank - z.rank
+  })
+
+  return { b, metrics }
+}
+
 // Die eigentliche Seite – lebt INNERHALB des StatsFilterProvider (s. Default-Export
 // unten), damit sie den gewählten Zeitraum über useStatsFilter() lesen kann.
 function StatsPageInner() {
@@ -938,6 +1057,14 @@ function StatsPageInner() {
   const profilePlayer = useMemo(
     () => (profileId && personDirectory ? personDirectory.find(p => p.id === profileId) : null),
     [profileId, personDirectory],
+  )
+  // Steckbrief-Daten (Abschnitt B + C) für die gewählte Person. Rechnet bewusst
+  // auf periodFiltered (Zeitraum ja, Personen-Filter nein) – die Ränge sollen übers
+  // ganze Feld gelten (Phase 10.2), und der PersonFilter ist in diesem Block ohnehin
+  // ausgeblendet.
+  const profile = useMemo(
+    () => (profileId && periodFiltered ? buildProfile(periodFiltered, profileId) : null),
+    [profileId, periodFiltered],
   )
 
   // Highlight-Zeilen für die Rubrik-Kacheln (Dashboard): aktuelle Spitzenreiter:innen.
@@ -1389,6 +1516,7 @@ function StatsPageInner() {
             <PlayerProfile
               player={profilePlayer}
               partien={profilePlayer.partien}
+              profile={profile}
               onBack={() => setProfileId(null)}
             />
           ) : (
