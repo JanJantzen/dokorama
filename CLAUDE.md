@@ -2,11 +2,57 @@
 
 > Diese Datei ist das zentrale Briefing für jeden Claude-Assistenten, der an diesem Projekt arbeitet.
 > Sie wird bei jeder neuen Sitzung gelesen. Halte sie aktuell.
-> Letzte Aktualisierung: 20. Juli 2026 – Statistik-Konzept (Block C) fertig ausgearbeitet und als eigenständiges Referenzdokument STATISTIK_KONZEPT.md abgelegt (analog KONSISTENZREGELN.md / ROBERT_IMPORT.md). Abschnitt 7 auf knappen Überblick gekürzt und auf STATISTIK_KONZEPT.md verwiesen (alte Kategorien-Liste 1–7 dorthin überführt/überholt); Roadmap Block C durch priorisierte Bau-Reihenfolge (Tier 1–4) ersetzt.
+> Letzte Aktualisierung: 8. Oktober 2026 – Neue Arbeitsweise: Sparring und Coding laufen jetzt gemeinsam im Claude-Projekt mit verknüpftem Ordner (vorher Coding im Terminal). Neuer Abschnitt 0 (Arbeitsweise, Ablage, Git). Der Ordner/das Repo ist die einzige Quelle – keine Dokument-Kopien mehr im Claude-Projekt. Stand nachgezogen: Statistik Tier 1 fertig, Tier 2 bis Phase 10.2. Abschnitte 3 und 10 an das umgesetzte Kugelschreiber-Modell angepasst. Abschnitt 16: Icons sind eingebaut.
+> Vorherige Aktualisierung: 20. Juli 2026 – Statistik-Konzept (Block C) fertig ausgearbeitet und als eigenständiges Referenzdokument STATISTIK_KONZEPT.md abgelegt (analog KONSISTENZREGELN.md / ROBERT_IMPORT.md). Abschnitt 7 auf knappen Überblick gekürzt und auf STATISTIK_KONZEPT.md verwiesen (alte Kategorien-Liste 1–7 dorthin überführt/überholt); Roadmap Block C durch priorisierte Bau-Reihenfolge (Tier 1–4) ersetzt.
 > Vorherige Aktualisierung: 1. Juli 2026 – Neugeben-Feature fertig gebaut: `round_redeals` mit `game_id` FK (statt `round_id`), Redeals im GameContext/live_draft (Zuschauer sehen sie live), Speichern mit echter game_id beim Bestätigen, Cascade-Delete.
 > Vorherige Aktualisierung: 30. Juni 2026 – Neugeben-Feature spezifiziert: neue Tabelle `round_redeals`, Dealer-Chip-Tap als UI-Auslöser, Gebeversuch-Badge, vier Typen (Fünf Neunen / Armut ohne Retter / Trumpfschwach / Vergeben). Statistik-Kategorie 7 ergänzt.
 > Vorherige Aktualisierung: 29. Juni 2026 – Block B (Live-Mitsehen & Kugelschreiber-Modell) abgeschlossen: Supabase Realtime (Postgres Changes + Broadcast), `current_writer_id` in sessions, DB-Migration 008, Watcher-Banner, Übernahme-Dialog. iOS-Fix: `generateId()`-Polyfill (crash auf http-Kontext). Wake Lock. Import: alle 12 Spielabende Jan–Jun 2026 jetzt in der DB (5 neue heute: 07.01., 28.01., 11.02., 04.03., 18.03.). Block B und Import D.1 in Roadmap als ✅ vermerkt.
 > Vorherige Aktualisierung: 27. Juni 2026 – Solo Hochzeit als neuer Solo-Typ ergänzt (Spec + Code + DB-Migration 006). PWA deployed: `manifest.json`, App-Icons 192/512 + maskable, Service Worker via `vite-plugin-pwa` (Workbox), `OfflineBanner`-Komponente. DB-Migration 007 (Solo Hochzeit Rename).
+
+---
+
+## 0. Arbeitsweise, Ablage und Git
+
+> Seit 8. Oktober 2026. Vorher: inhaltliches Sparring im Claude-Projekt, Coding getrennt in Claude Code im Terminal. Jetzt läuft beides an einem Ort – im Claude-Projekt „Dokorama (Coding)" mit verknüpftem Ordner.
+
+### Wo was liegt
+
+- **Einzige Quelle ist dieser Ordner / dieses Repo** (GitHub: `JanJantzen/dokorama`, Branch `main`). Im Claude-Projekt liegen bewusst keine Kopien der Dokumente – die würden nur veralten.
+- **Referenzdokumente im Root** (vor der jeweiligen Arbeit lesen):
+  - `CLAUDE.md` – dieses Briefing (immer)
+  - `dokorama_roadmap.md` – Stand und nächste Schritte
+  - `STATISTIK_KONZEPT.md` – maßgeblich für alles rund um Statistik
+  - `KONSISTENZREGELN.md` – Plausibilitätsregeln der Erfassung
+  - `ROBERT_IMPORT.md` – Digitalisierung von Roberts Büchlein; nach jeder Digitalisierungsrunde neue Erkenntnisse (Kürzel, Sanity Checks, Handschrift) ergänzen
+- `app/` – das React-Frontend. `database/` – Schema, Seed-Daten und Migrationen.
+
+### Nicht anfassen
+
+- **`_workspace/`** ist Jans privater Ablageordner (steht in `.gitignore`). Nicht lesen, nicht durchsuchen, nicht aufräumen, nicht als Quelle verwenden – außer Jan verweist ausdrücklich darauf. Ältere Dokumentfassungen dort sind nicht maßgeblich.
+- **`database/imports/*.json`** enthält echte Spieldaten mit Klarnamen – nur lokal, nie committen.
+- `.claude/` und `node_modules/` nicht anfassen.
+
+### Git
+
+- Zu Beginn einer Coding-Sitzung `git status` prüfen und Jan auf nicht committete Änderungen hinweisen.
+- Commits und Pushes nur nach Jans OK. **Ein Push auf `main` löst ein Vercel-Deployment aus** – geht also live.
+- Commit-Nachrichten auf Deutsch im bisherigen Stil: `Feature: …`, `Fix: …`, `Docs: …`.
+
+### Datenbank-Migrationen
+
+- Jede Änderung am Datenbank-Aufbau (neue Tabelle, neue Spalte, Umbenennung, neue Zugriffsregel) bekommt eine eigene, durchnummerierte Datei `database/migration_NNN_beschreibung.sql`. Bestehende Migrationen werden nie nachträglich geändert.
+- Ablauf: Wir besprechen die Änderung, Claude schreibt den SQL-Code und legt ihn als Migrationsdatei in `database/` ab, Jan führt ihn selbst im Supabase-SQL-Editor aus. Claude führt Migrationen nie selbst gegen die Datenbank aus.
+
+### Doku aktuell halten
+
+- Nach abgeschlossenen Schritten diese Datei und `dokorama_roadmap.md` nachziehen (inkl. Datum in der Kopfzeile) – ebenfalls nach Rücksprache.
+
+### Aktueller Stand (8. Oktober 2026)
+
+- Erfassung, Login, PWA, Live-Mitsehen/Kugelschreiber-Modell, Neugeben: fertig.
+- Import: alle 12 Spielabende Januar–Juni 2026 in der DB.
+- Statistik Tier 1: fertig. Tier 2: Phase 8 (Partie-Steckbrief), 9 (Personen-Filter), 10.1 (Personen-Verzeichnis) und 10.2 (Spieler-Steckbrief-Gerüst) fertig und abgenommen. Details und nächste Schritte: `dokorama_roadmap.md`.
+- **Offen beim Wiedereinstieg:** Nach einer längeren Pause liegen nicht committete Statistik-Änderungen vor (`app/src/components/stats/AttendanceGrid.jsx`, `BoxPlot.jsx`, `ClarityBars.jsx`, `StatsRankingList.jsx`, `app/src/pages/StatsPage.jsx`). Erster Schritt der nächsten Coding-Sitzung: diese Änderungen mit Jan sichten, Stand gegen die Roadmap abgleichen, nächste Schritte festlegen.
 
 ---
 
@@ -61,12 +107,14 @@ Die Runde spielt regelmäßig Doppelkopf und schreibt jedes Spiel detailliert in
 - **Gruppen-Link (ohne Login):** Jeder mit dem Link kann alles sehen – laufende Partien, Statistiken, Historie. Niedrige Hürde für Mitspieler:innen, die nur konsumieren wollen.
 - **Individueller Login:** Nur eingeloggte Spieler:innen können Partien starten, Spiele erfassen und korrigieren. Nachvollziehbar wer was eingetragen oder geändert hat. Nicht jede:r Spieler:in muss einen Login haben.
 
-> **Schreibrechte-Stufung (Jan, 16.6.2026):** Zunächst schreibt **nur, wer die Partie angelegt hat** (nicht jede:r Eingeloggte). Das Schreibrecht ist **übertragbar** – der Wechsel sitzt im selben Menü wie die Änderung der Rundenzusammensetzung (Abschnitt 6). Dass jede:r Eingeloggte erfassen kann und **paralleles** Erfassen mehrerer sind spätere Stufen (Build-Reihenfolge in Abschnitt 10).
+> **Schreibrecht = Kugelschreiber-Modell (umgesetzt 28./29.6.2026, ersetzt die Stufung vom 16.6.2026):** Eine Partie hat zu jedem Zeitpunkt **genau eine:n aktive:n Schreiber:in** (`sessions.current_writer_id`) – wer den „Stift" gerade hält, nicht wer die Partie angelegt hat. Alle anderen sehen live mit. Eingeloggte Mitspieler:innen der Partie können das Schreiben mit einseitiger Bestätigung übernehmen. **Echtes paralleles Schreiben ist ausdrücklich nicht vorgesehen.** Details: `dokorama_roadmap.md`, Block B.
 
 ### Duplikat-Schutz (an die Parallel-Schreib-Phase gekoppelt):
 
 Wenn ein:e Spieler:in ein Spiel speichert, das bereits von jemand anderem gespeichert wurde, erscheint ein Hinweis: „Dieses Spiel wurde bereits von [Name] gespeichert. Willst Du [Name]s Version ansehen, Deine Version speichern (überschreibt) oder Deine Notizen verwerfen?"
 
+> **Stand 8.10.2026:** Da paralleles Schreiben mit dem Kugelschreiber-Modell ausdrücklich nicht vorgesehen ist, greift dieser Duplikat-Schutz derzeit nicht. Ob er ganz entfällt, ist nicht entschieden.
+>
 > **Einordnung (Jan, 16.6.2026):** Greift erst, wenn **mehrere parallel** schreiben – das ist die letzte Auth-Stufe (Abschnitt 10). Bis dahin **zurückgestellt**: ohne Login fehlt die Schreiber-Identität für „[Name]", und real erfasst aktuell nur eine Person. Technisch = Kollision auf `(round_id, Spielnummer)` abfangen → freundlicher Dialog statt rohem Fehler.
 
 ### Perspektivisch (kein aktueller Scope, aber im Design berücksichtigen):
@@ -691,8 +739,7 @@ Die Auth-Features werden in dieser Reihenfolge gebaut – jede Stufe schaltet di
 
 1. ✅ **Login** (individuell, Supabase Auth) – abgeschlossen 25.06.2026.
 2. **Lesender Gruppen-Link** – wer den Link hat, sieht alles, kann aber **nichts** ändern. (Aktuell schon weitgehend so: Lesen geht ohne Login, Schreiben erfordert es.)
-3. **Schreibrecht minimal:** nur die **Ersteller:in der Partie** schreibt (übertragbar; der Wechsel sitzt im Rundenzusammensetzungs-Menü, Abschnitt 6). Fundament liegt: `sessions.created_by` vorhanden.
-4. **Paralleles Schreiben** mehrerer – zuletzt; erst dann greift der **Duplikat-Schutz** (Abschnitt 3).
+3. ✅ **Kugelschreiber-Modell** (28./29.6.2026, ersetzt die ursprünglichen Stufen 3 „nur Ersteller:in schreibt" und 4 „paralleles Schreiben"): genau ein:e aktive:r Schreiber:in (`sessions.current_writer_id`, Migration 008), Live-Mitsehen via Supabase Realtime, Übernahme mit Bestätigung. Paralleles Schreiben ist nicht vorgesehen (Abschnitt 3).
 
 ### Perspektivisch:
 
@@ -800,7 +847,7 @@ Die App soll als PWA funktionieren, damit sie auf dem Homescreen installiert wer
 
 ## 16. Icon-Spezifikationen
 
-> Letzte Aktualisierung: 5. Juni 2026. Icons als PNG-Master fertig, noch nicht in die App eingebaut.
+> Letzte Aktualisierung: 5. Juni 2026. Stand 8. Oktober 2026: Die Icons sind in der App eingebaut (u. a. `TableView`, `PlayerSheet`, `SessionDetailsPage`).
 
 ### Entscheidung: PNG statt SVG-Vektor
 
@@ -885,5 +932,7 @@ Sonderspiele (Solo, Hochzeit, Armut) werden auf dem Tisch als **Textlabel** ange
 - **Anwendung:** Nur im Tischbereich (zwischen Header und EyesBar), nicht im Header oder der EyesBar selbst
 
 ### Platzhalter bis zur Icon-Integration
+
+> Historisch – die Icons sind inzwischen eingebaut.
 
 Abgerundetes Quadrat (`bg-muted`, border-radius 4px) mit 1–2 Buchstaben in Schriftgröße 10px. Gleiche Größe und Position wie die echten Icons – drop-in-ready sobald die WebP-Dateien in `app/src/assets/icons/` liegen.
