@@ -1067,6 +1067,11 @@ function StatsPageInner() {
     [profileId, periodFiltered],
   )
 
+  // Klick auf einen Namen in IRGENDEINER Rangliste/Grafik → Steckbrief dieser
+  // Person (Phase 10.3, „Konvergenzpunkt"). Wechselt in den Personen-Block und
+  // öffnet das Profil; „Zurück" landet dann konsequent im Personen-Verzeichnis.
+  const openProfile = (id) => { setProfileId(id); setActiveBlock('personen') }
+
   // Highlight-Zeilen für die Rubrik-Kacheln (Dashboard): aktuelle Spitzenreiter:innen.
   //   Leistung → meiste Siege (L1); bei aktivem Personen-Filter nur unter den
   //              gewählten Personen. Ausdauer → meiste Partien (A1) aus den reinen
@@ -1167,6 +1172,7 @@ function StatsPageInner() {
                   entries={gesamtscore}
                   columns={GESAMTSCORE_COLUMNS}
                   defaultSortKey="absolut"
+                  onOpenPlayer={openProfile}
                 />
               )}
               </>
@@ -1204,6 +1210,7 @@ function StatsPageInner() {
                 entries={durchschnitt}
                 columns={DURCHSCHNITT_COLUMNS}
                 defaultSortKey="avgSession"
+                onOpenPlayer={openProfile}
               />
             </section>
 
@@ -1227,6 +1234,7 @@ function StatsPageInner() {
                 entries={bestWorst}
                 columns={BESTWORST_COLUMNS}
                 defaultSortKey="best"
+                onOpenPlayer={openProfile}
               />
             </section>
 
@@ -1263,14 +1271,14 @@ function StatsPageInner() {
                   Listen-Instanz samt Sortierspalte, die es auf der neuen Ebene
                   gar nicht gibt → wirkt unsortiert. */}
               {isGameLevel ? (
-                <StatsRankingList key="l1" entries={siegNiederlage} columns={SIEG_COLUMNS} defaultSortKey="siege" />
+                <StatsRankingList key="l1" entries={siegNiederlage} columns={SIEG_COLUMNS} defaultSortKey="siege" onOpenPlayer={openProfile} />
               ) : (
                 <>
                   <SubTitle>Platzierung</SubTitle>
-                  <StatsRankingList key="platz" entries={platzierung} columns={PLATZIERUNG_COLUMNS} defaultSortKey="erster" />
+                  <StatsRankingList key="platz" entries={platzierung} columns={PLATZIERUNG_COLUMNS} defaultSortKey="erster" onOpenPlayer={openProfile} />
 
                   <SubTitle>Netto-Saldo</SubTitle>
-                  <StatsRankingList key="netto" entries={netto} columns={NETTO_COLUMNS} defaultSortKey="pos" />
+                  <StatsRankingList key="netto" entries={netto} columns={NETTO_COLUMNS} defaultSortKey="pos" onOpenPlayer={openProfile} />
                 </>
               )}
             </section>
@@ -1305,9 +1313,9 @@ function StatsPageInner() {
               {/* Eigene key je Ebene, damit die Sortierspalte beim Wechsel frisch
                   startet (analog zum Sieg·Platz·Saldo-Block). */}
               {isStreakGame ? (
-                <StatsRankingList key="sserie" entries={siegSerie} columns={SIEGSERIE_COLUMNS} defaultSortKey="sieg" colWidth="w-20" />
+                <StatsRankingList key="sserie" entries={siegSerie} columns={SIEGSERIE_COLUMNS} defaultSortKey="sieg" colWidth="w-20" onOpenPlayer={openProfile} />
               ) : (
-                <StatsRankingList key="pserie" entries={platzSerie} columns={PLATZSERIE_COLUMNS} defaultSortKey="erster" colWidth="w-20" />
+                <StatsRankingList key="pserie" entries={platzSerie} columns={PLATZSERIE_COLUMNS} defaultSortKey="erster" colWidth="w-20" onOpenPlayer={openProfile} />
               )}
             </section>
 
@@ -1329,7 +1337,7 @@ function StatsPageInner() {
                 Deutlichkeit der Siege
               </SectionTitle>
 
-              <ClarityBars entries={clarity} />
+              <ClarityBars entries={clarity} onOpenPlayer={openProfile} />
             </section>
 
             {/* ── Streuung / Konstanz (L8) ── */}
@@ -1351,7 +1359,7 @@ function StatsPageInner() {
 
               <LevelToggle level={spreadLevel} onChange={setSpreadLevel} options={LEVEL_OPTIONS} />
 
-              <BoxPlot entries={spread} nerd={nerdMode} />
+              <BoxPlot entries={spread} nerd={nerdMode} onOpenPlayer={openProfile} />
             </section>
           </>
         ) : activeBlock === 'ausdauer' ? (
@@ -1384,6 +1392,7 @@ function StatsPageInner() {
                 entries={mengen}
                 columns={MENGEN_COLUMNS}
                 defaultSortKey="partien"
+                onOpenPlayer={openProfile}
               />
             </section>
 
@@ -1406,6 +1415,7 @@ function StatsPageInner() {
                 columns={DICHTE_COLUMNS}
                 defaultSortKey="rundenProPartie"
                 colWidth="w-24"
+                onOpenPlayer={openProfile}
               />
             </section>
 
@@ -1426,6 +1436,7 @@ function StatsPageInner() {
                 entries={teilnahme}
                 columns={TEILNAHME_COLUMNS}
                 defaultSortKey="quote"
+                onOpenPlayer={openProfile}
               />
             </section>
 
@@ -1444,7 +1455,7 @@ function StatsPageInner() {
                 Anwesenheit
               </SectionTitle>
 
-              <AttendanceGrid timeline={attendance} />
+              <AttendanceGrid timeline={attendance} onOpenPlayer={openProfile} />
             </section>
 
             {/* ── Gebeversuche (A5) ── */}
@@ -1466,6 +1477,7 @@ function StatsPageInner() {
                 columns={GEBEVERSUCHE_COLUMNS}
                 defaultSortKey="mehrlast"
                 colWidth="w-20"
+                onOpenPlayer={openProfile}
               />
             </section>
 
@@ -1502,6 +1514,7 @@ function StatsPageInner() {
                     columns={SPIELSTUNDEN_COLUMNS}
                     defaultSortKey="zeit"
                     colWidth="w-24"
+                    onOpenPlayer={openProfile}
                   />
 
                   <SubTitle>Ø Dauer</SubTitle>

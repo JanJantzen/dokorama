@@ -30,7 +30,9 @@ const fmtVal = (n) => {
 const fmtSigma = (n) => n.toFixed(1).replace('.', ',')
 
 // entries: [{ id, name, avatarUrl, n, min, q1, median, q3, max, sigma, weak }]
-export default function BoxPlot({ entries, nerd = false, topN = 3 }) {
+// onOpenPlayer: optional (id) => void → Avatar/Name tippbar → Spieler-Steckbrief
+//   (Phase 10.3). Der Box-Plot-Strip selbst bleibt fürs Detail-Aufklappen zuständig.
+export default function BoxPlot({ entries, nerd = false, topN = 3, onOpenPlayer }) {
   const [expanded, setExpanded] = useState(false)
   const [openId, setOpenId] = useState(null) // welcher Balken ist aufgeklappt (Handy-Detailzeile)
 
@@ -88,8 +90,24 @@ export default function BoxPlot({ entries, nerd = false, topN = 3 }) {
             >
               <div className="flex items-center gap-3">
                 <span className="w-5 text-sm font-semibold text-muted-foreground tabular-nums">{i + 1}.</span>
-                <PlayerAvatar player={{ name: e.name, avatar_url: e.avatarUrl }} size="sm" />
-                <span className="w-14 sm:w-20 font-medium text-sm truncate">{e.name}</span>
+                {/* Avatar + Name: tippbar → Steckbrief (der Strip bleibt fürs Detail). */}
+                {onOpenPlayer ? (
+                  <button
+                    type="button"
+                    onClick={() => onOpenPlayer(e.id)}
+                    className="flex items-center gap-3 text-left group"
+                  >
+                    <PlayerAvatar player={{ name: e.name, avatar_url: e.avatarUrl }} size="sm" />
+                    <span className="w-14 sm:w-20 font-medium text-sm truncate group-hover:text-primary group-hover:underline underline-offset-2">
+                      {e.name}
+                    </span>
+                  </button>
+                ) : (
+                  <>
+                    <PlayerAvatar player={{ name: e.name, avatar_url: e.avatarUrl }} size="sm" />
+                    <span className="w-14 sm:w-20 font-medium text-sm truncate">{e.name}</span>
+                  </>
+                )}
 
                 {/* Box-Plot-Strip – tippbar: klappt die Zahlen-Detailzeile auf/zu */}
                 <button

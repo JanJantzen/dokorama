@@ -40,7 +40,10 @@ const fullDate = (iso) => {
 }
 
 // timeline: { sessions: [{ id, date }], rows: [{ id, name, avatarUrl, present:[bool], total, firstDate, lastDate }] }
-export default function AttendanceGrid({ timeline }) {
+// onOpenPlayer: optional (id) => void → der Name-Bereich links wird tippbar und
+//   führt zum Spieler-Steckbrief (Phase 10.3). Der Präsenz-Balken bleibt fürs
+//   Detail-Aufklappen (und das Fadenkreuz-Wischen) zuständig.
+export default function AttendanceGrid({ timeline, onOpenPlayer }) {
   const [openId, setOpenId] = useState(null)     // welche Person ist aufgeklappt (Detailzeile)
   const [scrub, setScrub] = useState(null)       // { idx, left } – Fadenkreuz-Position (null = aus)
 
@@ -139,29 +142,48 @@ export default function AttendanceGrid({ timeline }) {
         <div className="space-y-1.5">
           {rows.map(row => {
             const open = openId === row.id
+            // Name-Bereich links: tippbar → Steckbrief (wenn onOpenPlayer gesetzt),
+            // sonst passiv. Bewusst KEIN verschachtelter Button – die Zeile ist ein
+            // div mit zwei nebeneinanderliegenden Bereichen (Name | Balken).
+            const nameArea = (
+              <>
+                <PlayerAvatar player={{ name: row.name, avatar_url: row.avatarUrl }} size="xs" style={{ width: '1.25rem', height: '1.25rem' }} />
+                <span className={`text-xs font-medium truncate ${onOpenPlayer ? 'group-hover:text-primary group-hover:underline underline-offset-2' : ''}`}>{row.name}</span>
+              </>
+            )
             return (
-              <button
-                key={row.id}
-                type="button"
-                onClick={() => { if (!movedRef.current) setOpenId(open ? null : row.id) }}
-                aria-expanded={open}
-                className="flex items-center w-full text-left"
-              >
-                <div style={{ width: NAME_W }} className="shrink-0 flex items-center gap-1.5 pr-2">
-                  <PlayerAvatar player={{ name: row.name, avatar_url: row.avatarUrl }} size="xs" style={{ width: '1.25rem', height: '1.25rem' }} />
-                  <span className="text-xs font-medium truncate">{row.name}</span>
-                </div>
+              <div key={row.id} className="flex items-center w-full">
+                {onOpenPlayer ? (
+                  <button
+                    type="button"
+                    onClick={() => onOpenPlayer(row.id)}
+                    style={{ width: NAME_W }}
+                    className="shrink-0 flex items-center gap-1.5 pr-2 text-left group"
+                  >
+                    {nameArea}
+                  </button>
+                ) : (
+                  <div style={{ width: NAME_W }} className="shrink-0 flex items-center gap-1.5 pr-2">
+                    {nameArea}
+                  </div>
+                )}
                 {/* Der Balken: ein Segment je Abend, direkt aneinander, gemeinsame
-                    runde Enden über overflow-hidden. */}
-                <div className={`flex-1 flex h-5 rounded-sm overflow-hidden ${open ? 'ring-2 ring-primary/40' : ''}`}>
+                    runde Enden über overflow-hidden. Tippbar → Detailzeile auf/zu
+                    (nur bei sauberem Tap, nicht beim Fadenkreuz-Wischen). */}
+                <button
+                  type="button"
+                  onClick={() => { if (!movedRef.current) setOpenId(open ? null : row.id) }}
+                  aria-expanded={open}
+                  className={`flex-1 flex h-5 rounded-sm overflow-hidden ${open ? 'ring-2 ring-primary/40' : ''}`}
+                >
                   {row.present.map((p, i) => (
                     <span
                       key={i}
                       className={`flex-1 min-w-0 ${p ? 'bg-primary' : 'bg-neutral-300 dark:bg-neutral-600'}`}
                     />
                   ))}
-                </div>
-              </button>
+                </button>
+              </div>
             )
           })}
         </div>

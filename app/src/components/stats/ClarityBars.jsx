@@ -31,7 +31,9 @@ const DEUTLICH = STAGES.filter(s => s.key !== 'normal')
 
 // entries: [{ id, name, avatarUrl, total, counts: {normal,k90,k60,k30,schwarz},
 //            clearShare: 0..1, weak: boolean }]
-export default function ClarityBars({ entries, topN = 3 }) {
+// onOpenPlayer: optional (id) => void → Avatar/Name tippbar → Spieler-Steckbrief
+//   (Phase 10.3). Der Balken selbst bleibt fürs Detail-Aufklappen zuständig.
+export default function ClarityBars({ entries, topN = 3, onOpenPlayer }) {
   const [expanded, setExpanded] = useState(false)
   const [openId, setOpenId] = useState(null) // welcher Balken ist aufgeklappt (Handy-Detailzeile)
 
@@ -89,8 +91,24 @@ export default function ClarityBars({ entries, topN = 3 }) {
             >
               <div className="flex items-center gap-3">
                 <span className="w-5 text-sm font-semibold text-muted-foreground tabular-nums">{i + 1}.</span>
-                <PlayerAvatar player={{ name: e.name, avatar_url: e.avatarUrl }} size="sm" />
-                <span className="w-14 sm:w-20 font-medium text-sm truncate">{e.name}</span>
+                {/* Avatar + Name: tippbar → Steckbrief (der Balken bleibt fürs Detail). */}
+                {onOpenPlayer ? (
+                  <button
+                    type="button"
+                    onClick={() => onOpenPlayer(e.id)}
+                    className="flex items-center gap-3 text-left group"
+                  >
+                    <PlayerAvatar player={{ name: e.name, avatar_url: e.avatarUrl }} size="sm" />
+                    <span className="w-14 sm:w-20 font-medium text-sm truncate group-hover:text-primary group-hover:underline underline-offset-2">
+                      {e.name}
+                    </span>
+                  </button>
+                ) : (
+                  <>
+                    <PlayerAvatar player={{ name: e.name, avatar_url: e.avatarUrl }} size="sm" />
+                    <span className="w-14 sm:w-20 font-medium text-sm truncate">{e.name}</span>
+                  </>
+                )}
 
                 {/* Gestapelter Balken – tippbar: klappt die Detailzeile auf/zu */}
                 <button

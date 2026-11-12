@@ -46,7 +46,10 @@ function colorFor(v, tone = 'sign') {
 //   colWidth: Tailwind-Breitenklasse der Wertspalten (Standard 'w-16'). Breitere
 //         Spalten (z. B. 'w-20') für Zellen mit längeren Zusatzzeilen wie einer
 //         Datumsspanne, damit die Zeile nicht zu früh umbricht.
-export default function StatsRankingList({ entries, columns, defaultSortKey, topN = 3, colWidth = 'w-16' }) {
+//   onOpenPlayer: optional (id) => void. Ist es gesetzt, wird der Avatar-/Namens-
+//         Bereich jeder Zeile tippbar und führt zum Spieler-Steckbrief dieser
+//         Person (Phase 10.3). Ohne die Prop bleibt die Zeile wie bisher passiv.
+export default function StatsRankingList({ entries, columns, defaultSortKey, topN = 3, colWidth = 'w-16', onOpenPlayer }) {
   // Anfangsspalte und -richtung: die Start-Richtung richtet sich nach der
   // sortDir der Anfangsspalte (Standard 'desc' = größter Wert oben).
   const initialKey = defaultSortKey ?? columns[0].key
@@ -133,8 +136,25 @@ export default function StatsRankingList({ entries, columns, defaultSortKey, top
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border bg-card"
           >
             <span className="w-5 text-sm font-semibold text-muted-foreground tabular-nums">{i + 1}.</span>
-            <PlayerAvatar player={{ name: e.name, avatar_url: e.avatarUrl }} size="sm" />
-            <span className="flex-1 font-medium text-sm truncate">{e.name}</span>
+            {/* Avatar + Name: tippbar → Steckbrief, wenn onOpenPlayer gesetzt ist.
+                Die Wertspalten rechts bleiben unberührt (dort wird nichts geöffnet). */}
+            {onOpenPlayer ? (
+              <button
+                type="button"
+                onClick={() => onOpenPlayer(e.id)}
+                className="flex items-center gap-3 flex-1 min-w-0 text-left group"
+              >
+                <PlayerAvatar player={{ name: e.name, avatar_url: e.avatarUrl }} size="sm" />
+                <span className="flex-1 font-medium text-sm truncate group-hover:text-primary group-hover:underline underline-offset-2">
+                  {e.name}
+                </span>
+              </button>
+            ) : (
+              <>
+                <PlayerAvatar player={{ name: e.name, avatar_url: e.avatarUrl }} size="sm" />
+                <span className="flex-1 font-medium text-sm truncate">{e.name}</span>
+              </>
+            )}
             {columns.map(col => {
               const v = e.values[col.key]
               const active = col.key === sortKey
