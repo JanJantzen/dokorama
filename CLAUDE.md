@@ -2,7 +2,8 @@
 
 > Diese Datei ist das zentrale Briefing für jeden Claude-Assistenten, der an diesem Projekt arbeitet.
 > Sie wird bei jeder neuen Sitzung gelesen. Halte sie aktuell.
-> Letzte Aktualisierung: 8. Oktober 2026 – Neue Arbeitsweise: Sparring und Coding laufen jetzt gemeinsam im Claude-Projekt mit verknüpftem Ordner (vorher Coding im Terminal). Neuer Abschnitt 0 (Arbeitsweise, Ablage, Git). Der Ordner/das Repo ist die einzige Quelle – keine Dokument-Kopien mehr im Claude-Projekt. Stand nachgezogen: Statistik Tier 1 fertig, Tier 2 bis Phase 10.2. Abschnitte 3 und 10 an das umgesetzte Kugelschreiber-Modell angepasst. Abschnitt 16: Icons sind eingebaut.
+> Letzte Aktualisierung: 12. November 2026 – Stand nachgezogen: Statistik Tier 2 bis Phase 10.3b (Routen-Navigation + Einzel-Kennzahl-Vollliste), Reload-Fix am Runden-Ende und Datenfix für den 11.11.2026. Abschnitt 0 um „Nicht-Migrationen" (Datenfixes) und die Korrektur zum Umgebungswechsel ergänzt.
+> Vorherige Aktualisierung: 8. Oktober 2026 – Neue Arbeitsweise: Sparring und Coding laufen jetzt gemeinsam im Claude-Projekt mit verknüpftem Ordner (vorher Coding im Terminal). Neuer Abschnitt 0 (Arbeitsweise, Ablage, Git). Der Ordner/das Repo ist die einzige Quelle – keine Dokument-Kopien mehr im Claude-Projekt. Abschnitte 3 und 10 an das umgesetzte Kugelschreiber-Modell angepasst. Abschnitt 16: Icons sind eingebaut.
 > Vorherige Aktualisierung: 20. Juli 2026 – Statistik-Konzept (Block C) fertig ausgearbeitet und als eigenständiges Referenzdokument STATISTIK_KONZEPT.md abgelegt (analog KONSISTENZREGELN.md / ROBERT_IMPORT.md). Abschnitt 7 auf knappen Überblick gekürzt und auf STATISTIK_KONZEPT.md verwiesen (alte Kategorien-Liste 1–7 dorthin überführt/überholt); Roadmap Block C durch priorisierte Bau-Reihenfolge (Tier 1–4) ersetzt.
 > Vorherige Aktualisierung: 1. Juli 2026 – Neugeben-Feature fertig gebaut: `round_redeals` mit `game_id` FK (statt `round_id`), Redeals im GameContext/live_draft (Zuschauer sehen sie live), Speichern mit echter game_id beim Bestätigen, Cascade-Delete.
 > Vorherige Aktualisierung: 30. Juni 2026 – Neugeben-Feature spezifiziert: neue Tabelle `round_redeals`, Dealer-Chip-Tap als UI-Auslöser, Gebeversuch-Badge, vier Typen (Fünf Neunen / Armut ohne Retter / Trumpfschwach / Vergeben). Statistik-Kategorie 7 ergänzt.
@@ -14,6 +15,8 @@
 ## 0. Arbeitsweise, Ablage und Git
 
 > Seit 8. Oktober 2026. Vorher: inhaltliches Sparring im Claude-Projekt, Coding getrennt in Claude Code im Terminal. Jetzt läuft beides an einem Ort – im Claude-Projekt „Dokorama (Coding)" mit verknüpftem Ordner.
+
+**Umgebungswechsel (Terminal ↔ Desktop-App):** Beide laufen auf demselben Rechner im selben Ordner – der Arbeitsstand ist buchstäblich derselbe, man kann also jederzeit und mit nicht committeten Änderungen wechseln. Erst *committen* wäre nötig, wenn die zweite Umgebung **nicht** auf derselben Platte liegt (claude.ai/code im Browser, eine Cloud-Sitzung, ein anderer Rechner).
 
 ### Wo was liegt
 
@@ -42,17 +45,20 @@
 
 - Jede Änderung am Datenbank-Aufbau (neue Tabelle, neue Spalte, Umbenennung, neue Zugriffsregel) bekommt eine eigene, durchnummerierte Datei `database/migration_NNN_beschreibung.sql`. Bestehende Migrationen werden nie nachträglich geändert.
 - Ablauf: Wir besprechen die Änderung, Claude schreibt den SQL-Code und legt ihn als Migrationsdatei in `database/` ab, Jan führt ihn selbst im Supabase-SQL-Editor aus. Claude führt Migrationen nie selbst gegen die Datenbank aus.
+- **Datenfixes sind keine Migrationen.** Korrigiert ein SQL-Skript nur *Inhalte* (z. B. falsch zugeordnete Spiele eines Abends), ändert aber nichts am Aufbau, bekommt es eine eigene Nummernreihe `database/datenfix_NNN_beschreibung.sql` – damit die Migrations-Nummern weiter nur den Schema-Verlauf erzählen. Gleicher Ablauf (Jan führt aus), zusätzlich aber: in `BEGIN; … COMMIT;` gefasst, mit Vorher- und Nachher-Abfrage im Skript, damit Jan vor dem `COMMIT` sehen kann, ob das Ergebnis stimmt.
 
 ### Doku aktuell halten
 
 - Nach abgeschlossenen Schritten diese Datei und `dokorama_roadmap.md` nachziehen (inkl. Datum in der Kopfzeile) – ebenfalls nach Rücksprache.
 
-### Aktueller Stand (8. Oktober 2026)
+### Aktueller Stand (12. November 2026)
 
 - Erfassung, Login, PWA, Live-Mitsehen/Kugelschreiber-Modell, Neugeben: fertig.
 - Import: alle 12 Spielabende Januar–Juni 2026 in der DB.
-- Statistik Tier 1: fertig. Tier 2: Phase 8 (Partie-Steckbrief), 9 (Personen-Filter), 10.1 (Personen-Verzeichnis) und 10.2 (Spieler-Steckbrief-Gerüst) fertig und abgenommen. Details und nächste Schritte: `dokorama_roadmap.md`.
-- **Offen beim Wiedereinstieg:** Nach einer längeren Pause liegen nicht committete Statistik-Änderungen vor (`app/src/components/stats/AttendanceGrid.jsx`, `BoxPlot.jsx`, `ClarityBars.jsx`, `StatsRankingList.jsx`, `app/src/pages/StatsPage.jsx`). Erster Schritt der nächsten Coding-Sitzung: diese Änderungen mit Jan sichten, Stand gegen die Roadmap abgleichen, nächste Schritte festlegen.
+- Statistik Tier 1: fertig. Tier 2: Phase 8 (Partie-Steckbrief), 9 (Personen-Filter), 10.1 (Personen-Verzeichnis), 10.2 (Spieler-Steckbrief-Gerüst), 10.3a (Namens-Absprünge + Statistik-Navigation auf echten Routen) und 10.3b (Vollliste einer einzelnen Kennzahl) sind gebaut; 8–10.2 sind von Jan abgenommen, 10.3a/b noch nicht. Details und nächste Schritte: `dokorama_roadmap.md`.
+- **Statistik-Navigation steht seit 10.3a in der URL** (`/statistiken/leistung`, `/personen`, `/person/:id`, `/kennzahl/:id`) – als Splat-Route `/statistiken/*`, damit `StatsPage` EINE Seite bleibt und die Statistikdaten nicht bei jedem Navigationsschritt neu geladen werden. Wer dort etwas ergänzt: Navigation gehört in die URL, nicht in React-State.
+- **Nicht gepusht.** Die Commits seit dem 11.11.2026 liegen nur lokal auf `main`. Ein Push geht live (Vercel) – das entscheidet Jan.
+- **Offene Entscheidung (Phase 10.3c):** Sollen die Rubrik-Seiten Leistung/Ausdauer von gestapelten Volllisten auf ein Kachel-Raster umgebaut werden? Beide Klickziele der ursprünglich geplanten Kennzahl-Kacheln existieren inzwischen schon – offen ist nur die Darreichung, und das ist ein Umbau bereits abgenommener UI. Details in der Roadmap bei 10.3c.
 
 ---
 
