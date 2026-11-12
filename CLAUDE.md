@@ -2,7 +2,7 @@
 
 > Diese Datei ist das zentrale Briefing für jeden Claude-Assistenten, der an diesem Projekt arbeitet.
 > Sie wird bei jeder neuen Sitzung gelesen. Halte sie aktuell.
-> Letzte Aktualisierung: 12. November 2026 – Stand nachgezogen: Statistik Tier 2 bis Phase 10.3b (Routen-Navigation + Einzel-Kennzahl-Vollliste), Reload-Fix am Runden-Ende und Datenfix für den 11.11.2026. Abschnitt 0 um „Nicht-Migrationen" (Datenfixes) und die Korrektur zum Umgebungswechsel ergänzt.
+> Letzte Aktualisierung: 12. November 2026 – Stand nachgezogen: Statistik Tier 2 bis Phase 10.3b (Routen-Navigation + Einzel-Kennzahl-Vollliste) abgenommen und live, Reload-Fix am Runden-Ende und Datenfix für den 11.11.2026. Die Kacheln-Frage aus 7.1/10.3 ist als Phase 15 ans Ende des Tier-2-Bauplans verschoben. Abschnitt 0 um „Nicht-Migrationen" (Datenfixes) und die Korrektur zum Umgebungswechsel ergänzt.
 > Vorherige Aktualisierung: 8. Oktober 2026 – Neue Arbeitsweise: Sparring und Coding laufen jetzt gemeinsam im Claude-Projekt mit verknüpftem Ordner (vorher Coding im Terminal). Neuer Abschnitt 0 (Arbeitsweise, Ablage, Git). Der Ordner/das Repo ist die einzige Quelle – keine Dokument-Kopien mehr im Claude-Projekt. Abschnitte 3 und 10 an das umgesetzte Kugelschreiber-Modell angepasst. Abschnitt 16: Icons sind eingebaut.
 > Vorherige Aktualisierung: 20. Juli 2026 – Statistik-Konzept (Block C) fertig ausgearbeitet und als eigenständiges Referenzdokument STATISTIK_KONZEPT.md abgelegt (analog KONSISTENZREGELN.md / ROBERT_IMPORT.md). Abschnitt 7 auf knappen Überblick gekürzt und auf STATISTIK_KONZEPT.md verwiesen (alte Kategorien-Liste 1–7 dorthin überführt/überholt); Roadmap Block C durch priorisierte Bau-Reihenfolge (Tier 1–4) ersetzt.
 > Vorherige Aktualisierung: 1. Juli 2026 – Neugeben-Feature fertig gebaut: `round_redeals` mit `game_id` FK (statt `round_id`), Redeals im GameContext/live_draft (Zuschauer sehen sie live), Speichern mit echter game_id beim Bestätigen, Cascade-Delete.
@@ -57,7 +57,7 @@
 - Import: alle 12 Spielabende Januar–Juni 2026 in der DB.
 - Statistik Tier 1: fertig. Tier 2: Phase 8 (Partie-Steckbrief), 9 (Personen-Filter), 10.1 (Personen-Verzeichnis), 10.2 (Spieler-Steckbrief-Gerüst), 10.3a (Namens-Absprünge + Statistik-Navigation auf echten Routen) und 10.3b (Vollliste einer einzelnen Kennzahl) sind gebaut und von Jan abgenommen. Details und nächste Schritte: `dokorama_roadmap.md`.
 - **Statistik-Navigation steht seit 10.3a in der URL** (`/statistiken/leistung`, `/personen`, `/person/:id`, `/kennzahl/:id`) – als Splat-Route `/statistiken/*`, damit `StatsPage` EINE Seite bleibt und die Statistikdaten nicht bei jedem Navigationsschritt neu geladen werden. Wer dort etwas ergänzt: Navigation gehört in die URL, nicht in React-State.
-- **Offene Entscheidung (Phase 10.3c):** Sollen die Rubrik-Seiten Leistung/Ausdauer von gestapelten Volllisten auf ein Kachel-Raster umgebaut werden? Beide Klickziele der ursprünglich geplanten Kennzahl-Kacheln existieren inzwischen schon – offen ist nur die Darreichung, und das ist ein Umbau bereits abgenommener UI. Details in der Roadmap bei 10.3c.
+- **Nächster Bau-Brocken:** Phase 11 (Risiko-Block), danach 12–14. Die alte Kacheln-Frage aus 7.1/10.3 ist als **Phase 15** ans Ende des Tier-2-Bauplans gewandert: beide Klickziele der geplanten Kennzahl-Kacheln existieren seit 10.3a/b schon, übrig ist nur die Darreichung der Rubrik-Seiten – und die ist erst entscheidbar, wenn die kennzahlreichen Blöcke stehen.
 
 ---
 
