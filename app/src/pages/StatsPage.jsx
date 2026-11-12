@@ -1218,11 +1218,20 @@ function StatsPageInner() {
   // entfällt, wenn man direkt vom Dashboard kam – sonst stünde sie doppelt da.
   // fallback greift nur beim Direktaufruf ohne state (geteilter Link, Reload):
   // dann zeigt die Leiste den strukturellen Weg.
+  //
+  // WICHTIG – warum das Herkunfts-Segment navigate(-1) macht und nicht
+  // navigate(pfad): Das Segment ist per Definition „einen Schritt zurück". Als
+  // navigate(pfad) wäre es ein NEUER Schritt vorwärts, und die Zielseite bekäme
+  // keinen state mit – sie wüsste also nicht mehr, woher man ursprünglich kam.
+  // Genau das brach bei Leistung → Kathrin → TN-Quote → Kathrin: der Steckbrief
+  // fiel auf den strukturellen Weg zurück und zeigte plötzlich „Personen" statt
+  // „Leistung". Mit navigate(-1) kommt der alte Historien-Eintrag samt seiner
+  // eigenen Herkunft zurück – die Tiefe merkt sich die Historie, nicht wir.
   const buildTrail = (label, fallback) => {
     const from = location.state
     let mid = []
     if (from?.fromPath && from.fromPath !== '/statistiken') {
-      mid = [{ label: from.fromLabel, to: () => navigate(from.fromPath) }]
+      mid = [{ label: from.fromLabel, to: () => navigate(-1) }]
     } else if (!from && fallback) {
       mid = [{ label: fallback.label, to: () => navigate(fallback.to) }]
     }
