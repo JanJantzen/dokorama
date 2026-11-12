@@ -11,7 +11,7 @@
 import { supabase } from './supabase'
 import { calcSeatStatus } from './seatUtils'
 import { isSolo, deriveGameType } from './scoreCalculation'
-import { ANNOUNCED_SOLO_TYPES } from './rounds'
+import { ANNOUNCED_SOLO_TYPES, loadRoundProgress } from './rounds'
 import { generateId } from './utils'
 
 // Lädt ein Spiel und baut { gameState, participants, roundNumber, gameNumber, sessionId }
@@ -69,6 +69,7 @@ export async function loadGameForEdit(gameId) {
   return {
     gameState,
     participants,
+    roundId:     g.round_id,
     roundNumber: round.number,
     gameNumber:  g.number,
     sessionId:   round.session_id,
@@ -119,5 +120,33 @@ export async function updateGame(gameId, { gameState, participants, perPlayer })
   if (spIns.length) {
     const { error } = await supabase.from('special_points').insert(spIns)
     if (error) throw error
+  }
+}
+
+// Prüft, ob eine Runde noch zu ihrer Soll-Spielzahl passt.
+//
+// Warum das nach einer Bearbeitung nötig ist: Die Soll-Länge einer Runde ist
+// Teilnehmerzahl + angesagte Solos. Wird beim Bearbeiten ein angesagter Solo
+// NACHGETRAGEN oder ZURÜCKGENOMMEN (z.B. aus einem Normalspiel wird ein Buben-Solo),
+// verschiebt sich dieses Soll um ein Spiel – die Runde ist dann plötzlich zu kurz
+// oder zu lang. Automatisch reparieren wäre gefährlich: es müsste ein Spiel aus dem
+// Nichts entstehen oder ein erfasstes Spiel verschwinden. Deshalb nur melden; was
+// passieren soll, entscheidet der/die Nutzer:in.
+//
+// Rückgabe: { status, played, target, mismatch } – mismatch < 0 = zu wenige Spiele,
+// mismatch > 0 = zu viele, 0 = alles stimmt.
+export async function checkRoundLength(roundId) {
+  const { data: round, error } = await supabase
+    .from('rounds').select('number, status, round_participations(id)').eq('id', roundId).single()
+  if (error) throw error
+
+  const teilnehmerzahl = (round.round_participations ?? []).length
+  const { played, target } = await loadRoundProgress(roundId, teilnehmerzahl)
+
+  return {
+    roundNumber: round.number,
+    status:      round.status,
+    played, target,
+    mismatch:    played - target,
   }
 }

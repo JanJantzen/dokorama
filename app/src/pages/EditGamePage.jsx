@@ -18,7 +18,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import TableView from '@/components/session/TableView'
 import EvaluationView from '@/components/session/EvaluationView'
 import ConsistencyDialog from '@/components/session/ConsistencyDialog'
-import { loadGameForEdit, updateGame } from '@/lib/games'
+import { loadGameForEdit, updateGame, checkRoundLength } from '@/lib/games'
 
 const columnStyle = {
   position: 'fixed', top: 0, bottom: 0,
@@ -33,6 +33,8 @@ function EditGameShell({ gameId, loaded }) {
   const [activeView, setActiveView] = useState('table') // 'table' | 'evaluate'
   const [evalResult, setEvalResult] = useState(null)
   const [saving, setSaving] = useState(false)
+  // Hinweistext, falls die Bearbeitung die Soll-Länge der Runde verändert hat
+  const [roundWarning, setRoundWarning] = useState(null)
 
   // TableView ruft showEvaluation(result) beim Tippen auf "Auswerten" → Eval-Screen.
   const showEvaluation = useCallback((result) => {
@@ -52,6 +54,17 @@ function EditGameShell({ gameId, loaded }) {
     setSaving(true)
     try {
       await updateGame(gameId, { gameState, participants: loaded.participants, perPlayer: evalResult.perPlayer })
+
+      // Hat die Änderung die Soll-Länge der Runde verschoben (angesagter Solo
+      // nachgetragen oder zurückgenommen)? Dann nicht still zurückgehen, sondern
+      // sagen was jetzt nicht mehr stimmt – gespeichert ist die Änderung bereits.
+      const check = await checkRoundLength(loaded.roundId)
+      if (check.mismatch !== 0) {
+        setRoundWarning(buildRoundWarning(check))
+        setSaving(false)
+        return
+      }
+
       navigate(-1) // zurück zur Details-Ansicht
     } catch (err) {
       console.error('Speichern fehlgeschlagen:', err)
@@ -90,9 +103,41 @@ function EditGameShell({ gameId, loaded }) {
         )}
 
         <ConsistencyDialog />
+
+        {/* Rundenlänge passt nach der Bearbeitung nicht mehr – Hinweis, keine Automatik */}
+        {roundWarning && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
+            <div className="w-full max-w-sm rounded-2xl bg-background border border-border p-5 flex flex-col gap-3">
+              <p className="text-sm font-semibold">Rundenlänge hat sich geändert</p>
+              <p className="text-[13px] text-muted-foreground leading-relaxed">{roundWarning}</p>
+              <button
+                onClick={() => navigate(-1)}
+                className="h-11 rounded-xl bg-primary text-primary-foreground font-semibold"
+              >
+                Verstanden
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </SessionContext.Provider>
   )
+}
+
+// Baut den Hinweistext aus dem Ergebnis von checkRoundLength.
+// Die Änderung ist zu diesem Zeitpunkt schon gespeichert – der Text sagt nur,
+// was dadurch an der Runde nicht mehr aufgeht.
+function buildRoundWarning({ roundNumber, status, played, target, mismatch }) {
+  const fehlt   = Math.abs(mismatch)
+  const spiele  = fehlt === 1 ? 'ein Spiel' : `${fehlt} Spiele`
+  const basis   = `Runde ${roundNumber} bräuchte durch diese Änderung ${target} Spiele, gespeichert sind ${played}.`
+
+  if (mismatch < 0) {
+    return status === 'abgeschlossen'
+      ? `${basis} Die Runde ist bereits abgeschlossen – es fehlt ${spiele}, das nicht mehr nachgetragen werden kann. Entweder die Änderung zurücknehmen oder die Lücke bewusst so lassen.`
+      : `${basis} Es fehlt also ${spiele} – die Runde ist noch nicht fertig.`
+  }
+  return `${basis} Die Runde hat damit ${spiele} zu viel. Entweder die Änderung zurücknehmen oder das überzählige Spiel löschen.`
 }
 
 function Fallback({ text, onBack }) {

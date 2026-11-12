@@ -400,7 +400,7 @@ function ResetGameScreen({ gameNumber, gameState, participants, onClose, onConfi
 function SessionPageInner() {
   const navigate = useNavigate()
   const {
-    sessionData, roundData, participants, gameNumber,
+    sessionData, roundData, participants, gameNumber, initialRoundComplete,
     erfassungsView, activeView,
     switchErfassungsView, showEvaluation, backToErfassung,
     evalResult, saving, setSaving,
@@ -558,7 +558,10 @@ function SessionPageInner() {
   const [showEndScreen,      setShowEndScreen]      = useState(false)
   const [showResetScreen,    setShowResetScreen]    = useState(false)
   const [showScoreboard,     setShowScoreboard]     = useState(false)
-  const [showRoundEnd,       setShowRoundEnd]       = useState(false)
+  // Startwert aus der DB (initialRoundComplete): war die Runde beim Laden schon komplett,
+  // öffnet die Partie direkt im Runden-Übergang statt ein überzähliges Spiel anzubieten.
+  // SessionPageContent mountet diese Komponente erst nach dem Laden – der Wert steht also.
+  const [showRoundEnd,       setShowRoundEnd]       = useState(initialRoundComplete)
   const [advancing,          setAdvancing]          = useState(false)
   const [scoreboardRefresh,  setScoreboardRefresh]  = useState(0)
 

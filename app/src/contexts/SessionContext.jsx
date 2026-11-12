@@ -26,6 +26,14 @@ export function SessionProvider({ children, sessionId }) {
   const [noActiveRound,  setNoActiveRound]  = useState(false) // Partie ohne laufende Runde (nicht spielbar)
   const [initialGameState, setInitialGameState] = useState(null) // lokaler Entwurf des laufenden Spiels (falls vorhanden)
 
+  // War die laufende Runde beim Laden schon komplett? Dann gehört nicht der Tisch
+  // auf den Schirm, sondern der Runden-Übergangs-Screen. Wichtig, weil das Runden-Ende
+  // bis zum Tippen auf "Nächste Runde" NUR lokaler React-Zustand ist: ohne diesen Wert
+  // verlor ein Reload (oder ein von iOS aus dem Speicher geworfenes PWA-Fenster) das
+  // Runden-Ende und die App bot ein zusätzliches Spiel an. Genau das ist am 11.11.2026
+  // in Runde 2 passiert.
+  const [initialRoundComplete, setInitialRoundComplete] = useState(false)
+
   // erfassungsView: welche Erfassungs-Ansicht der Nutzer zuletzt gewählt hat ('table' | 'block')
   // activeView: was gerade angezeigt wird – kann auch 'evaluate' sein
   const [erfassungsView, setErfassungsView] = useState('table')
@@ -59,14 +67,16 @@ export function SessionProvider({ children, sessionId }) {
         .eq('round_id', round.id).order('seat_position')
 
       // played = bereits gespeicherte Spiele, announcedSolos = davon angesagte Solos
-      // (halten die Geber-Rotation an). Beide aus der DB, überlebt Reload mitten in der Runde.
-      const { played, announcedSolos } = await loadRoundProgress(round.id, parts.length)
+      // (halten die Geber-Rotation an), isComplete = Runde hat ihr Soll erreicht.
+      // Alles aus der DB, überlebt Reload mitten in der Runde.
+      const { played, announcedSolos, isComplete } = await loadRoundProgress(round.id, parts.length)
 
       const nextGameNum = played + 1
       setSessionData(session)
       setRoundData(round)
       setParticipants(calcSeatStatus(parts, nextGameNum, announcedSolos))
       setGameNumber(nextGameNum)
+      setInitialRoundComplete(isComplete)
       // Lokalen Entwurf des laufenden Spiels wiederherstellen (falls zur Spielnummer passend)
       setInitialGameState(loadDraft(sessionId, nextGameNum))
       setLoading(false)
@@ -177,6 +187,7 @@ export function SessionProvider({ children, sessionId }) {
   return (
     <SessionContext.Provider value={{
       sessionData, roundData, participants, gameNumber, loading, noActiveRound, initialGameState,
+      initialRoundComplete,
       erfassungsView, activeView,
       switchErfassungsView, showEvaluation, backToErfassung,
       evalResult, saving, setSaving,
