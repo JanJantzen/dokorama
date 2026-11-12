@@ -55,9 +55,8 @@
 
 - Erfassung, Login, PWA, Live-Mitsehen/Kugelschreiber-Modell, Neugeben: fertig.
 - Import: alle 12 Spielabende Januar–Juni 2026 in der DB.
-- Statistik Tier 1: fertig. Tier 2: Phase 8 (Partie-Steckbrief), 9 (Personen-Filter), 10.1 (Personen-Verzeichnis), 10.2 (Spieler-Steckbrief-Gerüst), 10.3a (Namens-Absprünge + Statistik-Navigation auf echten Routen) und 10.3b (Vollliste einer einzelnen Kennzahl) sind gebaut; 8–10.2 sind von Jan abgenommen, 10.3a/b noch nicht. Details und nächste Schritte: `dokorama_roadmap.md`.
+- Statistik Tier 1: fertig. Tier 2: Phase 8 (Partie-Steckbrief), 9 (Personen-Filter), 10.1 (Personen-Verzeichnis), 10.2 (Spieler-Steckbrief-Gerüst), 10.3a (Namens-Absprünge + Statistik-Navigation auf echten Routen) und 10.3b (Vollliste einer einzelnen Kennzahl) sind gebaut und von Jan abgenommen. Details und nächste Schritte: `dokorama_roadmap.md`.
 - **Statistik-Navigation steht seit 10.3a in der URL** (`/statistiken/leistung`, `/personen`, `/person/:id`, `/kennzahl/:id`) – als Splat-Route `/statistiken/*`, damit `StatsPage` EINE Seite bleibt und die Statistikdaten nicht bei jedem Navigationsschritt neu geladen werden. Wer dort etwas ergänzt: Navigation gehört in die URL, nicht in React-State.
-- **Nicht gepusht.** Die Commits seit dem 11.11.2026 liegen nur lokal auf `main`. Ein Push geht live (Vercel) – das entscheidet Jan.
 - **Offene Entscheidung (Phase 10.3c):** Sollen die Rubrik-Seiten Leistung/Ausdauer von gestapelten Volllisten auf ein Kachel-Raster umgebaut werden? Beide Klickziele der ursprünglich geplanten Kennzahl-Kacheln existieren inzwischen schon – offen ist nur die Darreichung, und das ist ein Umbau bereits abgenommener UI. Details in der Roadmap bei 10.3c.
 
 ---
