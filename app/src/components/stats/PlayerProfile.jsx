@@ -17,7 +17,6 @@
 // buildProfile() in StatsPage; diese Komponente stellt sie nur dar.
 
 import { useState } from 'react'
-import { ChevronLeft } from 'lucide-react'
 import PlayerAvatar from '@/components/ui/PlayerAvatar'
 
 // Rang als kleine Auszeichnung: Podest 1–3 als Medaille, sonst „#n" in gedämpfter
@@ -31,9 +30,13 @@ function RankBadge({ rank }) {
 
 // Eine Kennzahl-Zeile in „Meine Werte": Label links, Wert + Rang rechts. marker
 // (optional) = Fußnoten-Ziffer hinter dem Label (z. B. Datenqualitäts-Hinweis).
-function MetricRow({ label, value, rank, marker }) {
-  return (
-    <li className="flex items-center gap-3 px-3 py-2 rounded-xl border border-border bg-card">
+//
+// Ist onOpen gesetzt (Phase 10.3b), ist die ganze Zeile tippbar und führt in die
+// Vollliste dieser einen Kennzahl – „ich bin Dritter, aber wie knapp?" ist die
+// unmittelbarste Frage, die ein Rang im Steckbrief aufwirft.
+function MetricRow({ label, value, rank, marker, onOpen }) {
+  const inner = (
+    <>
       <span className="truncate">
         {label}
         {marker && <sup className="ml-0.5 text-[10px] text-muted-foreground">{marker}</sup>}
@@ -42,13 +45,32 @@ function MetricRow({ label, value, rank, marker }) {
       <span className="w-6 text-right shrink-0">
         <RankBadge rank={rank} />
       </span>
+    </>
+  )
+  const base = 'flex items-center gap-3 px-3 py-2 rounded-xl border border-border bg-card'
+  if (!onOpen) return <li className={base}>{inner}</li>
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onOpen}
+        className={`${base} w-full text-left hover:border-primary/50 transition-colors`}
+      >
+        {inner}
+      </button>
     </li>
   )
 }
 
 // player: { id, name, avatarUrl }; partien: A1-Zähler im Zeitraum;
-// profile: { b, metrics } aus buildProfile(); onBack: zurück zum Verzeichnis.
-export default function PlayerProfile({ player, partien, profile, onBack }) {
+// profile: { b, metrics } aus buildProfile().
+//
+// Die Pfadleiste gehört bewusst NICHT hierher: sie muss wissen, von wo man
+// hergekommen ist (Phase 10.3a), und das weiß nur StatsPage – dort wird sie
+// direkt über dieser Komponente gerendert.
+//
+// onOpenMetric: optional (metricId) => void – öffnet die Vollliste einer Kennzahl.
+export default function PlayerProfile({ player, partien, profile, onOpenMetric }) {
   // „Alle Werte anzeigen" – klappt die vollständige Kennzahlen-Liste in-page auf.
   const [showAll, setShowAll] = useState(false)
 
@@ -62,17 +84,6 @@ export default function PlayerProfile({ player, partien, profile, onBack }) {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Zurück aufs Verzeichnis (Ebene: Übersicht / Personen / Name) */}
-      <button
-        onClick={onBack}
-        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground -mb-2"
-      >
-        <ChevronLeft size={18} />
-        <span>Personen</span>
-        <span className="mx-1 text-border">/</span>
-        <span className="text-foreground font-medium">{player.name}</span>
-      </button>
-
       {/* ── A – Kopf/Identität ── */}
       <div className="flex items-center gap-4">
         <PlayerAvatar player={{ name: player.name, avatar_url: player.avatarUrl }} size="xl" />
@@ -127,7 +138,14 @@ export default function PlayerProfile({ player, partien, profile, onBack }) {
             {visible.length > 0 ? (
               <ul className="flex flex-col gap-1">
                 {visible.map(m => (
-                  <MetricRow key={m.id} label={m.label} value={m.value} rank={m.rank} marker={markerOf.get(m.id)} />
+                  <MetricRow
+                    key={m.id}
+                    label={m.label}
+                    value={m.value}
+                    rank={m.rank}
+                    marker={markerOf.get(m.id)}
+                    onOpen={onOpenMetric ? () => onOpenMetric(m.id) : undefined}
+                  />
                 ))}
               </ul>
             ) : (

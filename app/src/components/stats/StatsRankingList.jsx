@@ -49,7 +49,20 @@ function colorFor(v, tone = 'sign') {
 //   onOpenPlayer: optional (id) => void. Ist es gesetzt, wird der Avatar-/Namens-
 //         Bereich jeder Zeile tippbar und führt zum Spieler-Steckbrief dieser
 //         Person (Phase 10.3). Ohne die Prop bleibt die Zeile wie bisher passiv.
-export default function StatsRankingList({ entries, columns, defaultSortKey, topN = 3, colWidth = 'w-16', onOpenPlayer }) {
+//   highlightId: optional. Diese Zeile wird hervorgehoben – gedacht für die
+//         Einzel-Kennzahl-Vollliste (Phase 10.3b): kommt man aus einem Steckbrief,
+//         soll man seine Person sofort im Feld finden und sehen, wie knapp es zu
+//         den Nachbarplätzen ist, ohne die Liste absuchen zu müssen.
+//   useEntryRank: optional. Normalerweise nummeriert die Liste ihre Zeilen einfach
+//         durch (1., 2., 3., …). Mit dieser Prop wird stattdessen entry.rank
+//         angezeigt – der echte Rang aus rankMap, bei dem Gleichstand denselben
+//         Rang bekommt und danach eine Lücke entsteht (1., 2., 2., 4.). Nötig für
+//         die Einzel-Kennzahl-Vollliste, damit der dort gezeigte Platz zu dem im
+//         Steckbrief passt: bei Zählkennzahlen (Partien, Siege) ist Gleichstand
+//         der Normalfall, und „#3" im Steckbrief neben „4." in der Liste wäre ein
+//         Widerspruch. Zeilen ohne Rang (dünne Stichprobe) bekommen „–".
+//         Nur sinnvoll, wenn nach der Spalte sortiert ist, aus der der Rang stammt.
+export default function StatsRankingList({ entries, columns, defaultSortKey, topN = 3, colWidth = 'w-16', onOpenPlayer, highlightId, useEntryRank }) {
   // Anfangsspalte und -richtung: die Start-Richtung richtet sich nach der
   // sortDir der Anfangsspalte (Standard 'desc' = größter Wert oben).
   const initialKey = defaultSortKey ?? columns[0].key
@@ -133,9 +146,13 @@ export default function StatsRankingList({ entries, columns, defaultSortKey, top
         {visible.map((e, i) => (
           <div
             key={e.id}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border bg-card"
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border bg-card ${
+              e.id === highlightId ? 'border-primary ring-1 ring-primary/40' : 'border-border'
+            }`}
           >
-            <span className="w-5 text-sm font-semibold text-muted-foreground tabular-nums">{i + 1}.</span>
+            <span className="w-5 text-sm font-semibold text-muted-foreground tabular-nums">
+              {useEntryRank ? (e.rank != null ? `${e.rank}.` : '–') : `${i + 1}.`}
+            </span>
             {/* Avatar + Name: tippbar → Steckbrief, wenn onOpenPlayer gesetzt ist.
                 Die Wertspalten rechts bleiben unberührt (dort wird nichts geöffnet). */}
             {onOpenPlayer ? (

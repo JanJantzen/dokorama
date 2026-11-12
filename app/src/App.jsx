@@ -21,8 +21,11 @@ import LoginPage from '@/pages/LoginPage'
 function AppLayout() {
   const location = useLocation()
 
-  // Tab-Bar nur auf den drei Haupt-Tabs anzeigen, auf allen anderen Seiten ausblenden
-  const showTabBar = ['/', '/statistiken', '/spieler'].includes(location.pathname)
+  // Tab-Bar nur auf den drei Haupt-Tabs anzeigen, auf allen anderen Seiten ausblenden.
+  // Die Statistik hat Unterseiten (/statistiken/leistung, /statistiken/person/:id …) –
+  // die gehoeren alle zum Statistik-Tab, deshalb Praefix-Vergleich statt Gleichheit.
+  const showTabBar =
+    ['/', '/spieler'].includes(location.pathname) || location.pathname.startsWith('/statistiken')
 
   return (
     // Äußerer Wrapper: füllt den Screen, zentriert die App-Spalte, bg-muted als Hintergrund
@@ -35,7 +38,10 @@ function AppLayout() {
       <div className="w-full max-w-[500px] bg-background relative min-h-screen">
         <Routes>
           <Route path="/"               element={<HomePage />}         />
-          <Route path="/statistiken"    element={<StatsPage />}        />
+          {/* Splat-Route: die Statistik-Navigation (Rubrik, Verzeichnis, Steckbrief)
+              steht in der URL, bleibt aber EINE Seite – sonst wuerde StatsPage bei
+              jedem Schritt neu montieren und die Statistik-Daten neu laden. */}
+          <Route path="/statistiken/*" element={<StatsPage />}        />
           <Route path="/spieler"        element={<PlayersPage />}      />
           <Route path="/partie/starten"     element={<StartSessionPage />}   />
           <Route path="/partie/:id"         element={<SessionPage />}        />

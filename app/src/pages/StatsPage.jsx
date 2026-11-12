@@ -12,6 +12,7 @@
 // die geladenen Daten vor der Berechnung zu (filterByPeriod) – kein neuer DB-Zugriff.
 
 import { Fragment, useEffect, useMemo, useState } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Info, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   loadStatsData,
@@ -269,20 +270,68 @@ function PersonEmptyNote() {
   )
 }
 
-// Zurück-Leiste auf einer Rubrik-Seite (Ebene 1): führt zurück aufs Dashboard.
-function BackBar({ title, onBack }) {
+// Pfadleiste (Phase 10.3a) – ersetzt die frühere BackBar.
+//
+// Warum eine Leiste statt eines Zurück-Buttons: Seit man von JEDER Rangliste aus
+// auf einen Namen tippen kann, gibt es Quersprünge. Ein Element, das stur „eine
+// Ebene höher" ging, behauptete dann einen Weg, den man nie gelaufen ist (man kam
+// aus „Leistung", die Leiste sagte „Personen").
+//
+// Jedes Segment ist jetzt ein eigenes Ziel – das übliche Brotkrumen-Verhalten:
+//   „Übersicht"  → immer zurück aufs Dashboard, egal wie tief man steckt (Fluchtweg)
+//   Mitte        → die Seite, von der man HIER hergekommen ist (= ein Schritt zurück)
+//   letztes      → wo man ist, nicht antippbar
+//
+// Die volle Tiefe (mehrere Sprünge hintereinander) muss die Leiste nicht abbilden:
+// Dank echter Routen übernimmt das die System-Zurück-Taste bzw. die Wischgeste.
+//
+// trail: [{ label, to? }, …] – das letzte Element ist die aktuelle Seite (ohne `to`).
+function TrailBar({ trail }) {
   return (
-    <button
-      onClick={onBack}
-      className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground -mb-2"
-    >
-      <ChevronLeft size={18} />
-      <span>Übersicht</span>
-      <span className="mx-1 text-border">/</span>
-      <span className="text-foreground font-medium">{title}</span>
-    </button>
+    <nav className="flex items-center gap-1 text-sm text-muted-foreground -mb-2">
+      <ChevronLeft size={18} className="shrink-0" />
+      {trail.map((seg, i) => (
+        <Fragment key={`${seg.label}-${i}`}>
+          {i > 0 && <span className="mx-1 text-border">/</span>}
+          {seg.to ? (
+            <button onClick={seg.to} className="hover:text-foreground truncate">
+              {seg.label}
+            </button>
+          ) : (
+            <span className="text-foreground font-medium truncate">{seg.label}</span>
+          )}
+        </Fragment>
+      ))}
+    </nav>
   )
 }
+
+// Liest die Statistik-Navigation aus der URL. Gegenstück zu den navigate()-Aufrufen
+// in StatsPageInner. Unbekannte Pfade landen auf dem Dashboard (statt auf einer
+// leeren Seite), damit ein alter Link niemanden ins Nichts schickt.
+//   /statistiken                  → Dashboard
+//   /statistiken/leistung         → Rubrik Leistung
+//   /statistiken/ausdauer         → Rubrik Ausdauer
+//   /statistiken/personen         → Personen-Verzeichnis
+//   /statistiken/person/<id>      → Spieler-Steckbrief
+//   /statistiken/kennzahl/<id>    → Vollliste einer einzelnen Kennzahl
+export function parseStatsPath(pathname) {
+  const rest = pathname.replace(/^\/statistiken\/?/, '').replace(/\/+$/, '')
+  const nowhere = { block: null, profileId: null, metricId: null }
+  if (!rest) return nowhere
+  const [first, second] = rest.split('/')
+  if (first === 'person' && second) return { ...nowhere, block: 'personen', profileId: second }
+  if (first === 'personen')         return { ...nowhere, block: 'personen' }
+  if (first === 'leistung' || first === 'ausdauer') return { ...nowhere, block: first }
+  // Kennzahl-ID gegen die Registry prüfen – ein alter oder vertippter Link soll
+  // auf dem Dashboard landen, nicht auf einer leeren Seite.
+  if (first === 'kennzahl' && second && PROFILE_METRICS.some(m => m.id === second))
+    return { ...nowhere, block: 'kennzahl', metricId: second }
+  return nowhere
+}
+
+// Anzeigename je Rubrik – für die Pfadleiste und als Herkunfts-Label beim Absprung.
+const BLOCK_LABEL = { leistung: 'Leistung', ausdauer: 'Ausdauer', personen: 'Personen' }
 
 // Kleiner Hinweis-Kasten für Datenlücken (P2): erklärt, dass eine Kennzahl nur
 // auf einem Teil der Historie beruht – statt still eine falsche 0 zu zeigen.
@@ -842,7 +891,7 @@ function extractValues(entries, key) {
 
 const PROFILE_METRICS = [
   // Leistung
-  { id: 'L6', label: 'Ø Partie',              format: fmtPer4,  higherIsBetter: true,
+  { id: 'L6', label: 'Ø Partie',              format: fmtPer4,  higherIsBetter: true, tone: 'sign',
     extract: d => extractValues(buildDurchschnittsscore(d), 'avgSession') },
   { id: 'L1', label: 'Siegquote',             format: fmtQuote, higherIsBetter: true,
     extract: d => extractValues(buildSiegNiederlage(d), 'quote') },
@@ -854,7 +903,7 @@ const PROFILE_METRICS = [
     extract: d => extractValues(buildPlatzierung(d, 'session'), 'erster') },
   { id: 'L5', label: 'Erster-Serie',          format: fmtCount, higherIsBetter: true,
     extract: d => extractValues(buildPlatzSerie(d, 'session'), 'erster') },
-  { id: 'L7', label: 'Bestes Partie-Ergebnis', format: fmtInt,  higherIsBetter: true,
+  { id: 'L7', label: 'Bestes Partie-Ergebnis', format: fmtInt,  higherIsBetter: true, tone: 'sign',
     extract: d => extractValues(buildBestWorst(d, 'session'), 'best') },
   // Ausdauer
   { id: 'A1', label: 'Partien',               format: fmtCount, higherIsBetter: true,
@@ -934,6 +983,57 @@ function buildProfile(data, playerId) {
   return { b, metrics }
 }
 
+// Baut die Vollliste EINER Registry-Kennzahl (Phase 10.3b): alle Personen mit
+// Wert, nach Rang sortiert.
+//
+// Gegenstück zu buildProfile, das dieselbe Kennzahl für EINE Person auswertet.
+// Beide greifen auf dasselbe extract() der Registry – damit können die Zahl im
+// Steckbrief und die Zahl in der Vollliste nie auseinanderlaufen, und jede neue
+// Kennzahl (Phase 11–14) bekommt ihre Vollliste automatisch mit.
+//
+// Rang und Datenqualität folgen genau der Steckbrief-Logik: gerankt wird nur über
+// belastbare Werte, schwache Stichproben (P6) erscheinen in der Liste, aber ohne
+// Rang. Der gespeicherte `rank` kommt aus rankMap (Gleichstand = gleicher Rang) –
+// deshalb zeigt die Liste ihn statt der Zeilennummer, sonst stünde im Steckbrief
+// „geteilter 3." und in der Liste „4.".
+function buildMetricList(data, metricId) {
+  const m = PROFILE_METRICS.find(x => x.id === metricId)
+  if (!m) return null
+
+  const vals = m.extract(data)
+  const rankable = new Map(
+    [...vals.entries()]
+      .filter(([, v]) => v.value != null && !v.weak)
+      .map(([id, v]) => [id, v.value]),
+  )
+  const ranks = rankMap(rankable, m.higherIsBetter)
+
+  const entries = [...vals.entries()]
+    .filter(([, v]) => v.value != null)
+    .map(([id, v]) => {
+      const p = data.players.get(id)
+      return {
+        id,
+        name:      p?.name ?? '?',
+        avatarUrl: p?.avatarUrl ?? null,
+        values:    { wert: v.value },
+        weak:      { wert: !!v.weak },
+        rank:      v.weak ? null : (ranks.get(id) ?? null),
+      }
+    })
+
+  return {
+    label: m.label,
+    note:  typeof m.note === 'function' ? m.note(data) : (m.note ?? null),
+    entries,
+    columns: [{
+      key: 'wert', label: 'Wert', format: m.format,
+      tone: m.tone ?? 'plain',
+      sortDir: m.higherIsBetter ? 'desc' : 'asc',
+    }],
+  }
+}
+
 // Die eigentliche Seite – lebt INNERHALB des StatsFilterProvider (s. Default-Export
 // unten), damit sie den gewählten Zeitraum über useStatsFilter() lesen kann.
 function StatsPageInner() {
@@ -944,8 +1044,15 @@ function StatsPageInner() {
   const [placementLevel, setPlacementLevel] = useState('game') // 'game' (L1) | 'round' | 'session' (L2/L3/L4)
   const [streakLevel, setStreakLevel] = useState('session')    // 'game' | 'round' | 'session' (L5-Ebene; Partie = Königs-KPI → Default)
   const [spreadLevel, setSpreadLevel] = useState('game')       // 'game' | 'round' | 'session' (L8-Ebene; Spiel = meiste Datenpunkte → Default)
-  const [activeBlock, setActiveBlock] = useState(null)         // null = Dashboard (Ebene 0), 'leistung' | 'ausdauer' = Rubrik-Seite (Ebene 1), 'personen' = Personen-Verzeichnis
-  const [profileId, setProfileId] = useState(null)            // im Block 'personen': null = Verzeichnis, sonst der/die gewählte Spieler:in (Steckbrief)
+
+  // ── Navigation (Phase 10.3a): steht in der URL, nicht in React-Zustand ──────
+  // Vorher waren activeBlock/profileId zwei useState-Werte. Das hatte drei Folgen:
+  // die System-Zurück-Taste und die iOS-Wischgeste verließen die Statistik komplett
+  // statt eine Ebene hochzugehen, ein Reload warf einen aufs Dashboard, und ein
+  // Steckbrief war nicht verlinkbar. Jetzt ist die Browser-History der Stapel.
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { block: activeBlock, profileId, metricId } = parseStatsPath(location.pathname)
 
   // Der aktive Zeitraum als Datumsgrenzen + der globale Nerd-Modus + der
   // Personen-Filter (alles aus dem Context).
@@ -1066,11 +1173,61 @@ function StatsPageInner() {
     () => (profileId && periodFiltered ? buildProfile(periodFiltered, profileId) : null),
     [profileId, periodFiltered],
   )
+  // Vollliste einer einzelnen Kennzahl (Phase 10.3b) – gleiche Datenbasis wie der
+  // Steckbrief: Zeitraum ja, Personen-Filter nein (die Rangliste soll das ganze
+  // Feld zeigen, sonst wäre die Platzierung nicht die aus dem Steckbrief).
+  const metricList = useMemo(
+    () => (metricId && periodFiltered ? buildMetricList(periodFiltered, metricId) : null),
+    [metricId, periodFiltered],
+  )
+
+  // Wie heißt die Seite, auf der wir GERADE stehen? Wird beim Absprung als
+  // Herkunfts-Label mitgegeben, damit die Pfadleiste am Ziel den echten Weg zeigt.
+  const currentLabel = profileId
+    ? (profilePlayer?.name ?? 'Person')
+    : metricId
+      ? (metricList?.label ?? 'Kennzahl')
+      : (BLOCK_LABEL[activeBlock] ?? 'Übersicht')
 
   // Klick auf einen Namen in IRGENDEINER Rangliste/Grafik → Steckbrief dieser
-  // Person (Phase 10.3, „Konvergenzpunkt"). Wechselt in den Personen-Block und
-  // öffnet das Profil; „Zurück" landet dann konsequent im Personen-Verzeichnis.
-  const openProfile = (id) => { setProfileId(id); setActiveBlock('personen') }
+  // Person (Phase 10.3, „Konvergenzpunkt").
+  //
+  // In location.state reist mit, WOHER man kam – die Pfadleiste im Steckbrief
+  // zeigt damit „Übersicht / Leistung / Dani" statt der strukturellen Lüge
+  // „Übersicht / Personen / Dani". Beim Direktaufruf (geteilter Link, Reload)
+  // fehlt der state; dann greift der strukturelle Weg übers Verzeichnis.
+  const openProfile = (id) => navigate(`/statistiken/person/${id}`, {
+    state: { fromLabel: currentLabel, fromPath: location.pathname },
+  })
+
+  // Rubrik-Kachel / Verzeichnis-Kachel auf dem Dashboard → Ebene 1.
+  const openBlock = (block) => navigate(`/statistiken/${block}`)
+
+  // Ein Segment der Pfadleiste: zurück aufs Dashboard – von jeder Tiefe aus.
+  const toDashboard = () => navigate('/statistiken')
+
+  // Klick auf eine Kennzahl-Zeile im Steckbrief → Vollliste dieser Kennzahl
+  // (Phase 10.3b). highlightId reist mit, damit die Liste die Person hervorhebt,
+  // aus deren Steckbrief man kam – das ist ja die Frage: „wie knapp ist es?"
+  const openMetric = (id) => navigate(`/statistiken/kennzahl/${id}`, {
+    state: { fromLabel: currentLabel, fromPath: location.pathname, highlightId: profileId },
+  })
+
+  // Pfadleiste für die Unterseiten: Übersicht / <Herkunft> / <Hier>.
+  // Die Herkunft kommt aus location.state (der tatsächlich gelaufene Weg) und
+  // entfällt, wenn man direkt vom Dashboard kam – sonst stünde sie doppelt da.
+  // fallback greift nur beim Direktaufruf ohne state (geteilter Link, Reload):
+  // dann zeigt die Leiste den strukturellen Weg.
+  const buildTrail = (label, fallback) => {
+    const from = location.state
+    let mid = []
+    if (from?.fromPath && from.fromPath !== '/statistiken') {
+      mid = [{ label: from.fromLabel, to: () => navigate(from.fromPath) }]
+    } else if (!from && fallback) {
+      mid = [{ label: fallback.label, to: () => navigate(fallback.to) }]
+    }
+    return [{ label: 'Übersicht', to: toDashboard }, ...mid, { label }]
+  }
 
   // Highlight-Zeilen für die Rubrik-Kacheln (Dashboard): aktuelle Spitzenreiter:innen.
   //   Leistung → meiste Siege (L1); bei aktivem Personen-Filter nur unter den
@@ -1115,7 +1272,7 @@ function StatsPageInner() {
             {/* Der Personen-Filter ist im Personen-Verzeichnis/Steckbrief sinnlos
                 (das Verzeichnis IST schon die Personen-Auswahl, der Steckbrief rechnet
                 Ränge bewusst über das ganze Feld) → dort ausblenden. */}
-            {activeBlock !== 'personen' && <PersonFilter players={persons} />}
+            {!['personen', 'kennzahl'].includes(activeBlock) && <PersonFilter players={persons} />}
             <div className="flex items-center justify-between gap-3">
               <NerdToggle />
               {/* „Alle Filter zurücksetzen" – erst sichtbar, sobald ein Filter aktiv ist */}
@@ -1181,15 +1338,15 @@ function StatsPageInner() {
 
             {/* Rubrik-Kacheln → Ebene 1. Bei aktivem Personen-Filter wird die
                 Ausdauer-Kachel ausgegraut (der Filter greift dort nicht). */}
-            <RubrikGrid onOpen={setActiveBlock} highlights={highlights} personActive={personActive} />
+            <RubrikGrid onOpen={openBlock} highlights={highlights} personActive={personActive} />
 
             {/* Personen-Verzeichnis als eigener Einstieg (Sprungbrett zu den Steckbriefen). */}
-            <DirectoryCard onClick={() => { setProfileId(null); setActiveBlock('personen') }} />
+            <DirectoryCard onClick={() => openBlock('personen')} />
           </>
         ) : activeBlock === 'leistung' ? (
           /* ── Ebene 1: Rubrik „Leistung“ ── */
           <>
-            <BackBar title="Leistung" onBack={() => setActiveBlock(null)} />
+            <TrailBar trail={[{ label: 'Übersicht', to: toDashboard }, { label: 'Leistung' }]} />
             {personEmpty && <PersonEmptyNote />}
 
             {/* ── Durchschnittsscore (L6) ── */}
@@ -1365,7 +1522,7 @@ function StatsPageInner() {
         ) : activeBlock === 'ausdauer' ? (
           /* ── Ebene 1: Rubrik „Ausdauer“ (A1–A3) ── */
           <>
-            <BackBar title="Ausdauer" onBack={() => setActiveBlock(null)} />
+            <TrailBar trail={[{ label: 'Übersicht', to: toDashboard }, { label: 'Ausdauer' }]} />
             {personActive && (
               <GapNote>
                 Der Ausdauer-Block bezieht sich immer auf alle Personen – der
@@ -1523,19 +1680,52 @@ function StatsPageInner() {
               )}
             </section>
           </>
+        ) : activeBlock === 'kennzahl' ? (
+          /* ── Vollliste einer einzelnen Kennzahl (Ebene 2, Phase 10.3b) ── */
+          <>
+            <TrailBar trail={buildTrail(metricList?.label ?? 'Kennzahl', null)} />
+            {metricList && metricList.entries.length > 0 ? (
+              <section>
+                <SectionTitle>{metricList.label}</SectionTitle>
+                {/* Ganzes Feld, nicht nur Top 3 – genau dafür ist diese Seite da.
+                    useEntryRank: Rang aus rankMap (Gleichstand = gleicher Rang),
+                    damit er zum Rang im Steckbrief passt. */}
+                <StatsRankingList
+                  entries={metricList.entries}
+                  columns={metricList.columns}
+                  topN={Infinity}
+                  useEntryRank
+                  highlightId={location.state?.highlightId ?? null}
+                  onOpenPlayer={openProfile}
+                />
+                {metricList.note && (
+                  <p className="mt-2 text-[11px] text-muted-foreground leading-snug">
+                    {metricList.note}
+                  </p>
+                )}
+              </section>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Für diese Kennzahl gibt es im gewählten Zeitraum keine Werte.
+              </p>
+            )}
+          </>
         ) : (
           /* ── Personen-Verzeichnis (Ebene 1) + Spieler-Steckbrief ── */
           profilePlayer ? (
-            <PlayerProfile
-              player={profilePlayer}
-              partien={profilePlayer.partien}
-              profile={profile}
-              onBack={() => setProfileId(null)}
-            />
+            <>
+              <TrailBar trail={buildTrail(profilePlayer.name, { label: 'Personen', to: '/statistiken/personen' })} />
+              <PlayerProfile
+                player={profilePlayer}
+                partien={profilePlayer.partien}
+                profile={profile}
+                onOpenMetric={openMetric}
+              />
+            </>
           ) : (
             <>
-              <BackBar title="Personen" onBack={() => setActiveBlock(null)} />
-              <PersonDirectory entries={personDirectory} onOpen={setProfileId} />
+              <TrailBar trail={[{ label: 'Übersicht', to: toDashboard }, { label: 'Personen' }]} />
+              <PersonDirectory entries={personDirectory} onOpen={openProfile} />
             </>
           )
         )}
